@@ -63,14 +63,15 @@ if (ffmpegPath) {
 
 export class ScreenRecorder {
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
-    private outputPath: string = join(homedir(), 'Desktop', 'Dst-recorder')
+    private outputPath: string = join(homedir(), 'Desktop', 'Dst-Recorder')
+
+    // Изменяемы переменные
     private outputPathAndFileName: string = ''
     private recordingStartTime: number = 0
     private isRecording: boolean = false
-    private size = {
-        width:  1920,
-        height: 1080,
-    }
+    // экран
+    private screenIndex = 0
+    private currentDisplay: Electron.Display | null = null
 
     constructor() {
         // Создаем папку для записей, если её нет
@@ -83,7 +84,7 @@ export class ScreenRecorder {
      * Начать запись экрана
      * @param screenIndex - Индекс экрана для записи (опционально)
      */
-    async startRecording(screenIndex?: number): Promise<{ outputPath?: string; error?: string }> {
+    async startRecording(screenIndex?: number): Promise<{ outputPathAndFileName?: string; error?: string }> {
         if (this.isRecording) return { error: 'Recording is already in progress' }
 
         try {
@@ -112,8 +113,9 @@ export class ScreenRecorder {
             })
 
             // Находим нужный экран для записи
-            this.size = displays[screenIndex ?? 0].size
-            console.log(`Target display for recording: Screen ${screenIndex ?? 0}, ${this.size.width}x${this.size.height}`)
+            this.screenIndex = screenIndex ?? 0
+            this.currentDisplay = displays[this.screenIndex]
+            console.log(`Target display for recording: Screen ${this.screenIndex}, ${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
 
             // Генерируем имя файла с временной меткой
             const fileName = this.generateShortFilename("mp4")
@@ -134,9 +136,9 @@ export class ScreenRecorder {
                 // Для macOS нужно использовать "Capture screen X" для записи экрана
                 // Для записи аудио: ":0" - микрофон, ":default" - системное аудио (требует виртуальный драйвер)
                 // Индекс 0 - основной экран, 1 - первый внешний монитор
-                const screenToCapture = screenIndex
-                    ? `Capture screen ${screenIndex}:0`
-                    : "Capture screen 0:0"  // По умолчанию записываем первый экран
+                // "Capture screen 0:0"  // По умолчанию записываем первый экран
+
+                const screenToCapture = `Capture screen ${this.screenIndex}:0`
                 this.ffmpegCommand.input(screenToCapture)
                 console.log(`Using AVFoundation input: "${screenToCapture}" (with microphone audio)`)
             } else if (platform === 'win32') {
@@ -164,7 +166,7 @@ export class ScreenRecorder {
                     '-vsync', '2', // Избегаем дублирования кадров
                     '-b:a', '128k' // Битрейт аудио
                 ])
-                .size(`${this.size.width}x${this.size.height}`)
+                .size(`${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
                 .output(this.outputPathAndFileName)
 
             // Обработчики событий
@@ -196,7 +198,7 @@ export class ScreenRecorder {
             // Ждем немного, чтобы убедиться, что запись началась
             await sleep(1000)
             return this.isRecording
-                ? { outputPath: this.outputPathAndFileName }
+                ? { outputPathAndFileName: this.outputPathAndFileName }
                 : { error: 'Failed to start recording' }
         } catch (error) {
             console.error('Error starting recording:', error)
@@ -210,10 +212,7 @@ export class ScreenRecorder {
      */
     async stopRecording(): Promise<{ outputPath?: string; duration?: number; error?: string }> {
         console.log('stopRecording called, isRecording:', this.isRecording)
-
-        if (!this.isRecording || !this.ffmpegCommand) {
-            return { error: 'No recording in progress' }
-        }
+        if (!this.isRecording || !this.ffmpegCommand) return { error: 'No recording in progress' }
 
         try {
             // Вычисляем продолжительность записи

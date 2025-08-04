@@ -1,6 +1,6 @@
 {
-  "appId": "com.screenrecorder.pro",
-  "productName": "Screen Recorder Pro",
+  "appId": "com.dstrecorder.pro",
+  "productName": "Dst-Recorder",
   "directories": {
     "output": "release"
   },

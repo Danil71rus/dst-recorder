@@ -37,7 +37,7 @@ import { sleep } from "@/utils/utils.ts"
 const isRecording = ref(false)
 const isCompleted = ref(false)
 const isSaving = ref(false)
-const savePath = ref('')
+const savePathFile = ref('')
 
 const recordingTime = ref(0)
 const recordingTimer = ref<number | null>(null)
@@ -79,8 +79,6 @@ onMounted(async () => {
     if (isIpcRenderer.value) {
         // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
         await sleep(1)
-        // Получаем путь сохранения
-        savePath.value = await window.ipcRenderer.invoke(ExposedRecording.GET_SAVE_PATH)
         const screens = await window.ipcRenderer.invoke(ExposedRecording.GET_AVAILABLE_SCREENS)
         if (screens && Array.isArray(screens)) {
             // Принудительно обновляем массив
@@ -108,10 +106,6 @@ async function startRecording() {
         return
     }
 
-    // Получаем путь сохранения
-    savePath.value = await window.ipcRenderer.invoke(ExposedRecording.GET_SAVE_PATH)
-    console.log('Save path:', savePath.value)
-
     // Запускаем запись через FFmpeg с выбранным экраном
     const result = await window.ipcRenderer.invoke(ExposedRecording.START_FFMPEG_RECORDING, selectedScreen.value)
     if (result?.error) {
@@ -119,7 +113,9 @@ async function startRecording() {
         return
     }
 
-    console.log('FFmpeg recording started:', result.outputPath)
+    savePathFile.value = result.outputPathAndFileName
+    console.log('FFmpeg recording started:', result.outputPathAndFileName)
+
     // Запускаем таймер отсчета времени
     recordingTimer.value = window.setInterval(() => {
         recordingTime.value += 1
@@ -145,9 +141,7 @@ async function stopRecording() {
 
 // Функция для открытия папки с записью
 function openSaveFolder() {
-    if (isIpcRenderer.value) {
-        window.ipcRenderer.send(ExposedRecording.OPEN_SAVE_FOLDER, savePath.value)
-    }
+    window.ipcRenderer.send(ExposedRecording.OPEN_SAVE_FOLDER, savePathFile.value)
 }
 
 function resetParams() {

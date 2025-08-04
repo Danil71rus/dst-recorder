@@ -50,7 +50,8 @@ export function initMainWindowControlsHandlers() {
 
     // Обработчик для открытия папки
     ipcMain.on(ExposedRecording.OPEN_SAVE_FOLDER, (_event, path: string) => {
-        shell.openPath(path)
+        if (path) shell.showItemInFolder(path)
+        else shell.openPath(screenRecorder.getRecordingsPath())
     })
 
     // Обработчик для открытия папки

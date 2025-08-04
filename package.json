@@ -41,8 +41,8 @@
     "vue-router": "^4.2.5"
   },
   "build": {
-    "appId": "com.screenrecorder.pro",
-    "productName": "Screen Recorder Pro",
+    "appId": "com.dstrecorder.pro",
+    "productName": "Dst-Recorder",
     "directories": {
       "output": "release"
     },
