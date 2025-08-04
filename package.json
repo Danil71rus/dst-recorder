@@ -1,5 +1,5 @@
 {
-  "name": "screen-recorder-pro",
+  "name": "dst-recorder",
   "version": "1.0.0",
   "description": "Professional screen recording application for macOS and Windows",
   "main": "dist-electron/main.js",

@@ -33,7 +33,7 @@
     "storage": {
       "title": "Настройки хранения",
       "path": "Папка записей",
-      "defaultPath": "По умолчанию: ~/Desktop/Screen Recordings",
+      "defaultPath": "По умолчанию: ~/Desktop/dst-recorder",
       "browse": "Обзор"
     }
   },

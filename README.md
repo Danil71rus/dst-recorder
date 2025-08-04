@@ -99,7 +99,7 @@ npm run build
 ## Структура проекта
 
 \`\`\`
-screen-recorder-pro/
+dst-recorder/
 ├── electron/           # Electron main и preload процессы
 │   ├── main.ts        # Главный процесс Electron
 │   └── preload.ts     # Preload скрипт для безопасного API

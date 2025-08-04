@@ -33,7 +33,7 @@
     "storage": {
       "title": "Storage Settings",
       "path": "Recordings Folder",
-      "defaultPath": "Default: ~/Desktop/Screen Recordings",
+      "defaultPath": "Default: ~/Desktop/dst-recorder",
       "browse": "Browse"
     }
   },

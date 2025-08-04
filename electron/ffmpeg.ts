@@ -63,7 +63,7 @@ if (ffmpegPath) {
 
 export class ScreenRecorder {
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
-    private outputPath: string = join(homedir(), 'Desktop', 'Screen Recordings')
+    private outputPath: string = join(homedir(), 'Desktop', 'Dst-recorder')
     private outputPathAndFileName: string = ''
     private recordingStartTime: number = 0
     private isRecording: boolean = false
@@ -117,7 +117,7 @@ export class ScreenRecorder {
 
             // Генерируем имя файла с временной меткой
             const fileName = this.generateShortFilename("mp4")
-            this.outputPathAndFileName = join(homedir(), 'Desktop', 'Screen Recordings', fileName)
+            this.outputPathAndFileName = join(this.outputPath, fileName)
 
             // Определяем устройство захвата и формат в зависимости от платформы
             const platform = process.platform
