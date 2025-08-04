@@ -61,4 +61,21 @@ export function initMainWindowControlsHandlers() {
 
         timerWin.setPosition(position.x, position.y)
     })
+
+    // Обработчик для открытия папки
+    ipcMain.on(ExposedRecording.HIDE_TIMER_WINDOW, (_event, position) => {
+        const timerWin = getWindowByName(WindowName.Timer)
+        if (!timerWin) return
+        // timerWin.hide()
+        if (!position.isFull) {
+            console.log(`${position.x} ${position.y}`)
+            timerWin.setSize(36, 54)
+            timerWin.setPosition(position.x, position.y, true)
+
+        } else {
+            console.log(`${position.x} ${position.y}`)
+            timerWin.setSize(440, 54)
+            timerWin.setPosition(position.x, position.y, true)
+        }
+    })
 }

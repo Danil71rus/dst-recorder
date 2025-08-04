@@ -1,37 +1,60 @@
 <template>
     <div
+        ref="timerRef"
         class="timer-window"
         @mousedown="startDrag"
     >
-        <!-- Основной таймер -->
-        <div class="timer-display">
-            <div class="recording-dot"></div>
-            <span class="time">{{ formattedTime }}</span>
-        </div>
+        <template v-if="isFull">
+            <div class="flex-row">
+                <b-button variant="link" @click="close">></b-button>
+                <div class="line"/>
+            </div>
 
-        <b-button
-            v-if="isRecording"
-            :disabled="isSaving"
-            @click="stopRecording"
-        >Stop</b-button>
+            <!-- Основной таймер -->
+            <div class="timer-display">
+                <div :class="{ 'recording-dot': true, 'animate-active': isRecording }" />
+                <span class="time">{{ formattedTime }}</span>
+            </div>
+
+            <div class="line"/>
+
+            <b-button
+                v-if="isRecording"
+                :disabled="isSaving"
+                @click="stopRecording"
+            >Stop</b-button>
+            <b-button
+                v-else
+                variant="danger"
+                :disabled="isSaving"
+                @click="startRecording"
+            >►</b-button>
+
+            <b-button
+                variant="outline-secondary"
+                @click="openSaveFolder"
+            >Открыть</b-button>
+        </template>
+
         <b-button
             v-else
-            variant="danger"
-            :disabled="isSaving"
-            @click="startRecording"
-        >►</b-button>
+            variant="link"
+            @click="show"
+        >
+            <
+        </b-button>
 
-        <b-button
-            variant="outline-secondary"
-            @click="openSaveFolder"
-        >Открыть</b-button>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import {ref, computed, onMounted, onBeforeUnmount, nextTick, useTemplateRef} from 'vue'
 import { ExposedRecording } from "../../electron/ipc-handlers/definitions/renderer.ts"
 import { sleep } from "@/utils/utils.ts"
+
+const isFull = ref(true)
+const timerRef = useTemplateRef("timerRef")
+const fullW = ref(0)
 
 // Реактивные переменные состояния
 const isRecording = ref(false)
@@ -93,6 +116,7 @@ onMounted(async () => {
     } else {
         console.warn('IPC Renderer not available')
     }
+    fullW.value = timerRef.value?.offsetWidth || 0
 })
 
 // Функция для начала записи
@@ -156,6 +180,24 @@ function resetParams() {
     }
 }
 
+function show() {
+    window.ipcRenderer.send(ExposedRecording.HIDE_TIMER_WINDOW, {
+        x:      window.screen.width - 50 - fullW.value,
+        y:      window.screen.height - 70,
+        isFull: true,
+    })
+    isFull.value = true
+}
+
+function close() {
+    window.ipcRenderer.send(ExposedRecording.HIDE_TIMER_WINDOW, {
+        x:      window.screen.width - 35, // - e.clientX,
+        y:      window.screen.height / 2, // - e.screenY,
+        isFull: false,
+    })
+    isFull.value = false
+}
+
 /** Перемещение окна */
 let dragPosition: { x: number; y: number } | null = null;
 function startDrag(e: MouseEvent) {
@@ -191,41 +233,55 @@ onBeforeUnmount(() => {
 <style scoped>
 .timer-window {
     width: 100%;
-    height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    padding: 16px;
-    color: white;
-
+    padding: 8px;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 16px;
 }
 
+.flex-row {
+    display: flex;
+    align-items: center;
+}
+
+.line {
+    display: block;
+    height: 24px;
+    color: white;
+    margin: 0 8px;
+    border-right: 1px solid gray;
+}
+
 .timer-display {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-right: auto;
-}
+    margin-right: 36px;
 
-.recording-dot {
-    width: 10px;
-    height: 10px;
-    background: #ff0000;
-    border-radius: 50%;
-    animation: pulse 1s infinite;
+    .recording-dot {
+        width: 10px;
+        height: 10px;
+        background: #ff0000;
+        border-radius: 50%;
+
+        &.animate-active {
+            animation: pulse 1s infinite;
+        }
+    }
+
+    .time {
+        color: white;
+        font-size: 25px;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+    }
 }
 
 @keyframes pulse {
     0% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(1.1); }
     100% { opacity: 1; transform: scale(1); }
-}
-
-.time {
-    font-size: 20px;
-    font-weight: bold;
-    font-family: 'Courier New', monospace;
 }
 </style>

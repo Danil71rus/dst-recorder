@@ -5,6 +5,7 @@ export enum ExposedRecording {
     GET_SAVE_PATH = "get-save-path",
     OPEN_SAVE_FOLDER = "open-save-folder",
     MOVE_TIMER_WINDOW = "move-timer-window",
+    HIDE_TIMER_WINDOW = "hide-timer-window",
     // FFmpeg каналы
     START_FFMPEG_RECORDING = "start-ffmpeg-recording",
     STOP_FFMPEG_RECORDING = "stop-ffmpeg-recording",

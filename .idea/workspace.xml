@@ -4,15 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9c84cc9b-f89f-4932-8783-27f91e27e0d9" name="Changes" comment="init">
+    <list default="true" id="9c84cc9b-f89f-4932-8783-27f91e27e0d9" name="Changes" comment="init 2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron-builder.json" beforeDir="false" afterPath="$PROJECT_DIR$/electron-builder.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron/ffmpeg.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/ffmpeg.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/ipc-handlers/definitions/renderer.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/ipc-handlers/definitions/renderer.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/electron/ipc-handlers/recording.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/ipc-handlers/recording.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/locales/en.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/locales/en.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/locales/ru.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/locales/ru.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/window/win-timer.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/window/win-timer.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/views/TimerView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/src/views/TimerView.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -90,7 +86,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1754282258421</updated>
-      <workItem from="1754282259467" duration="4702000" />
+      <workItem from="1754282259467" duration="11961000" />
     </task>
     <task id="LOCAL-00001" summary="init">
       <option name="closed" value="true" />
@@ -108,7 +104,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754282629119</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="init 2">
+      <option name="closed" value="true" />
+      <created>1754289386259</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1754289386259</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -127,6 +131,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="init" />
-    <option name="LAST_COMMIT_MESSAGE" value="init" />
+    <MESSAGE value="init 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="init 2" />
   </component>
 </project>
