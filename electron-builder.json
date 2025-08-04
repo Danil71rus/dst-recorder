@@ -1,0 +1,32 @@
+{
+  "appId": "com.screenrecorder.pro",
+  "productName": "Screen Recorder Pro",
+  "directories": {
+    "output": "release"
+  },
+  "files": ["dist/**/*", "dist-electron/**/*", "node_modules/**/*", "package.json"],
+  "asarUnpack": [
+    "node_modules/@ffmpeg-installer/**/*"
+  ],
+  "mac": {
+    "category": "public.app-category.productivity",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      }
+    ]
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

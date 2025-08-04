@@ -1,0 +1,47 @@
+{
+  "app": {
+    "title": "Screen Recorder Pro",
+    "description": "Professional screen recording for macOS and Windows"
+  },
+  "recording": {
+    "inProgress": "Recording in progress...",
+    "stopped": "Recording stopped",
+    "saved": "Recording saved successfully"
+  },
+  "settings": {
+    "title": "Settings",
+    "save": "Save Settings",
+    "reset": "Reset to Defaults",
+    "video": {
+      "title": "Video Settings",
+      "format": "Video Format",
+      "fps": "Frame Rate"
+    },
+    "audio": {
+      "title": "Audio Settings",
+      "source": "Audio Source",
+      "none": "No Audio",
+      "system": "System Audio",
+      "microphone": "Microphone",
+      "both": "System + Microphone"
+    },
+    "cursor": {
+      "title": "Cursor Settings",
+      "show": "Show cursor in recording",
+      "highlightClicks": "Highlight mouse clicks"
+    },
+    "storage": {
+      "title": "Storage Settings",
+      "path": "Recordings Folder",
+      "defaultPath": "Default: ~/Desktop/Screen Recordings",
+      "browse": "Browse"
+    }
+  },
+  "areaSelector": {
+    "instructions": "Click and drag to select recording area"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "ok": "OK"
+  }
+}
