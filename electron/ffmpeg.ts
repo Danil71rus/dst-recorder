@@ -113,7 +113,8 @@ export class ScreenRecorder {
             this.currentDisplay = displays[this.screenIndex];
             if (!this.currentDisplay) return { error: `Display with index ${this.screenIndex} not found.` };
 
-            console.log(`Target display: Screen ${this.screenIndex}, ${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`);
+            const { width, height } = this.currentDisplay.size;
+            console.log(`Target display: Screen ${this.screenIndex}, ${width}x${height}`);
 
             const fileName = this.generateShortFilename("mp4");
             this.outputPathAndFileName = join(this.outputPath, fileName);
@@ -130,40 +131,33 @@ export class ScreenRecorder {
 
             const inputOptionsWithBuffer = (options: string[]) => [...options, '-thread_queue_size', '1024'];
 
-            // Вход 0: Видео
+            // Вход 0: "Ведущий" - видео и микрофон
             this.ffmpegCommand
-                .input(`${videoIndex}:none`)
+                .input(`${videoIndex}:${micIndex}`)
                 .inputFormat('avfoundation')
                 .inputFPS(30)
                 .inputOptions(inputOptionsWithBuffer(settingsInputOptions.darwin || []));
 
-            // Вход 1: Микрофон
-            this.ffmpegCommand
-                .input(`none:${micIndex}`)
-                .inputFormat('avfoundation')
-                .inputOptions(inputOptionsWithBuffer([]));
-
-            // Вход 2: Звук системы
+            // Вход 1: "Ведомый" - системный звук
             this.ffmpegCommand
                 .input(`none:${systemAudioIndex}`)
                 .inputFormat('avfoundation')
                 .inputOptions(inputOptionsWithBuffer([]));
 
-            // ---- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ----
-            // Эта цепочка фильтров выполняет полную "нормализацию" аудио перед смешиванием:
-            // 1. volume=2.5: Увеличиваем громкость микрофона.
-            // 2. aresample=44100: Приводим оба потока к единой частоте.
-            // 3. aformat=channel_layouts=stereo: Приводим оба потока к стерео.
-            // 4. amix: Смешиваем два подготовленных, одинаковых по формату потока.
-            this.ffmpegCommand.complexFilter(
-                '[1:a]volume=2.5,aresample=44100,aformat=channel_layouts=stereo[mic_norm];' +
-                '[2:a]aresample=44100,aformat=channel_layouts=stereo[system_norm];' +
-                '[mic_norm][system_norm]amix=inputs=2[a_out]'
-            );
+            // ---- ИСПРАВЛЕНИЕ ЗДЕСЬ ----
+            // 1. Добавляем фильтр `scale` для видео прямо в `complexFilter`.
+            // 2. Все остальные фильтры остаются без изменений.
+            this.ffmpegCommand.complexFilter([
+                `[0:v]scale=${width}:${height},setpts=PTS-STARTPTS[v_out]`,
+                '[0:a]volume=2.5,aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS[mic_norm]',
+                '[1:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS[system_norm]',
+                '[mic_norm][system_norm]amix=inputs=2:duration=first[a_out]'
+            ]);
 
+            // Убираем `.size()` и очищаем опции вывода от конфликтующих флагов
             this.ffmpegCommand
                 .outputOptions([
-                    '-map', '0:v',
+                    '-map', '[v_out]',
                     '-map', '[a_out]',
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
@@ -172,9 +166,9 @@ export class ScreenRecorder {
                     '-r', '30',
                     '-c:a', 'aac',
                     '-b:a', '192k',
-                    '-y' // Перезаписывать выходной файл без вопроса
+                    '-y'
                 ])
-                .size(`${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
+                // УБИРАЕМ .size(), так как он теперь внутри complexFilter
                 .output(this.outputPathAndFileName);
 
             this.ffmpegCommand
@@ -210,6 +204,7 @@ export class ScreenRecorder {
         }
     }
 
+    // ... методы stopRecording, getRecordingStatus, и т.д. остаются без изменений ...
     async stopRecording(): Promise<{ outputPath?: string; duration?: number; error?: string }> {
         if (!this.isRecording || !this.ffmpegCommand) return { error: 'No recording in progress' }
 
