@@ -15,35 +15,21 @@ enum PlatformType {
     Linux = "linux",
 }
 
-// Настройки для ВИДЕО входа для каждой платформы
+// Настройки входа для macOS
 const settingsInputOptions: { [key in NodeJS.Platform]?: string[] } = {
-    // macOS
-    [PlatformType.Darwin]: [
-        '-capture_cursor', '1',
-        '-capture_mouse_clicks', '1',
-        '-pixel_format', 'uyvy422'
-    ],
-    // Windows
-    [PlatformType.Win32]: [
-        '-draw_mouse', '1'
-    ],
-    // Linux
-    [PlatformType.Linux]: [
-        '-draw_mouse', '1'
-    ]
+    [PlatformType.Darwin]: ['-capture_cursor', '1'],
+    [PlatformType.Win32]: ['-draw_mouse', '1'],
+    [PlatformType.Linux]: ['-draw_mouse', '1']
 }
 
-// Установка пути к FFmpeg с учетом production/development
+// Установка пути к FFmpeg
 const getFfmpegPath = () => {
     try {
         const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
         let ffmpegPath = ffmpegInstaller.path
-
-        // В production режиме FFmpeg находится в unpacked папке
         if (app.isPackaged) {
             ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
         }
-
         console.log('FFmpeg path:', ffmpegPath)
         return ffmpegPath
     } catch (error) {
@@ -62,34 +48,22 @@ if (ffmpegPath) {
 export class ScreenRecorder {
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
     private outputPath: string = join(homedir(), 'Desktop', 'Dst-Recorder')
-
-    // Изменяемы переменные
     private outputPathAndFileName: string = ''
     private recordingStartTime: number = 0
     private isRecording: boolean = false
-    // экран
     private screenIndex = 0
     private currentDisplay: Electron.Display | null = null
 
     constructor() {
-        // Создаем папку для записей, если её нет
         if (!existsSync(this.outputPath)) {
             mkdirSync(this.outputPath, { recursive: true })
         }
     }
 
-    /**
-     * Динамически ищет индексы устройств AVFoundation.
-     * @private
-     */
     private async getAvFoundationDevices(): Promise<{ videoIndex?: string; micIndex?: string; systemAudioIndex?: string; error?: string }> {
-        if (!ffmpegPath) {
-            return { error: 'FFmpeg path is not configured.' }
-        }
+        if (!ffmpegPath) { return { error: 'FFmpeg path is not configured.' } }
         return new Promise((resolve) => {
-            // Запускаем FFmpeg с флагом для получения списка устройств
-            exec(`${ffmpegPath} -f avfoundation -list_devices true -i ""`, (_error, _stdout, stderr) => {
-                // ffmpeg выводит список в stderr и завершается с ошибкой, это нормальное поведение
+            exec(`${ffmpegPath} -f avfoundation -list_devices true -i ""`, (error, stdout, stderr) => {
                 const output = stderr.toString();
                 console.log('AVFoundation list_devices output:\n', output);
 
@@ -107,134 +81,101 @@ export class ScreenRecorder {
 
                 console.log(`Discovered Device Indices: Video=${videoIndex}, Mic=${micIndex}, SystemAudio=${systemAudioIndex}`);
 
-                if (!videoIndex) {
-                    return resolve({ error: 'Could not find screen capture device. Is it in use?' });
-                }
-                if (!micIndex) {
-                    return resolve({ error: 'Could not find microphone "HUAWEI FreeBuds Pro". Is it connected?' });
-                }
-                if (!systemAudioIndex) {
-                    return resolve({ error: 'Could not find "BlackHole" audio device. Is it installed?' });
-                }
+                if (!videoIndex) return resolve({ error: 'Could not find screen capture device.' });
+                if (!micIndex) return resolve({ error: 'Could not find "HUAWEI FreeBuds Pro" microphone.' });
+                if (!systemAudioIndex) return resolve({ error: 'Could not find "BlackHole" audio device.' });
 
                 resolve({ videoIndex, micIndex, systemAudioIndex });
             });
         });
     }
 
-
-    /**
-     * Начать запись экрана
-     * @param screenIndex - Индекс экрана для записи
-     */
     async startRecording(screenIndex?: number): Promise<{ outputPathAndFileName?: string; error?: string }> {
         if (this.isRecording) return { error: 'Recording is already in progress' }
 
         try {
-            const platform = process.platform
-
-            if (platform === 'darwin') {
-                const hasPermission = systemPreferences.getMediaAccessStatus('screen') === 'granted'
-                if (!hasPermission) {
-                    const message = 'Screen Recording permission required. Please grant permission in System Preferences > Security & Privacy > Privacy > Screen Recording, then restart the app.'
-                    console.warn(message)
-                    return { error: message }
-                }
-                console.log('Screen recording permission is granted.')
-                console.log('Reminder: For system audio recording, ensure sound output is set to BlackHole in System Settings.')
+            const platform = process.platform;
+            if (platform !== 'darwin') {
+                return { error: 'This recorder is currently configured for macOS only.' };
             }
 
-            const displays = screen.getAllDisplays()
-            this.screenIndex = screenIndex ?? 0
-            this.currentDisplay = displays[this.screenIndex]
-            if (!this.currentDisplay) {
-                return { error: `Display with index ${this.screenIndex} not found.` };
+            const hasPermission = systemPreferences.getMediaAccessStatus('screen') === 'granted';
+            if (!hasPermission) {
+                const message = 'Screen Recording permission required.';
+                console.warn(message);
+                return { error: message };
             }
+            console.log('Screen recording permission is granted.');
+            console.log('Reminder: For system audio recording, ensure sound output is set to BlackHole.');
 
-            console.log(`Target display: Screen ${this.screenIndex}, ${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
+            const displays = screen.getAllDisplays();
+            this.screenIndex = screenIndex ?? 0;
+            this.currentDisplay = displays[this.screenIndex];
+            if (!this.currentDisplay) return { error: `Display with index ${this.screenIndex} not found.` };
 
-            const fileName = this.generateShortFilename("mp4")
-            this.outputPathAndFileName = join(this.outputPath, fileName)
+            console.log(`Target display: Screen ${this.screenIndex}, ${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`);
 
-            this.ffmpegCommand = ffmpeg()
+            const fileName = this.generateShortFilename("mp4");
+            this.outputPathAndFileName = join(this.outputPath, fileName);
 
-            if (platform === 'darwin') {
-                // 1. Получаем актуальные индексы устройств
-                console.log('Discovering AVFoundation devices...');
-                const devices = await this.getAvFoundationDevices();
+            this.ffmpegCommand = ffmpeg();
 
-                if (devices.error) {
-                    console.error('Device discovery failed:', devices.error);
-                    return { error: devices.error };
-                }
-                const { videoIndex, micIndex, systemAudioIndex } = devices;
-
-                // 2. Используем найденные индексы в команде
-                // Вход 1: Видео с экрана
-                this.ffmpegCommand
-                    .input(`${videoIndex}:none`)
-                    .inputFormat('avfoundation')
-                    .inputFPS(30)
-                    .inputOptions(settingsInputOptions.darwin || []);
-
-                // Вход 2: Аудио с микрофона
-                this.ffmpegCommand
-                    .input(`none:${micIndex}`)
-                    .inputFormat('avfoundation');
-
-                // Вход 3: Системный звук (BlackHole)
-                this.ffmpegCommand
-                    .input(`none:${systemAudioIndex}`)
-                    .inputFormat('avfoundation');
-
-                // ---- ИСПРАВЛЕНИЕ ЗДЕСЬ ----
-                // Принудительно микшируем оба аудио входа в стерео и затем объединяем их.
-                // Это решает проблему с 16-канальным звуком от BlackHole.
-                this.ffmpegCommand.complexFilter('[1:a]aformat=channel_layouts=stereo[mic];[2:a]aformat=channel_layouts=stereo[system];[mic][system]amix=inputs=2[a_out]');
-
-
-                // Настройки вывода
-                this.ffmpegCommand
-                    .outputOptions([
-                        '-map', '0:v',
-                        '-map', '[a_out]',
-                        '-c:v', 'libx264',
-                        '-c:a', 'aac',
-                        '-preset', 'ultrafast',
-                        '-crf', '23',
-                        '-pix_fmt', 'yuv420p',
-                        '-movflags', '+faststart',
-                        '-r', '30',
-                        '-vsync', '2',
-                        '-b:a', '192k'
-                    ])
-                    .size(`${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
-                    .output(this.outputPathAndFileName);
-
-            } else {
-                // Логика для Windows и Linux
-                const inputDevice = platform === 'win32' ? 'desktop' : ':0.0';
-                const inputOptions = settingsInputOptions?.[platform] || [];
-
-                this.ffmpegCommand.input(inputDevice)
-                    .inputOptions(inputOptions)
-                    .inputFPS(30);
-
-                this.ffmpegCommand
-                    .videoCodec('libx264')
-                    .audioCodec('aac')
-                    .outputOptions([
-                        '-preset', 'ultrafast',
-                        '-crf', '23',
-                        '-pix_fmt', 'yuv420p',
-                        '-movflags', '+faststart',
-                        '-r', '30',
-                        '-vsync', '2',
-                        '-b:a', '128k'
-                    ])
-                    .size(`${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
-                    .output(this.outputPathAndFileName);
+            console.log('Discovering AVFoundation devices...');
+            const devices = await this.getAvFoundationDevices();
+            if (devices.error) {
+                console.error('Device discovery failed:', devices.error);
+                return { error: devices.error };
             }
+            const { videoIndex, micIndex, systemAudioIndex } = devices;
+
+            const inputOptionsWithBuffer = (options: string[]) => [...options, '-thread_queue_size', '1024'];
+
+            // Вход 0: Видео
+            this.ffmpegCommand
+                .input(`${videoIndex}:none`)
+                .inputFormat('avfoundation')
+                .inputFPS(30)
+                .inputOptions(inputOptionsWithBuffer(settingsInputOptions.darwin || []));
+
+            // Вход 1: Микрофон
+            this.ffmpegCommand
+                .input(`none:${micIndex}`)
+                .inputFormat('avfoundation')
+                .inputOptions(inputOptionsWithBuffer([]));
+
+            // Вход 2: Звук системы
+            this.ffmpegCommand
+                .input(`none:${systemAudioIndex}`)
+                .inputFormat('avfoundation')
+                .inputOptions(inputOptionsWithBuffer([]));
+
+            // ---- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ----
+            // Эта цепочка фильтров выполняет полную "нормализацию" аудио перед смешиванием:
+            // 1. volume=2.5: Увеличиваем громкость микрофона.
+            // 2. aresample=44100: Приводим оба потока к единой частоте.
+            // 3. aformat=channel_layouts=stereo: Приводим оба потока к стерео.
+            // 4. amix: Смешиваем два подготовленных, одинаковых по формату потока.
+            this.ffmpegCommand.complexFilter(
+                '[1:a]volume=2.5,aresample=44100,aformat=channel_layouts=stereo[mic_norm];' +
+                '[2:a]aresample=44100,aformat=channel_layouts=stereo[system_norm];' +
+                '[mic_norm][system_norm]amix=inputs=2[a_out]'
+            );
+
+            this.ffmpegCommand
+                .outputOptions([
+                    '-map', '0:v',
+                    '-map', '[a_out]',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '23',
+                    '-pix_fmt', 'yuv420p',
+                    '-r', '30',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
+                    '-y' // Перезаписывать выходной файл без вопроса
+                ])
+                .size(`${this.currentDisplay.size.width}x${this.currentDisplay.size.height}`)
+                .output(this.outputPathAndFileName);
 
             this.ffmpegCommand
                 .on('start', (commandLine: string) => {
@@ -242,25 +183,23 @@ export class ScreenRecorder {
                     this.isRecording = true
                     this.recordingStartTime = Date.now()
                 })
-                // .on('progress', (progress) => {
-                //     console.log('Recording progress:', progress.timemark)
-                // })
                 .on('end', () => {
                     console.log('Recording finished successfully')
                     this.isRecording = false
                 })
                 .on('error', (err: Error) => {
-                    console.error('FFmpeg error during recording:', err)
+                    console.error('FFmpeg error during recording:', err.message)
                     this.isRecording = false
                 })
                 .on('stderr', (stderrLine) => {
+                    if (stderrLine.includes('frame=') || stderrLine.includes('size=')) return;
                     console.log('FFmpeg stderr:', stderrLine)
                 });
 
             console.log('Starting FFmpeg with output:', this.outputPathAndFileName)
             this.ffmpegCommand.run()
 
-            await sleep(1000)
+            await sleep(2000)
             return this.isRecording
                 ? { outputPathAndFileName: this.outputPathAndFileName }
                 : { error: 'Failed to start recording' }
@@ -298,7 +237,6 @@ export class ScreenRecorder {
                 }, 500)
             }).on('error', (err: Error) => {
                 console.error('FFmpeg error on stop:', err.message)
-                // Даже при ошибке остановки, файл может быть корректно сохранен
                 resolve({ outputPath: this.outputPathAndFileName, duration, error: err.message })
             })
 
@@ -308,7 +246,7 @@ export class ScreenRecorder {
                 const proc = this.ffmpegCommand.ffmpegProc;
                 if (proc && proc.stdin && !proc.stdin.destroyed) {
                     proc.stdin.write('q\n')
-                    proc.stdin.end(); // Важно закрыть stdin
+                    proc.stdin.end();
                 } else {
                     console.warn('Stdin not available, killing process.')
                     this.ffmpegCommand!.kill('SIGINT')
