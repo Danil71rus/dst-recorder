@@ -43,16 +43,56 @@ export class ScreenRecorder {
 
     private initializeFfmpegPath(): string | null {
         let ffmpegPath: string | null = null;
+        
         if (app.isPackaged) {
-            ffmpegPath = join(process.resourcesPath, 'bin', 'ffmpeg');
+            // В собранной версии FFmpeg находится в app.asar.unpacked
+            const platform = process.platform;
+            let ffmpegName = 'ffmpeg';
+            
+            // На Windows файл имеет расширение .exe
+            if (platform === 'win32') {
+                ffmpegName = 'ffmpeg.exe';
+            }
+            
+            console.log('App is packaged. Looking for FFmpeg...');
+            console.log('Platform:', platform);
+            console.log('Resource path:', process.resourcesPath);
+            
+            // Пробуем найти FFmpeg в разных возможных местах
+            // Порядок важен - сначала проверяем наиболее вероятные места
+            const possiblePaths = [
+                // Путь где FFmpeg был найден в собранной версии
+                join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'ffmpeg-ffprobe-static', ffmpegName),
+                // Стандартный путь для extraResources
+                join(process.resourcesPath, 'bin', ffmpegName),
+            ];
+            
+            console.log('Checking paths:');
+            for (const path of possiblePaths) {
+                console.log('- Checking:', path, 'Exists:', existsSync(path));
+                if (existsSync(path)) {
+                    ffmpegPath = path;
+                    break;
+                }
+            }
         } else {
+            // В режиме разработки используем путь из ffmpeg-ffprobe-static
             ffmpegPath = FfmpegStatic.ffmpegPath;
         }
+        
         if (ffmpegPath && existsSync(ffmpegPath)) {
             console.log('FFmpeg path successfully set to:', ffmpegPath);
+            // Убедимся, что файл исполняемый
+            try {
+                require('fs').accessSync(ffmpegPath, require('fs').constants.X_OK);
+                console.log('FFmpeg is executable');
+            } catch (e) {
+                console.error('FFmpeg is not executable:', e);
+            }
             return ffmpegPath;
         }
-        console.error('CRITICAL: FFmpeg binary not found at path:', ffmpegPath);
+        
+        console.error('CRITICAL: FFmpeg binary not found');
         return null;
     }
 

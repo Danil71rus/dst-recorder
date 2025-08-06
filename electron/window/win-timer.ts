@@ -6,10 +6,10 @@ const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD =
 
 export function createTimerWindow() {
     const timerWindow = new BrowserWindow({
-        // width:  440,
-        // height: 54,
-        width:  1200,
-        height: 1000,
+        width:  440,
+        height: 54,
+        // width:  1200,
+        // height: 1000,
         frame: false,
         alwaysOnTop: true,
         resizable: false,
@@ -33,6 +33,8 @@ export function createTimerWindow() {
         timerWindow.loadFile(indexPath, { hash: "timer" })
             .then(() => console.log('Successfully loaded index.html'))
             .catch(err =>  console.error('Failed to load index.html:', err))
+
+        // timerWindow.webContents.openDevTools()
     }
 
     timerWindow.on("ready-to-show", () => {
