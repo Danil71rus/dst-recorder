@@ -21,7 +21,7 @@ export default defineConfig({
               external: [
                 "electron",
                 "fluent-ffmpeg",
-                "@ffmpeg-installer/ffmpeg"
+                "ffmpeg-ffprobe-static"
               ],
             },
           },
@@ -41,7 +41,7 @@ export default defineConfig({
               external: [
                 "electron",
                 "fluent-ffmpeg",
-                "@ffmpeg-installer/ffmpeg"
+                "ffmpeg-ffprobe-static"
               ],
             },
           },

@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, statSync } from 'fs'
 import { homedir } from 'os'
 import { DateTime } from "luxon"
 import { exec } from 'child_process'
+const ffmpegStatic = require('ffmpeg-ffprobe-static')
 
 // Утилита для ожидания
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -22,29 +23,6 @@ const settingsInputOptions: { [key in NodeJS.Platform]?: string[] } = {
     [PlatformType.Linux]: ['-draw_mouse', '1']
 }
 
-// Установка пути к FFmpeg
-const getFfmpegPath = () => {
-    try {
-        const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
-        let ffmpegPath = ffmpegInstaller.path
-        if (app.isPackaged) {
-            ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
-        }
-        console.log('FFmpeg path:', ffmpegPath)
-        return ffmpegPath
-    } catch (error) {
-        console.error('Error getting FFmpeg path:', error)
-        return null
-    }
-}
-
-const ffmpegPath = getFfmpegPath()
-if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath)
-} else {
-    console.error('FFmpeg path not found!')
-}
-
 export class ScreenRecorder {
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
     private outputPath: string = join(homedir(), 'Desktop', 'Dst-Recorder')
@@ -53,6 +31,8 @@ export class ScreenRecorder {
     private isRecording: boolean = false
     private screenIndex = 0
     private currentDisplay: Electron.Display | null = null
+    private ffmpegBinaryPath: string | null = null
+    private ffmpegInitialized: boolean = false
 
     constructor() {
         if (!existsSync(this.outputPath)) {
@@ -60,10 +40,60 @@ export class ScreenRecorder {
         }
     }
 
+    private initializeFfmpeg() {
+        if (this.ffmpegInitialized) return;
+        
+        try {
+            let path = ffmpegStatic.ffmpegPath
+            if (!path) {
+                console.error('FFmpeg path is not available')
+                return
+            }
+            
+            // Проверяем, существует ли файл по указанному пути
+            if (!existsSync(path)) {
+                console.error(`FFmpeg binary not found at: ${path}`)
+                // Пробуем альтернативные пути
+                const alternativePaths = [
+                    join(__dirname, '../node_modules/ffmpeg-ffprobe-static/ffmpeg'),
+                    join(process.cwd(), 'node_modules/ffmpeg-ffprobe-static/ffmpeg'),
+                    ffmpegStatic.ffmpegPath
+                ];
+                
+                for (const altPath of alternativePaths) {
+                    if (altPath && existsSync(altPath)) {
+                        path = altPath;
+                        console.log(`Found FFmpeg at alternative path: ${altPath}`);
+                        break;
+                    }
+                }
+            }
+            
+            // Финальная проверка, что путь существует
+            if (!path || !existsSync(path)) {
+                console.error('FFmpeg binary not found in any location')
+                return
+            }
+            
+            if (app.isPackaged) {
+                path = path.replace('app.asar', 'app.asar.unpacked')
+            }
+            
+            console.log('FFmpeg path:', path)
+            console.log('FFmpeg version 6.x installed successfully')
+            this.ffmpegBinaryPath = path
+            ffmpeg.setFfmpegPath(path)
+            this.ffmpegInitialized = true
+        } catch (error) {
+            console.error('Error getting FFmpeg path:', error)
+        }
+    }
+
     private async getAvFoundationDevices(): Promise<{ videoIndex?: string; micIndex?: string; systemAudioIndex?: string; error?: string }> {
-        if (!ffmpegPath) { return { error: 'FFmpeg path is not configured.' } }
+        this.initializeFfmpeg();
+        if (!this.ffmpegBinaryPath) { return { error: 'FFmpeg path is not configured.' } }
         return new Promise((resolve) => {
-            exec(`${ffmpegPath} -f avfoundation -list_devices true -i ""`, (_error, _stdout, stderr) => {
+            exec(`${this.ffmpegBinaryPath} -f avfoundation -list_devices true -i ""`, (_error, _stdout, stderr) => {
                 const output = stderr.toString();
                 console.log('AVFoundation list_devices output:\n', output);
 
@@ -94,6 +124,7 @@ export class ScreenRecorder {
         if (this.isRecording) return { error: 'Recording is already in progress' }
 
         try {
+            this.initializeFfmpeg();
             const platform = process.platform;
             if (platform !== 'darwin') {
                 return { error: 'This recorder is currently configured for macOS only.' };
@@ -268,5 +299,20 @@ export class ScreenRecorder {
     }
 }
 
-// Создаем единственный экземпляр рекордера
-export const screenRecorder = new ScreenRecorder()
+// Ленивая инициализация единственного экземпляра рекордера
+let screenRecorderInstance: ScreenRecorder | null = null;
+
+export function getScreenRecorder(): ScreenRecorder {
+    if (!screenRecorderInstance) {
+        screenRecorderInstance = new ScreenRecorder();
+    }
+    return screenRecorderInstance;
+}
+
+// Для обратной совместимости экспортируем как screenRecorder
+export const screenRecorder = {
+    startRecording: (screenIndex?: number) => getScreenRecorder().startRecording(screenIndex),
+    stopRecording: () => getScreenRecorder().stopRecording(),
+    getRecordingStatus: () => getScreenRecorder().getRecordingStatus(),
+    getRecordingsPath: () => getScreenRecorder().getRecordingsPath()
+};
