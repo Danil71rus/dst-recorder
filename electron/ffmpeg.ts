@@ -171,7 +171,7 @@ export class ScreenRecorder {
                 // @ts-ignore
                 this.ffmpegCommand.ffmpegProc.stdin.write('q\n');
             } catch (e) {
-                this.ffmpegCommand.kill('SIGINT');
+                this.ffmpegCommand?.kill('SIGINT');
             }
         });
     }
