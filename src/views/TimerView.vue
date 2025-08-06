@@ -18,39 +18,48 @@
 
             <div class="line"/>
 
-            <b-button
+            <dst-combobox
+                v-model="selectedScreen"
+                :items="screensList"
+                placeholder="Экран"
+            />
+
+            <dst-button
                 v-if="isRecording"
+                value="Stop"
                 :disabled="isSaving"
                 @click="stopRecording"
-            >Stop</b-button>
-            <b-button
+            />
+            <dst-button
                 v-else
                 variant="danger"
+                value="►"
                 :disabled="isSaving"
                 @click="startRecording"
-            >►</b-button>
+            />
 
-            <b-button
+            <dst-button
                 variant="outline-secondary"
+                value="Открыть"
                 @click="openSaveFolder"
-            >Открыть</b-button>
+            />
         </template>
 
-        <b-button
+        <dst-button
             v-else
             variant="link"
+            value="<"
             @click="show"
-        >
-            <
-        </b-button>
-
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-import {ref, computed, onMounted, onBeforeUnmount, nextTick, useTemplateRef} from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, useTemplateRef } from 'vue'
 import { ExposedRecording } from "../../electron/ipc-handlers/definitions/renderer.ts"
 import { sleep } from "@/utils/utils.ts"
+import DstCombobox, { ComboboxItem } from "@/components/DstCombobox.vue"
+import DstButton from "@/components/DstButton.vue"
 
 const isFull = ref(true)
 const timerRef = useTemplateRef("timerRef")
@@ -68,24 +77,8 @@ const recordingTimer = ref<number | null>(null)
 // Проверка доступности Electron API
 const isIpcRenderer = ref(false)
 
-// Переменные для выбора экрана - явно указываем тип
-interface Screen {
-    id:        number
-    name:      string
-    isPrimary: boolean
-    width:     number
-    height:    number
-}
-
-const availableScreens = ref<Screen[]>([])
-const selectedScreen = ref(0)
-
-const screenOptions = computed(() => {
-    return availableScreens.value.map(screen => ({
-        value: screen.id,
-        text: `${screen.name} (${screen.width}x${screen.height})`
-    }))
-})
+const selectedScreen = ref<string>('0')
+const screensList = ref<ComboboxItem[]>([])
 
 // Получаем значения из стора
 const formattedTime = computed(() => {
@@ -103,15 +96,12 @@ onMounted(async () => {
         // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
         await sleep(1)
         const screens = await window.ipcRenderer.invoke(ExposedRecording.GET_AVAILABLE_SCREENS)
-        if (screens && Array.isArray(screens)) {
-            // Принудительно обновляем массив
-            availableScreens.value = [...screens]
-            // Ждем следующий тик Vue для обновления DOM
-            await nextTick()
-            console.log('After nextTick - Screen options:', screenOptions.value)
-        } else {
-            console.error('Invalid screens response:', screens)
-            availableScreens.value = []
+        if (Array.isArray(screens)) {
+            screensList.value = screens.map(item => ({
+                id:    `${item.id}`,
+                title: `${item.name} (${item.width}x${item.height})`,
+            }))
+            selectedScreen.value = `${screens[0]?.id}` || "0"
         }
     } else {
         console.warn('IPC Renderer not available')
@@ -131,7 +121,7 @@ async function startRecording() {
     }
 
     // Запускаем запись через FFmpeg с выбранным экраном
-    const result = await window.ipcRenderer.invoke(ExposedRecording.START_FFMPEG_RECORDING, selectedScreen.value)
+    const result = await window.ipcRenderer.invoke(ExposedRecording.START_FFMPEG_RECORDING, Number(selectedScreen.value))
     if (result?.error) {
         console.error(result.error || 'Failed to start recording')
         return

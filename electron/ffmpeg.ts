@@ -6,9 +6,7 @@ import { homedir } from 'os'
 import { DateTime } from "luxon"
 import { exec } from 'child_process'
 import FfmpegStatic from 'ffmpeg-ffprobe-static'
-
-// Утилита для ожидания
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import { sleep } from "../src/utils/utils"
 
 export class ScreenRecorder {
     private static instance: ScreenRecorder;
@@ -43,21 +41,21 @@ export class ScreenRecorder {
 
     private initializeFfmpegPath(): string | null {
         let ffmpegPath: string | null = null;
-        
+
         if (app.isPackaged) {
             // В собранной версии FFmpeg находится в app.asar.unpacked
             const platform = process.platform;
             let ffmpegName = 'ffmpeg';
-            
+
             // На Windows файл имеет расширение .exe
             if (platform === 'win32') {
                 ffmpegName = 'ffmpeg.exe';
             }
-            
+
             console.log('App is packaged. Looking for FFmpeg...');
             console.log('Platform:', platform);
             console.log('Resource path:', process.resourcesPath);
-            
+
             // Пробуем найти FFmpeg в разных возможных местах
             // Порядок важен - сначала проверяем наиболее вероятные места
             const possiblePaths = [
@@ -66,7 +64,7 @@ export class ScreenRecorder {
                 // Стандартный путь для extraResources
                 join(process.resourcesPath, 'bin', ffmpegName),
             ];
-            
+
             console.log('Checking paths:');
             for (const path of possiblePaths) {
                 console.log('- Checking:', path, 'Exists:', existsSync(path));
@@ -79,7 +77,7 @@ export class ScreenRecorder {
             // В режиме разработки используем путь из ffmpeg-ffprobe-static
             ffmpegPath = FfmpegStatic.ffmpegPath;
         }
-        
+
         if (ffmpegPath && existsSync(ffmpegPath)) {
             console.log('FFmpeg path successfully set to:', ffmpegPath);
             // Убедимся, что файл исполняемый
@@ -91,7 +89,7 @@ export class ScreenRecorder {
             }
             return ffmpegPath;
         }
-        
+
         console.error('CRITICAL: FFmpeg binary not found');
         return null;
     }
