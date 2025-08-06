@@ -63,7 +63,7 @@ export class ScreenRecorder {
     private async getAvFoundationDevices(): Promise<{ videoIndex?: string; micIndex?: string; systemAudioIndex?: string; error?: string }> {
         if (!ffmpegPath) { return { error: 'FFmpeg path is not configured.' } }
         return new Promise((resolve) => {
-            exec(`${ffmpegPath} -f avfoundation -list_devices true -i ""`, (error, stdout, stderr) => {
+            exec(`${ffmpegPath} -f avfoundation -list_devices true -i ""`, (_error, _stdout, stderr) => {
                 const output = stderr.toString();
                 console.log('AVFoundation list_devices output:\n', output);
 
