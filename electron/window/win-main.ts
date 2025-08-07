@@ -1,14 +1,19 @@
 import { BrowserWindow } from 'electron'
 import { join } from "path"
 import { setWindowReady, WindowName } from "./utils/ipc-controller"
+import {ExposedWinMain} from "../ipc-handlers/definitions/renderer.ts";
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true'
 
-export function createMainWindow() {
+export async function createMainWindow() {
     const mainWindow = new BrowserWindow({
-        width:  550,
-        height: 400,
+        width:  1550,
+        height: 1400,
         show:   false,
+        alwaysOnTop: true,
+        resizable: false,
+        skipTaskbar: true,
+        transparent: true,
         webPreferences: {
             preload: join(__dirname, "preload.js"),
             contextIsolation: true,
@@ -17,21 +22,20 @@ export function createMainWindow() {
     })
 
     if (isDev) {
-        mainWindow.loadURL("http://localhost:5173")
-        // mainWindow.webContents.openDevTools()
+        await mainWindow.loadURL("http://localhost:5173")
+        mainWindow.webContents.openDevTools()
     } else {
         // В production используем правильный путь
         const indexPath = join(__dirname, '../dist/index.html')
-
-        // Используем loadFile для локальных файлов
-        mainWindow.loadFile(indexPath)
-            .then(() => console.log('Successfully loaded index.html'))
-            .catch(err =>  console.error('Failed to load index.html:', err))
+        await mainWindow.loadFile(indexPath)
+        // mainWindow.webContents.openDevTools()
     }
 
     mainWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.Main, mainWindow)
-        // mainWindow.show()
+
+        mainWindow.show()
+        mainWindow.webContents.send(ExposedWinMain.GGG)
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы

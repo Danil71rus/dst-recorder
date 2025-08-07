@@ -35,17 +35,16 @@
 <script setup lang="ts">
 import { ref, onMounted, toRaw, computed } from 'vue'
 import { ExposedWinMain } from "../../electron/ipc-handlers/definitions/renderer"
-import { sleep } from "@/utils/utils"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../../electron/difenition/ffmpeg.ts"
+import { sleep } from "@/utils/utils.ts"
 
 
 // Проверка доступности Electron API
-const isIpcRenderer = ref(false)
 const deviceList = ref<FfmpegDeviceLists>({
     audio: [],
     video: [],
@@ -84,24 +83,30 @@ const audioList = computed((): ComboboxItem[] => {
     }))
 })
 
+// window.ipcRenderer?.on(ExposedWinMain.GGG, async () => {
+//     const settings = await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
+//     if (settings) currentState.value = settings
+//
+//     const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
+//     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
+// })
+
 onMounted(async () => {
-    isIpcRenderer.value = !!window.ipcRenderer
-
+    console.log("onMounted")
     // Получаем список доступных экранов
-    if (isIpcRenderer.value) {
-        // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
-        await sleep(1000)
 
-        const settings = await window.ipcRenderer.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
-        if (settings) currentState.value = settings
+    // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
+    await sleep(2000)
 
-        const devices = await window.ipcRenderer.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
-        if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
-    }
+    const settings = await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
+    if (settings) currentState.value = settings
+
+    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
+    if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 })
 
 async function onSave() {
-    await window.ipcRenderer.invoke(ExposedWinMain.SAVE_SETTINGS, toRaw(currentState.value))
+    await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, toRaw(currentState.value))
 }
 </script>
 

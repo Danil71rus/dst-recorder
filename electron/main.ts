@@ -11,13 +11,13 @@ function logFFmpegPaths() {
     console.log("App path:", app.getAppPath());
     console.log("Resources path:", process.resourcesPath);
     console.log("Platform:", process.platform);
-    
+
     if (app.isPackaged) {
         const ffmpegName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
         const expectedPath = join(process.resourcesPath, 'bin', ffmpegName);
         console.log("Expected FFmpeg path:", expectedPath);
         console.log("FFmpeg exists at expected path:", existsSync(expectedPath));
-        
+
         // Проверяем содержимое директории bin
         const binPath = join(process.resourcesPath, 'bin');
         if (existsSync(binPath)) {
@@ -34,17 +34,16 @@ function logFFmpegPaths() {
     console.log("=== End FFmpeg Diagnostics ===\n");
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     // Логируем диагностику FFmpeg
     logFFmpegPaths();
-    
+
     if (!app.requestSingleInstanceLock()) {
         app.quit()
         return
     }
 
-    createMainWindow()
-    createTimerWindow()
+    await Promise.all([createMainWindow(), createTimerWindow()])
     // createTray()
 
     app.on("activate", () => {
@@ -60,8 +59,7 @@ app.whenReady().then(() => {
     })
 })
 
-app.on("window-all-closed", (event: Event) => {
-    event.preventDefault()
+app.on("window-all-closed", () => {
     app.quit()
 })
 

@@ -1,6 +1,5 @@
 <template>
     <div
-        ref="timerRef"
         class="timer-window"
         @mousedown="startDrag"
     >
@@ -52,9 +51,6 @@ import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 
 
-const timerRef = ref<HTMLDivElement | null>(null)
-const fullW = ref(0)
-
 // Реактивные переменные состояния
 const isRecording = ref(false)
 const isCompleted = ref(false)
@@ -77,7 +73,6 @@ const formattedTime = computed(() => {
 
 onMounted(async () => {
     isIpcRenderer.value = !!window.ipcRenderer
-    fullW.value = timerRef.value?.offsetWidth || 0
 })
 
 // Функция для начала записи
@@ -92,14 +87,14 @@ async function startRecording() {
     }
 
     // Запускаем запись через FFmpeg с выбранным экраном
-    const result = await window.ipcRenderer.invoke(ExposedWinTimer.START_FFMPEG_RECORDING)
+    const result = await window.ipcRenderer?.invoke(ExposedWinTimer.START_FFMPEG_RECORDING) as { outputPathAndFileName?: string; error?: string }
     if (result?.error) {
         console.error(result.error || 'Failed to start recording')
         return
     }
 
-    savePathFile.value = result.outputPathAndFileName
-    console.log('FFmpeg recording started:', result.outputPathAndFileName)
+    savePathFile.value = result?.outputPathAndFileName || ""
+    console.log('FFmpeg recording started:', result?.outputPathAndFileName)
 
     // Запускаем таймер отсчета времени
     recordingTimer.value = window.setInterval(() => {
@@ -111,25 +106,17 @@ async function startRecording() {
 async function stopRecording() {
     isSaving.value = true
     console.log('Stopping FFmpeg recording...')
-
     // Останавливаем запись через FFmpeg
-    const result = await window.ipcRenderer.invoke(ExposedWinTimer.STOP_FFMPEG_RECORDING)
-    if (!result?.error) {
-        console.log('Recording saved successfully:', result.outputPath)
-        console.log('Duration:', result.duration, 'seconds')
-        isCompleted.value = true
-    } else {
-        throw new Error(result.error || 'Failed to stop recording')
-    }
+    await window.ipcRenderer?.invoke(ExposedWinTimer.STOP_FFMPEG_RECORDING)
     resetParams()
 }
 
 function openSaveFolder() {
-    window.ipcRenderer.send(ExposedWinTimer.OPEN_SAVE_FOLDER, savePathFile.value)
+    window.ipcRenderer?.send(ExposedWinTimer.OPEN_SAVE_FOLDER, savePathFile.value)
 }
 
 function openMainWin() {
-    window.ipcRenderer.send(ExposedWinTimer.OPEN_MAIN_WIN)
+    window.ipcRenderer?.send(ExposedWinTimer.OPEN_MAIN_WIN)
 }
 
 function resetParams() {
@@ -145,7 +132,7 @@ function resetParams() {
 }
 
 function close() {
-    window.ipcRenderer.send(ExposedWinTimer.CLOSE_ALL_WINDOW)
+    window.ipcRenderer?.send(ExposedWinTimer.CLOSE_ALL_WINDOW)
 }
 
 /** Перемещение окна */
@@ -157,7 +144,7 @@ function startDrag(e: MouseEvent) {
 }
 function drag(e: MouseEvent) {
     if (!dragPosition) return;
-    window.ipcRenderer.send(ExposedWinTimer.MOVE_TIMER_WINDOW, {
+    window.ipcRenderer?.send(ExposedWinTimer.MOVE_TIMER_WINDOW, {
         x: e.screenX - dragPosition.x,
         y: e.screenY - dragPosition.y
     });

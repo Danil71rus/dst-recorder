@@ -4,7 +4,7 @@ import { setWindowReady, WindowName } from "./utils/ipc-controller"
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true'
 
-export function createTimerWindow() {
+export async function createTimerWindow() {
     const timerWindow = new BrowserWindow({
         width:  500,
         height: 54,
@@ -24,17 +24,12 @@ export function createTimerWindow() {
     })
 
     if (isDev) {
-        timerWindow.loadURL("http://localhost:5173/#/timer")
+        await timerWindow.loadURL("http://localhost:5173/#/timer")
         // timerWindow.webContents.openDevTools()
     } else {
         // В production используем правильный путь
         const indexPath = join(__dirname, '../dist/index.html')
-
-        // Используем loadFile для локальных файлов
-        timerWindow.loadFile(indexPath, { hash: "timer" })
-            .then(() => console.log('Successfully loaded index.html'))
-            .catch(err =>  console.error('Failed to load index.html:', err))
-
+        await timerWindow.loadFile(indexPath, { hash: "timer" })
         // timerWindow.webContents.openDevTools()
     }
 

@@ -1,4 +1,5 @@
-import { ExposedIpcRenderer } from "@/ipc-handlers/definitions/renderer"
+import { ExposedIpcRenderer } from "../../../electron/ipc-handlers/definitions/renderer.ts"
+
 
 declare global {
     interface Window {
