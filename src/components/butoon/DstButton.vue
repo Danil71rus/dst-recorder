@@ -13,7 +13,7 @@ import { PropType } from 'vue';
 import {ButtonVariant} from "@/components/butoon/definitions/button-types.ts"
 // Импортируем enum из отдельного файла
 
-const props = defineProps({
+defineProps({
     /** Текст кнопки */
     value: {
         type: String,
