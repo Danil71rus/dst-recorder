@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { ExposedWinTimer } from "../../electron/ipc-handlers/definitions/renderer.ts"
+import { ExposedWinTimer } from "@/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 

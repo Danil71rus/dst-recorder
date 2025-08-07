@@ -6,8 +6,8 @@ import { homedir } from 'os'
 import { DateTime } from "luxon"
 import { exec } from 'child_process'
 import FfmpegStatic from 'ffmpeg-ffprobe-static'
-import { sleep } from "../src/utils/utils"
-import { FfmpegDevice, FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "./difenition/ffmpeg.ts"
+import { sleep } from "./utils/utils.ts"
+import { FfmpegDevice, FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "./deinitions/ffmpeg.ts"
 import { ExposedWinMain } from "./ipc-handlers/definitions/renderer.ts"
 import { getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 

@@ -6,13 +6,13 @@
 
 ### Основные изменения:
 
-1. **Новый модуль FFmpeg** (`electron/ffmpeg.ts`):
+1. **Новый модуль FFmpeg** (`src/ffmpeg.ts`):
    - Класс `ScreenRecorder` для управления записью
    - Поддержка macOS, Windows и Linux
    - Сохранение видео в формате MP4 с кодеком H.264
    - Автоматическое создание папки для записей на рабочем столе
 
-2. **Обновленные IPC обработчики** (`electron/ipc-handlers/recording.ts`):
+2. **Обновленные IPC обработчики** (`src/ipc-handlers/recording.ts`):
    - `START_FFMPEG_RECORDING` - запуск записи
    - `STOP_FFMPEG_RECORDING` - остановка записи
    - `GET_RECORDING_STATUS` - получение статуса записи
@@ -102,7 +102,7 @@ npm run electron:dev
   - `1` - первый внешний монитор
   - `2` - второй внешний монитор и т.д.
 
-Чтобы изменить записываемый экран, измените индекс в файле `electron/ffmpeg.ts`:
+Чтобы изменить записываемый экран, измените индекс в файле `src/ffmpeg.ts`:
 ```typescript
 // Для записи встроенного экрана MacBook
 avfScreenIndex = '0'

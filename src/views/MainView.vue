@@ -41,13 +41,13 @@
 
 <script setup lang="ts">
 import { ref, toRaw, computed } from 'vue'
-import { ExposedWinMain } from "../../electron/ipc-handlers/definitions/renderer"
+import { ExposedWinMain } from "@/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../../electron/difenition/ffmpeg.ts"
+import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../deinitions/ffmpeg.ts"
 
 // Проверка доступности Electron API
 const deviceList = ref<FfmpegDeviceLists>({

@@ -1,6 +1,6 @@
 import {ipcMain, shell} from "electron"
-import {ExposedWinTimer} from "./definitions/renderer"
-import {screenRecorder} from "../ffmpeg"
+import {ExposedWinTimer} from "./definitions/renderer.ts"
+import {screenRecorder} from "../ffmpeg.ts"
 import {getWindowAll, getWindowByName, WindowName} from "../window/utils/ipc-controller.ts"
 
 

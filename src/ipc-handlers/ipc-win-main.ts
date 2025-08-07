@@ -1,7 +1,7 @@
 import {ipcMain} from "electron"
-import {ExposedWinMain} from "./definitions/renderer"
-import {screenRecorder} from "../ffmpeg"
-import {FfmpegSettings} from "../difenition/ffmpeg.ts"
+import {ExposedWinMain} from "./definitions/renderer.ts"
+import {screenRecorder} from "../ffmpeg.ts"
+import {FfmpegSettings} from "../deinitions/ffmpeg.ts"
 import {getWindowByName, WindowName} from "../window/utils/ipc-controller.ts";
 
 

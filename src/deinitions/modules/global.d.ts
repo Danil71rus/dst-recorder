@@ -1,4 +1,4 @@
-import { ExposedIpcRenderer } from "../../../electron/ipc-handlers/definitions/renderer.ts"
+import { ExposedIpcRenderer } from "@/ipc-handlers/definitions/renderer.ts"
 
 
 declare global {

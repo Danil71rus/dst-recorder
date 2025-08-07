@@ -8,7 +8,7 @@ export default defineConfig({
     vue(),
     electron([
       {
-        entry: "electron/main.ts",
+        entry: "src/main.ts",
         onstart(options) {
           if (options.startup) {
             options.startup()
@@ -28,7 +28,7 @@ export default defineConfig({
         },
       },
       {
-        entry: "electron/preload.ts",
+        entry: "src/preload.ts",
         onstart(options) {
           if (options.reload) {
             options.reload()
