@@ -2,7 +2,10 @@ import type { IpcRendererEvent } from "electron"
 
 
 export enum ExposedRecording {
-    GET_SAVE_PATH = "get-save-path",
+    // main
+    GET_AVAILABLE_SCREENS = "get-available-screens",
+    SAVE_SETTINGS = "save-settings",
+
     OPEN_SAVE_FOLDER = "open-save-folder",
     MOVE_TIMER_WINDOW = "move-timer-window",
     HIDE_TIMER_WINDOW = "hide-timer-window",
@@ -10,7 +13,6 @@ export enum ExposedRecording {
     START_FFMPEG_RECORDING = "start-ffmpeg-recording",
     STOP_FFMPEG_RECORDING = "stop-ffmpeg-recording",
     GET_RECORDING_STATUS = "get-recording-status",
-    GET_AVAILABLE_SCREENS = "get-available-screens",
 }
 
 export type ExposedChannel = ExposedRecording | string

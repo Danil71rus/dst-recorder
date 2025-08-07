@@ -7,6 +7,7 @@ import { DateTime } from "luxon"
 import { exec } from 'child_process'
 import FfmpegStatic from 'ffmpeg-ffprobe-static'
 import { sleep } from "../src/utils/utils"
+import { RecordSettings } from "@/views/MainView.vue"
 
 export class ScreenRecorder {
     private static instance: ScreenRecorder;
@@ -16,7 +17,6 @@ export class ScreenRecorder {
     private outputPathAndFileName: string = '';
     private recordingStartTime: number = 0;
     private isRecording: boolean = false;
-    private screenIndex = 0;
     private currentDisplay: Electron.Display | null = null;
     private readonly ffmpegBinaryPath: string | null = null;
 
@@ -30,6 +30,12 @@ export class ScreenRecorder {
         } else {
             console.error('CRITICAL: FFmpeg binary not found. Recording will fail.');
         }
+
+        setTimeout(() => {
+            this.setSettings({
+                screen: "0",
+            })
+        }, 1000)
     }
 
     public static getInstance(): ScreenRecorder {
@@ -119,7 +125,7 @@ export class ScreenRecorder {
         });
     }
 
-    async startRecording(screenIndex?: number): Promise<{ outputPathAndFileName?: string; error?: string }> {
+    async startRecording(): Promise<{ outputPathAndFileName?: string; error?: string }> {
         if (this.isRecording) return { error: 'Recording is already in progress' };
         if (!this.ffmpegBinaryPath) return { error: 'FFmpeg is not available.' };
 
@@ -128,10 +134,8 @@ export class ScreenRecorder {
             const hasPermission = systemPreferences.getMediaAccessStatus('screen') === 'granted';
             if (!hasPermission) return { error: 'Screen Recording permission required.' };
 
-            const displays = screen.getAllDisplays();
-            this.screenIndex = screenIndex ?? 0;
-            this.currentDisplay = displays[this.screenIndex];
-            if (!this.currentDisplay) return { error: `Display with index ${this.screenIndex} not found.` };
+
+            if (!this.currentDisplay) return { error: `Display with index not found.` };
 
             const { width, height } = this.currentDisplay.size;
             this.outputPathAndFileName = join(this.outputPath, this.generateShortFilename());
@@ -220,6 +224,15 @@ export class ScreenRecorder {
     }
 
     getRecordingsPath(): string { return this.outputPath; }
+
+    setSettings(settings?: RecordSettings) {
+        console.log('Settings:', settings);
+        if (settings?.screen) {
+            const screenIndex = Number(settings.screen)
+            const displays = screen.getAllDisplays()
+            this.currentDisplay = displays[screenIndex]
+        }
+    }
 
     generateShortFilename(): string {
         return `SR_${DateTime.now().toFormat('dd-MM-yyyy_HH_mm_ss')}.mp4`;

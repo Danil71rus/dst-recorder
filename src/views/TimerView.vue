@@ -18,12 +18,6 @@
 
             <div class="line"/>
 
-            <dst-combobox
-                v-model="selectedScreen"
-                :items="screensList"
-                placeholder="Экран"
-            />
-
             <dst-button
                 v-if="isRecording"
                 value="Stop"
@@ -32,14 +26,14 @@
             />
             <dst-button
                 v-else
-                variant="danger"
+                :variant="ButtonVariant.Danger"
                 value="►"
                 :disabled="isSaving"
                 @click="startRecording"
             />
 
             <dst-button
-                variant="outline-secondary"
+                :variant="ButtonVariant.OutlineSecondary"
                 value="Открыть"
                 @click="openSaveFolder"
             />
@@ -47,7 +41,7 @@
 
         <dst-button
             v-else
-            variant="link"
+            :variant="ButtonVariant.Link"
             value="<"
             @click="show"
         />
@@ -55,14 +49,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, useTemplateRef } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ExposedRecording } from "../../electron/ipc-handlers/definitions/renderer.ts"
-import { sleep } from "@/utils/utils.ts"
-import DstCombobox, { ComboboxItem } from "@/components/DstCombobox.vue"
-import DstButton from "@/components/DstButton.vue"
+import DstButton from "@/components/butoon/DstButton.vue"
+import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 
 const isFull = ref(true)
-const timerRef = useTemplateRef("timerRef")
+const timerRef = ref<HTMLDivElement | null>(null)
 const fullW = ref(0)
 
 // Реактивные переменные состояния
@@ -77,9 +70,6 @@ const recordingTimer = ref<number | null>(null)
 // Проверка доступности Electron API
 const isIpcRenderer = ref(false)
 
-const selectedScreen = ref<string>('0')
-const screensList = ref<ComboboxItem[]>([])
-
 // Получаем значения из стора
 const formattedTime = computed(() => {
     const sec = recordingTime.value
@@ -90,22 +80,6 @@ const formattedTime = computed(() => {
 
 onMounted(async () => {
     isIpcRenderer.value = !!window.ipcRenderer
-
-    // Получаем список доступных экранов
-    if (isIpcRenderer.value) {
-        // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
-        await sleep(1)
-        const screens = await window.ipcRenderer.invoke(ExposedRecording.GET_AVAILABLE_SCREENS)
-        if (Array.isArray(screens)) {
-            screensList.value = screens.map(item => ({
-                id:    `${item.id}`,
-                title: `${item.name} (${item.width}x${item.height})`,
-            }))
-            selectedScreen.value = `${screens[0]?.id}` || "0"
-        }
-    } else {
-        console.warn('IPC Renderer not available')
-    }
     fullW.value = timerRef.value?.offsetWidth || 0
 })
 
@@ -121,7 +95,7 @@ async function startRecording() {
     }
 
     // Запускаем запись через FFmpeg с выбранным экраном
-    const result = await window.ipcRenderer.invoke(ExposedRecording.START_FFMPEG_RECORDING, Number(selectedScreen.value))
+    const result = await window.ipcRenderer.invoke(ExposedRecording.START_FFMPEG_RECORDING)
     if (result?.error) {
         console.error(result.error || 'Failed to start recording')
         return

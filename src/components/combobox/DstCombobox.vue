@@ -4,18 +4,22 @@
 
         <b-dropdown
             :id="dropdownId"
-            :text="dropdownText"
             :disabled="disabled"
-            :variant="error ? 'danger' : 'outline-secondary'"
+            :variant="buttonVariant"
             class="w-100"
+            :text="dropdownText"
+            :split="isSplit"
+            :dropup="isDropup"
+            :right="isRight"
         >
+            <!-- Рендеринг элементов списка -->
             <template v-for="item in items">
                 <template v-if="item.items && item.items.length">
                     <b-dropdown-header :key="`header-${item.id}`">{{ item.title }}</b-dropdown-header>
                     <b-dropdown-item
                         v-for="subItem in item.items"
                         :key="subItem.id"
-                        :active="subItem.id === modelValue"
+                        :active="String(subItem.id) === modelValue"
                         :disabled="subItem.disabled"
                         @click="onItemSelect(subItem)"
                     >
@@ -30,7 +34,7 @@
                 <template v-else>
                     <b-dropdown-item
                         :key="item.id"
-                        :active="item.id === modelValue"
+                        :active="String(item.id) === modelValue"
                         :disabled="item.disabled"
                         @click="onItemSelect(item)"
                     >
@@ -49,25 +53,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, PropType } from 'vue';
-
-/** Интерфейс одного элемента выпадающего списка */
-export interface ComboboxItem {
-    /** Уникальный id элемента */
-    id: string
-    /** Основной текст, который выводится в выпадающем списке */
-    title: string
-    /** Дополнительный текст */
-    subtitle?: string
-    /** Задизейблен ли элемент */
-    disabled?: boolean
-    /** Массив элементов выпадающего списка (для группы) */
-    items?: ComboboxItem[]
-    // Другие поля, такие как email, mobile, icon и т.д.,
-    // могут быть добавлены по аналогии при необходимости.
-}
-
-
+import {computed, PropType} from 'vue';
+import {ComboboxDisplayType, ComboboxItem, ComboboxStyle} from "@/components/combobox/definitions/dst-combobox.ts";
 
 // --- PROPS ---
 const props = defineProps({
@@ -96,10 +83,20 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    /** Состояние ошибки (может быть булевым или строкой с текстом ошибки) */
+    /** Состояние ошибки. Переопределяет цвет на 'danger' */
     error: {
         type: [Boolean, String],
         default: false,
+    },
+    /** Тип отображения (поведение) */
+    displayType: {
+        type: String as PropType<ComboboxDisplayType>,
+        default: ComboboxDisplayType.Default,
+    },
+    /** Вариант (цвет) */
+    variant: {
+        type: String as PropType<ComboboxStyle>,
+        default: ComboboxStyle.OutlineSecondary,
     },
 });
 
@@ -111,7 +108,20 @@ const emit = defineEmits(['update:modelValue']);
 /** Уникальный ID для связи label и dropdown */
 const dropdownId = computed(() => `combobox-${Math.random().toString(36).substring(2, 9)}`);
 
-/** "Плоский" список всех элементов без учета групп для упрощения поиска */
+// Вычисляемые свойства для управления поведением b-dropdown
+const isSplit = computed(() => props.displayType === ComboboxDisplayType.Split);
+const isDropup = computed(() => props.displayType === ComboboxDisplayType.Up);
+const isRight = computed(() => props.displayType === ComboboxDisplayType.Right);
+
+/** Вычисляет 'variant' (цвет) для кнопки. Ошибка имеет наивысший приоритет. */
+const buttonVariant = computed(() => {
+    if (props.error) {
+        return ComboboxStyle.Danger;
+    }
+    return props.variant;
+});
+
+/** "Плоский" список всех элементов для упрощения поиска */
 const flattenedItems = computed(() => {
     const flat: ComboboxItem[] = [];
     props.items.forEach(item => {
@@ -126,10 +136,10 @@ const flattenedItems = computed(() => {
 
 /** Выбранный на данный момент элемент */
 const selectedItem = computed(() => {
-    return flattenedItems.value.find(item => item.id === props.modelValue);
+    return flattenedItems.value.find(item => String(item.id) === props.modelValue);
 });
 
-/** Текст для кнопки dropdown: либо заголовок выбранного элемента, либо placeholder */
+/** Текст для кнопки dropdown */
 const dropdownText = computed(() => {
     return selectedItem.value ? selectedItem.value.title : props.placeholder;
 });
@@ -142,17 +152,17 @@ const dropdownText = computed(() => {
  */
 function onItemSelect(item: ComboboxItem) {
     if (item.disabled) return;
-    emit('update:modelValue', item.id);
+    emit('update:modelValue', String(item.id));
 }
 </script>
 
 <style lang="scss" scoped>
 .combobox-wrapper {
     position: relative;
-    text-align: left; // Для корректного отображения label
+    text-align: left;
 }
 
-// Bootstrap Vue 2/3 может добавлять лишние отступы, это их убирает.
+// Убираем лишние отступы в меню
 :deep(.dropdown-menu) {
     .dropdown-header {
         padding-top: 0.5rem;

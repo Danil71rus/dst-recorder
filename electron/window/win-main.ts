@@ -31,7 +31,7 @@ export function createMainWindow() {
 
     mainWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.Main, mainWindow)
-        // mainWindow.show()
+        mainWindow.show()
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы

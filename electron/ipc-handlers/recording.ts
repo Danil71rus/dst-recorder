@@ -2,13 +2,14 @@ import { ipcMain, screen, shell } from "electron"
 import { ExposedRecording } from "./definitions/renderer"
 import { screenRecorder } from "../ffmpeg"
 import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
+import { RecordSettings } from "@/views/MainView.vue"
 
 
 export function initMainWindowControlsHandlers() {
     // Обработчик для запуска записи через FFmpeg
-    ipcMain.handle(ExposedRecording.START_FFMPEG_RECORDING, async (_event, screenIndex?: number) => {
+    ipcMain.handle(ExposedRecording.START_FFMPEG_RECORDING, async () => {
         try {
-            return await screenRecorder.startRecording(screenIndex)
+            return await screenRecorder.startRecording()
         } catch (error) {
             console.error('Error starting FFmpeg recording:', error)
             return { error: error instanceof Error ? error.message : 'Unknown error' }
@@ -31,21 +32,20 @@ export function initMainWindowControlsHandlers() {
     })
 
     // Обработчик для получения пути сохранения
-    ipcMain.handle(ExposedRecording.GET_SAVE_PATH, async () => {
-        return screenRecorder.getRecordingsPath()
+    ipcMain.handle(ExposedRecording.SAVE_SETTINGS, async (_event, settings?: RecordSettings) => {
+        screenRecorder.setSettings(settings)
     })
 
     // Обработчик для получения списка доступных экранов
     ipcMain.handle(ExposedRecording.GET_AVAILABLE_SCREENS, async () => {
         const displays = screen.getAllDisplays()
-        const result = displays.map((display, index) => ({
-            id: index,
-            name: display.id === screen.getPrimaryDisplay().id ? 'Primary Screen' : `Screen ${index + 1}`,
+        return displays?.map((display, index) => ({
+            id:        index,
+            name:      display.id === screen.getPrimaryDisplay().id ? 'Primary Screen' : `Screen ${index + 1}`,
             isPrimary: display.id === screen.getPrimaryDisplay().id,
-            width: display.size.width,
-            height: display.size.height
+            width:     display.size.width,
+            height:    display.size.height
         }))
-        return result
     })
 
     // Обработчик для открытия папки

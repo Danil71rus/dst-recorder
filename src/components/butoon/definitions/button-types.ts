@@ -1,0 +1,20 @@
+/** Перечисление для управления цветом/стилем кнопки */
+export enum ButtonVariant {
+    Primary = 'primary',
+    Secondary = 'secondary',
+    Success = 'success',
+    Danger = 'danger',
+    Warning = 'warning',
+    Info = 'info',
+    Light = 'light',
+    Dark = 'dark',
+    OutlinePrimary = 'outline-primary',
+    OutlineSecondary = 'outline-secondary',
+    OutlineSuccess = 'outline-success',
+    OutlineDanger = 'outline-danger',
+    OutlineWarning = 'outline-warning',
+    OutlineInfo = 'outline-info',
+    OutlineLight = 'outline-light',
+    OutlineDark = 'outline-dark',
+    Link = 'link',
+}
