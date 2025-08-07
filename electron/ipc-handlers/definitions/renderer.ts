@@ -1,22 +1,24 @@
 import type { IpcRendererEvent } from "electron"
 
 
-export enum ExposedRecording {
-    // main
+export enum ExposedWinMain {
     GET_DEVICES = "get-devices",
     GET_SETTINGS = "get-settings",
     SAVE_SETTINGS = "save-settings",
+}
 
+export enum ExposedWinTimer {
+    OPEN_MAIN_WIN = "open-main-win",
     OPEN_SAVE_FOLDER = "open-save-folder",
     MOVE_TIMER_WINDOW = "move-timer-window",
-    HIDE_TIMER_WINDOW = "hide-timer-window",
+    CLOSE_ALL_WINDOW = "close-all-window",
     // FFmpeg каналы
     START_FFMPEG_RECORDING = "start-ffmpeg-recording",
     STOP_FFMPEG_RECORDING = "stop-ffmpeg-recording",
     GET_RECORDING_STATUS = "get-recording-status",
 }
 
-export type ExposedChannel = ExposedRecording | string
+export type ExposedChannel = ExposedWinMain | ExposedWinTimer | string
 
 export interface ExposedIpcRenderer {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => void

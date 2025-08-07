@@ -4,57 +4,54 @@
         class="timer-window"
         @mousedown="startDrag"
     >
-        <template v-if="isFull">
-            <div class="flex-row">
-                <b-button variant="link" @click="close">></b-button>
-                <div class="line"/>
-            </div>
-
-            <!-- Основной таймер -->
-            <div class="timer-display">
-                <div :class="{ 'recording-dot': true, 'animate-active': isRecording }" />
-                <span class="time">{{ formattedTime }}</span>
-            </div>
-
+        <div class="flex-row">
+            <b-button variant="link" @click="close">❌</b-button>
             <div class="line"/>
+        </div>
 
-            <dst-button
-                v-if="isRecording"
-                value="Stop"
-                :disabled="isSaving"
-                @click="stopRecording"
-            />
-            <dst-button
-                v-else
-                :variant="ButtonVariant.Danger"
-                value="►"
-                :disabled="isSaving"
-                @click="startRecording"
-            />
+        <!-- Основной таймер -->
+        <div class="timer-display">
+            <div :class="{ 'recording-dot': true, 'animate-active': isRecording }" />
+            <span class="time">{{ formattedTime }}</span>
+        </div>
 
-            <dst-button
-                :variant="ButtonVariant.OutlineSecondary"
-                value="Открыть"
-                @click="openSaveFolder"
-            />
-        </template>
+        <div class="line"/>
 
         <dst-button
+            v-if="isRecording"
+            value="Stop"
+            :disabled="isSaving"
+            @click="stopRecording"
+        />
+        <dst-button
             v-else
-            :variant="ButtonVariant.Link"
-            value="<"
-            @click="show"
+            :variant="ButtonVariant.Danger"
+            value="►"
+            :disabled="isSaving"
+            @click="startRecording"
+        />
+
+        <dst-button
+            :variant="ButtonVariant.OutlineInfo"
+            value="🛠"
+            @click="openMainWin"
+        />
+
+        <dst-button
+            :variant="ButtonVariant.OutlineSecondary"
+            value="Открыть"
+            @click="openSaveFolder"
         />
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { ExposedRecording } from "../../electron/ipc-handlers/definitions/renderer.ts"
+import { ExposedWinTimer } from "../../electron/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 
-const isFull = ref(true)
+
 const timerRef = ref<HTMLDivElement | null>(null)
 const fullW = ref(0)
 
@@ -95,7 +92,7 @@ async function startRecording() {
     }
 
     // Запускаем запись через FFmpeg с выбранным экраном
-    const result = await window.ipcRenderer.invoke(ExposedRecording.START_FFMPEG_RECORDING)
+    const result = await window.ipcRenderer.invoke(ExposedWinTimer.START_FFMPEG_RECORDING)
     if (result?.error) {
         console.error(result.error || 'Failed to start recording')
         return
@@ -116,7 +113,7 @@ async function stopRecording() {
     console.log('Stopping FFmpeg recording...')
 
     // Останавливаем запись через FFmpeg
-    const result = await window.ipcRenderer.invoke(ExposedRecording.STOP_FFMPEG_RECORDING)
+    const result = await window.ipcRenderer.invoke(ExposedWinTimer.STOP_FFMPEG_RECORDING)
     if (!result?.error) {
         console.log('Recording saved successfully:', result.outputPath)
         console.log('Duration:', result.duration, 'seconds')
@@ -127,9 +124,12 @@ async function stopRecording() {
     resetParams()
 }
 
-// Функция для открытия папки с записью
 function openSaveFolder() {
-    window.ipcRenderer.send(ExposedRecording.OPEN_SAVE_FOLDER, savePathFile.value)
+    window.ipcRenderer.send(ExposedWinTimer.OPEN_SAVE_FOLDER, savePathFile.value)
+}
+
+function openMainWin() {
+    window.ipcRenderer.send(ExposedWinTimer.OPEN_MAIN_WIN)
 }
 
 function resetParams() {
@@ -144,22 +144,8 @@ function resetParams() {
     }
 }
 
-function show() {
-    window.ipcRenderer.send(ExposedRecording.HIDE_TIMER_WINDOW, {
-        x:      window.screen.width - 50 - fullW.value,
-        y:      window.screen.height - 70,
-        isFull: true,
-    })
-    isFull.value = true
-}
-
 function close() {
-    window.ipcRenderer.send(ExposedRecording.HIDE_TIMER_WINDOW, {
-        x:      window.screen.width - 35, // - e.clientX,
-        y:      window.screen.height / 2, // - e.screenY,
-        isFull: false,
-    })
-    isFull.value = false
+    window.ipcRenderer.send(ExposedWinTimer.CLOSE_ALL_WINDOW)
 }
 
 /** Перемещение окна */
@@ -171,7 +157,7 @@ function startDrag(e: MouseEvent) {
 }
 function drag(e: MouseEvent) {
     if (!dragPosition) return;
-    window.ipcRenderer.send(ExposedRecording.MOVE_TIMER_WINDOW, {
+    window.ipcRenderer.send(ExposedWinTimer.MOVE_TIMER_WINDOW, {
         x: e.screenX - dragPosition.x,
         y: e.screenY - dragPosition.y
     });

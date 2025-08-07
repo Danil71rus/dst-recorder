@@ -9,6 +9,16 @@
                 placeholder="Экран"
                 label="Выбор экрана"
             />
+
+            <dst-combobox
+                v-model="selectedAudio"
+                :items="audioList"
+                :display-type="ComboboxDisplayType.Right"
+                :variant="ComboboxStyle.Primary"
+                placeholder="Звук"
+                label="Выбор звука"
+            />
+
             <hr>
 
             <div class="flex-row">
@@ -24,7 +34,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, toRaw, computed } from 'vue'
-import { ExposedRecording } from "../../electron/ipc-handlers/definitions/renderer"
+import { ExposedWinMain } from "../../electron/ipc-handlers/definitions/renderer"
 import { sleep } from "@/utils/utils"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
@@ -36,17 +46,12 @@ import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../../ele
 
 // Проверка доступности Electron API
 const isIpcRenderer = ref(false)
-
-
 const deviceList = ref<FfmpegDeviceLists>({
     audio: [],
     video: [],
 })
-const screensList = ref<ComboboxItem[]>([])
-
 const currentState = ref<FfmpegSettings>(getDefaultSettings())
 
-// 2. Вычисляемое свойство с геттером и сеттером
 const selectedVideo = computed({
     get() {
         return `${currentState.value.video?.index}`
@@ -56,6 +61,28 @@ const selectedVideo = computed({
         if (newVideo?.name) currentState.value.video = newVideo
     }
 })
+const screensList = computed((): ComboboxItem[] => {
+    return deviceList.value.video.map(item => ({
+        id:    `${item.index}`,
+        title: `${item.name} `,
+    }))
+})
+
+const selectedAudio = computed({
+    get() {
+        return `${currentState.value.audio?.index}`
+    },
+    set(newIndex: string) {
+        const newAudio = deviceList.value.audio.find(item => item.index === Number(newIndex))
+        if (newAudio?.name) currentState.value.audio = newAudio
+    }
+})
+const audioList = computed((): ComboboxItem[] => {
+    return deviceList.value.audio.map(item => ({
+        id:    `${item.index}`,
+        title: `${item.name} `,
+    }))
+})
 
 onMounted(async () => {
     isIpcRenderer.value = !!window.ipcRenderer
@@ -63,24 +90,18 @@ onMounted(async () => {
     // Получаем список доступных экранов
     if (isIpcRenderer.value) {
         // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
-        await sleep(2000)
+        await sleep(1000)
 
-        const settings = await window.ipcRenderer.invoke(ExposedRecording.GET_SETTINGS) as FfmpegSettings
+        const settings = await window.ipcRenderer.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
         if (settings) currentState.value = settings
 
-        const devices = await window.ipcRenderer.invoke(ExposedRecording.GET_DEVICES) as FfmpegDeviceLists
-        if (devices?.video?.length) {
-            deviceList.value = devices
-            screensList.value = devices.video.map(item => ({
-                id:    `${item.index}`,
-                title: `${item.name} `,
-            }))
-        }
+        const devices = await window.ipcRenderer.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
+        if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
     }
 })
 
 async function onSave() {
-    await window.ipcRenderer.invoke(ExposedRecording.SAVE_SETTINGS, toRaw(currentState.value))
+    await window.ipcRenderer.invoke(ExposedWinMain.SAVE_SETTINGS, toRaw(currentState.value))
 }
 </script>
 
@@ -101,6 +122,10 @@ async function onSave() {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     max-width: 500px;
     width: 100%;
+
+    &>*:not(:first-child) {
+        margin-top: 24px;
+    }
 }
 
 h1 {

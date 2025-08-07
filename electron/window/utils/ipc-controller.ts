@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron"
-import { initMainWindowControlsHandlers } from "../../ipc-handlers/recording"
+import { initMainWindowControlsHandlers } from "../../ipc-handlers/ipc-win-main.ts"
+import { initTimerWindowControlsHandlers } from "../../ipc-handlers/ipc-win-timer.ts"
 
 export enum WindowName {
     Main = "mainWindow",
@@ -37,6 +38,19 @@ const _handlersRegister = [
             initMainWindowControlsHandlers()
         },
     },
+    {
+        type:        "timer",
+        isRegister:  false,
+        isAvailable: () => _windowsState[WindowName.Timer].isReady,
+        register:    () => {
+            const timerWindow = _windowsState[WindowName.Timer].windowLink
+            if (!timerWindow) {
+                console.log('Timer window not found, skipping IPC registration')
+                return
+            }
+            initTimerWindowControlsHandlers()
+        },
+    },
 ]
 
 export const initializeIpcHandlersIfAvailable = () => {
@@ -55,7 +69,11 @@ export const getWindowByName = (window: WindowName) => {
     return _windowsState[window].windowLink
 }
 
-export const setWindowReady = (window: WindowName, windowLink: BrowserWindow) =>  {
+export const getWindowAll = () => {
+    return Object.values(_windowsState).map(item => item.windowLink)
+}
+
+export const setWindowReady = (window: WindowName, windowLink: BrowserWindow) => {
     _windowsState[window] = {
         isReady:    true,
         windowLink: windowLink

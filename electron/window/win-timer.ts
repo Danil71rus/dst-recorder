@@ -6,10 +6,11 @@ const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD =
 
 export function createTimerWindow() {
     const timerWindow = new BrowserWindow({
-        width:  540,
+        width:  500,
         height: 54,
         // width:  1200,
         // height: 1000,
+        show:   false,
         frame: false,
         alwaysOnTop: true,
         resizable: false,
