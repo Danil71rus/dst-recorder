@@ -1,5 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg'
-import { systemPreferences, app } from 'electron'
+import { app, systemPreferences } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, statSync } from 'fs'
 import { homedir } from 'os'
@@ -8,6 +8,8 @@ import { exec } from 'child_process'
 import FfmpegStatic from 'ffmpeg-ffprobe-static'
 import { sleep } from "../src/utils/utils"
 import { FfmpegDevice, FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "./difenition/ffmpeg.ts"
+import { ExposedWinMain } from "./ipc-handlers/definitions/renderer.ts"
+import { getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 
 
 export class ScreenRecorder {
@@ -37,11 +39,11 @@ export class ScreenRecorder {
         }
 
         setTimeout(async () => {
-            const sd = await this.getSeparatedDevices()
+            const device = await this.getSeparatedDevices()
             this.setSettings({
                 ...this.settings,
-                audio: sd.audio.find(item => item.name.startsWith("Recorder-Input")) || sd.audio[0],
-                video: sd.video.find(item => item.name.startsWith("Capture screen 0")) || sd.video[0],
+                audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
+                video: device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0],
             })
         }, 1000)
     }
@@ -253,6 +255,7 @@ export class ScreenRecorder {
     setSettings(settings?: FfmpegSettings) {
         if (!settings) return
         this.settings = settings
+        getWindowByName(WindowName.Main)?.webContents.send(ExposedWinMain.SHOW)
     }
 
     generateShortFilename(): string {

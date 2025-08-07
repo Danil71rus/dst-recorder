@@ -2,11 +2,11 @@ import type { IpcRendererEvent } from "electron"
 
 
 export enum ExposedWinMain {
+    SHOW = "show",
     GET_DEVICES = "get-devices",
     GET_SETTINGS = "get-settings",
     SAVE_SETTINGS = "save-settings",
-
-    GGG = "ggg",
+    HIDE = "hide",
 }
 
 export enum ExposedWinTimer {

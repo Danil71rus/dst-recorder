@@ -23,8 +23,15 @@
 
             <div class="flex-row">
                 <dst-button
-                    :variant="ButtonVariant.Success"
                     value="Сохранить"
+                    :variant="ButtonVariant.Success"
+                    @click="onSave"
+                />
+
+                <dst-button
+                    class="ml-x2"
+                    value="Закрыть"
+                    :variant="ButtonVariant.OutlineSecondary"
                     @click="onSave"
                 />
             </div>
@@ -33,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, toRaw, computed } from 'vue'
+import { ref, toRaw, computed } from 'vue'
 import { ExposedWinMain } from "../../electron/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
@@ -41,8 +48,6 @@ import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../../electron/difenition/ffmpeg.ts"
-import { sleep } from "@/utils/utils.ts"
-
 
 // Проверка доступности Electron API
 const deviceList = ref<FfmpegDeviceLists>({
@@ -83,26 +88,14 @@ const audioList = computed((): ComboboxItem[] => {
     }))
 })
 
-// window.ipcRenderer?.on(ExposedWinMain.GGG, async () => {
-//     const settings = await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
-//     if (settings) currentState.value = settings
-//
-//     const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
-//     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
-// })
-
-onMounted(async () => {
-    console.log("onMounted")
-    // Получаем список доступных экранов
-
-    // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
-    await sleep(2000)
-
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => {
     const settings = await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
     if (settings) currentState.value = settings
 
     const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
+
+    console.log(" currentState.value: ",  currentState.value)
 })
 
 async function onSave() {
@@ -148,5 +141,9 @@ p {
 .flex-row {
     display: flex;
     justify-content: flex-start;
+}
+
+.ml-x2 {
+    margin-left: 16px;
 }
 </style>

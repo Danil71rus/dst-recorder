@@ -44,6 +44,7 @@ export function initTimerWindowControlsHandlers() {
     })
 
     ipcMain.on(ExposedWinTimer.OPEN_MAIN_WIN, () => {
-       getWindowByName(WindowName.Main)?.show()
+       const mainWin = getWindowByName(WindowName.Main)
+        mainWin?.show()
     })
 }

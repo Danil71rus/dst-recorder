@@ -12,10 +12,14 @@ export function initMainWindowControlsHandlers() {
 
     ipcMain.handle(ExposedWinMain.SAVE_SETTINGS, async (_event, settings?: FfmpegSettings) => {
         screenRecorder.setSettings(settings)
-        getWindowByName(WindowName.Main)?.close()
+        getWindowByName(WindowName.Main)?.hide()
     })
 
     ipcMain.handle(ExposedWinMain.GET_DEVICES, async () => {
         return await screenRecorder.getSeparatedDevices()
+    })
+
+    ipcMain.handle(ExposedWinMain.HIDE, async () => {
+        getWindowByName(WindowName.Main)?.hide()
     })
 }
