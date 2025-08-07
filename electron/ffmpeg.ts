@@ -1,5 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg'
-import { screen, systemPreferences, app } from 'electron'
+import { systemPreferences, app } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, statSync } from 'fs'
 import { homedir } from 'os'
@@ -7,22 +7,27 @@ import { DateTime } from "luxon"
 import { exec } from 'child_process'
 import FfmpegStatic from 'ffmpeg-ffprobe-static'
 import { sleep } from "../src/utils/utils"
-import { RecordSettings } from "@/views/MainView.vue"
+import { FfmpegDevice, FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "./difenition/ffmpeg.ts"
+
 
 export class ScreenRecorder {
-    private static instance: ScreenRecorder;
+    private static instance: ScreenRecorder
 
-    private ffmpegCommand: ffmpeg.FfmpegCommand | null = null;
-    private readonly outputPath: string = join(homedir(), 'Desktop', 'Dst-Recorder');
-    private outputPathAndFileName: string = '';
-    private recordingStartTime: number = 0;
-    private isRecording: boolean = false;
-    private currentDisplay: Electron.Display | null = null;
+    private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
+    private outputPathAndFileName: string = ''
+    private recordingStartTime: number = 0
+    private isRecording: boolean = false
+
+    private settings: FfmpegSettings = {
+        ...getDefaultSettings(),
+        outputPath: join(homedir(), 'Desktop', 'Dst-Recorder'),
+    }
+
     private readonly ffmpegBinaryPath: string | null = null;
 
     private constructor() {
-        if (!existsSync(this.outputPath)) {
-            mkdirSync(this.outputPath, { recursive: true });
+        if (!existsSync(this.settings.outputPath)) {
+            mkdirSync(this.settings.outputPath, { recursive: true });
         }
         this.ffmpegBinaryPath = this.initializeFfmpegPath();
         if (this.ffmpegBinaryPath) {
@@ -31,9 +36,12 @@ export class ScreenRecorder {
             console.error('CRITICAL: FFmpeg binary not found. Recording will fail.');
         }
 
-        setTimeout(() => {
+        setTimeout(async () => {
+            const sd = await this.getSeparatedDevices()
             this.setSettings({
-                screen: "0",
+                ...this.settings,
+                audio: sd.audio.find(item => item.name.startsWith("Recorder-Input")) || sd.audio[0],
+                video: sd.video.find(item => item.name.startsWith("Capture screen 0")) || sd.video[0],
             })
         }, 1000)
     }
@@ -100,29 +108,51 @@ export class ScreenRecorder {
         return null;
     }
 
-    // Метод поиска теперь ищет наше новое Агрегатное устройство
-    private async getDevices(): Promise<{ videoIndex?: string; audioIndex?: string; error?: string }> {
-        if (!this.ffmpegBinaryPath) return { error: 'FFmpeg path is not configured.' };
+    public getSeparatedDevices(): Promise<FfmpegDeviceLists> {
+        // Убедитесь, что путь к ffmpeg правильный, особенно для собранного приложения
+        const ffmpegPath = FfmpegStatic.ffmpegPath;
+        if (!ffmpegPath) return Promise.resolve({ video: [], audio: [] });
+
+        const command = `"${ffmpegPath}" -f avfoundation -list_devices true -i ""`;
+
         return new Promise((resolve) => {
-            exec(`"${this.ffmpegBinaryPath}" -f avfoundation -list_devices true -i ""`, (_error, _stdout, stderr) => {
-                const output = stderr.toString();
+            exec(command, (_error, _stdout, stderr) => {
+                const lines = stderr.split('\n')
+                const result: FfmpegDeviceLists = {
+                    video: [],
+                    audio: [],
+                };
 
-                const videoDeviceRegex = /\[AVFoundation indev @ .*\] \[(\d+)\] Capture screen \d+/;
-                // Ищем новое устройство по имени, которое вы ему дали
-                const audioDeviceRegex = /\[AVFoundation indev @ .*\] \[(\d+)\] Recorder-Input/;
+                let currentSection: 'video' | 'audio' | null = null
 
-                const videoMatch = output.match(videoDeviceRegex);
-                const audioMatch = output.match(audioDeviceRegex);
+                for (const line of lines) {
+                    // Определяем, в какой секции мы находимся
+                    if (line.includes('AVFoundation video devices:')) {
+                        currentSection = 'video'
+                        continue; // Переходим к следующей строке
+                    } else if (line.includes('AVFoundation audio devices:')) {
+                        currentSection = 'audio'
+                        continue // Переходим к следующей строке
+                    }
 
-                const videoIndex = videoMatch?.[1];
-                const audioIndex = audioMatch?.[1];
+                    if (!currentSection) continue
 
-                if (!videoIndex) return resolve({ error: 'Could not find screen capture device.' });
-                if (!audioIndex) return resolve({ error: 'Could not find Aggregate Device named "Recorder-Input". Please check Audio MIDI Setup.' });
+                    // Парсим строку с устройством
+                    const deviceMatch = line.match(/\[(\d+)\]\s(.*)/)
+                    if (deviceMatch && deviceMatch[1] && deviceMatch[2]) {
+                        const device: FfmpegDevice = {
+                            index: parseInt(deviceMatch[1], 10),
+                            name:  deviceMatch[2].trim(),
+                        }
 
-                resolve({ videoIndex, audioIndex });
-            });
-        });
+                        if (currentSection === 'video') result.video.push(device)
+                        else result.audio.push(device)
+                    }
+                }
+
+                resolve(result)
+            })
+        })
     }
 
     async startRecording(): Promise<{ outputPathAndFileName?: string; error?: string }> {
@@ -130,30 +160,21 @@ export class ScreenRecorder {
         if (!this.ffmpegBinaryPath) return { error: 'FFmpeg is not available.' };
 
         try {
-            if (process.platform !== 'darwin') return { error: 'This recorder is currently configured for macOS only.' };
-            const hasPermission = systemPreferences.getMediaAccessStatus('screen') === 'granted';
-            if (!hasPermission) return { error: 'Screen Recording permission required.' };
+            if (process.platform !== 'darwin') return { error: 'This recorder is currently configured for macOS only.' }
+
+            const hasPermission = systemPreferences.getMediaAccessStatus('screen') === 'granted'
+            if (!hasPermission) return { error: 'Screen Recording permission required.' }
+
+            if (!this.settings.audio || !this.settings.video) return { error: `Display with index not found.` }
 
 
-            if (!this.currentDisplay) return { error: `Display with index not found.` };
-
-            const { width, height } = this.currentDisplay.size;
-            this.outputPathAndFileName = join(this.outputPath, this.generateShortFilename());
-
-            console.log('Discovering devices...');
-            const devices = await this.getDevices();
-            if (devices.error || !devices.videoIndex || !devices.audioIndex) {
-                return { error: devices.error || 'Failed to discover required devices.' };
-            }
-
-            const { videoIndex, audioIndex } = devices;
-
+            this.outputPathAndFileName = join(this.settings.outputPath, this.generateShortFilename())
             this.ffmpegCommand = ffmpeg()
                 // ---- МАКСИМАЛЬНО ПРОСТАЯ КОМАНДА ----
                 // Один вход для видео, один для УЖЕ синхронизированного аудио
-                .input(`${videoIndex}:${audioIndex}`)
+                .input(`${this.settings.video.index}:${this.settings.audio.index}`)
                 .inputFormat('avfoundation')
-                .inputFPS(30)
+                .inputFPS(this.settings.fps)
                 .inputOptions(['-thread_queue_size', '2048', '-capture_cursor', '1'])
                 // Фильтр для смешивания каналов и увеличения громкости микрофона
                 .audioFilter([
@@ -167,8 +188,8 @@ export class ScreenRecorder {
                     '-preset', 'ultrafast',
                     '-crf', '23',
                     '-pix_fmt', 'yuv420p',
-                    '-s', `${width}x${height}`,
-                    '-r', '30',
+                    '-s', `${this.settings.size.width}x${this.settings.size.height}`,
+                    '-r', `${this.settings.fps}`,
                     '-c:a', 'aac',
                     '-b:a', '192k',
                     '-y'
@@ -223,15 +244,15 @@ export class ScreenRecorder {
         return { isRecording: this.isRecording, duration }
     }
 
-    getRecordingsPath(): string { return this.outputPath; }
+    getRecordingsPath(): string { return this.settings.outputPath }
 
-    setSettings(settings?: RecordSettings) {
-        console.log('Settings:', settings);
-        if (settings?.screen) {
-            const screenIndex = Number(settings.screen)
-            const displays = screen.getAllDisplays()
-            this.currentDisplay = displays[screenIndex]
-        }
+    getSettings() {
+        return this.settings
+    }
+
+    setSettings(settings?: FfmpegSettings) {
+        if (!settings) return
+        this.settings = settings
     }
 
     generateShortFilename(): string {

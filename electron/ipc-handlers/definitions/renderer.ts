@@ -3,7 +3,8 @@ import type { IpcRendererEvent } from "electron"
 
 export enum ExposedRecording {
     // main
-    GET_AVAILABLE_SCREENS = "get-available-screens",
+    GET_DEVICES = "get-devices",
+    GET_SETTINGS = "get-settings",
     SAVE_SETTINGS = "save-settings",
 
     OPEN_SAVE_FOLDER = "open-save-folder",

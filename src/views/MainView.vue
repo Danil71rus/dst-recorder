@@ -2,7 +2,7 @@
     <div class="main-view">
         <div class="container">
             <dst-combobox
-                v-model="currentState.screen"
+                v-model="selectedVideo"
                 :items="screensList"
                 :display-type="ComboboxDisplayType.Right"
                 :variant="ComboboxStyle.Primary"
@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, toRaw } from 'vue'
+import { ref, onMounted, toRaw, computed } from 'vue'
 import { ExposedRecording } from "../../electron/ipc-handlers/definitions/renderer"
 import { sleep } from "@/utils/utils"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
@@ -31,18 +31,30 @@ import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/defini
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
+import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../../electron/difenition/ffmpeg.ts"
 
-export interface RecordSettings {
-    screen: string
-}
 
 // Проверка доступности Electron API
 const isIpcRenderer = ref(false)
 
+
+const deviceList = ref<FfmpegDeviceLists>({
+    audio: [],
+    video: [],
+})
 const screensList = ref<ComboboxItem[]>([])
 
-const currentState = ref<RecordSettings>({
-    screen: "0"
+const currentState = ref<FfmpegSettings>(getDefaultSettings())
+
+// 2. Вычисляемое свойство с геттером и сеттером
+const selectedVideo = computed({
+    get() {
+        return `${currentState.value.video?.index}`
+    },
+    set(newIndex: string) {
+        const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
+        if (newVideo?.name) currentState.value.video = newVideo
+    }
 })
 
 onMounted(async () => {
@@ -51,21 +63,23 @@ onMounted(async () => {
     // Получаем список доступных экранов
     if (isIpcRenderer.value) {
         // Добавляем небольшую задержку, чтобы IPC обработчики успели зарегистрироваться
-        await sleep(1)
-        const screens = await window.ipcRenderer.invoke(ExposedRecording.GET_AVAILABLE_SCREENS)
-        if (Array.isArray(screens)) {
-            screensList.value = screens.map(item => ({
-                id:    `${item.id}`,
-                title: `${item.name} (${item.width}x${item.height})`,
+        await sleep(2000)
+
+        const settings = await window.ipcRenderer.invoke(ExposedRecording.GET_SETTINGS) as FfmpegSettings
+        if (settings) currentState.value = settings
+
+        const devices = await window.ipcRenderer.invoke(ExposedRecording.GET_DEVICES) as FfmpegDeviceLists
+        if (devices?.video?.length) {
+            deviceList.value = devices
+            screensList.value = devices.video.map(item => ({
+                id:    `${item.index}`,
+                title: `${item.name} `,
             }))
-            currentState.value.screen = `${screens[0]?.id}` || "0"
         }
     }
 })
 
-
 async function onSave() {
-    console.log("onSave")
     await window.ipcRenderer.invoke(ExposedRecording.SAVE_SETTINGS, toRaw(currentState.value))
 }
 </script>

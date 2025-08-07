@@ -1,8 +1,8 @@
-import { ipcMain, screen, shell } from "electron"
+import { ipcMain, shell } from "electron"
 import { ExposedRecording } from "./definitions/renderer"
 import { screenRecorder } from "../ffmpeg"
 import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
-import { RecordSettings } from "@/views/MainView.vue"
+import { FfmpegSettings } from "../difenition/ffmpeg.ts"
 
 
 export function initMainWindowControlsHandlers() {
@@ -31,21 +31,18 @@ export function initMainWindowControlsHandlers() {
         return screenRecorder.getRecordingStatus()
     })
 
+    ipcMain.handle(ExposedRecording.GET_SETTINGS, () => {
+        return screenRecorder.getSettings()
+    })
+
     // Обработчик для получения пути сохранения
-    ipcMain.handle(ExposedRecording.SAVE_SETTINGS, async (_event, settings?: RecordSettings) => {
+    ipcMain.handle(ExposedRecording.SAVE_SETTINGS, async (_event, settings?: FfmpegSettings) => {
         screenRecorder.setSettings(settings)
     })
 
     // Обработчик для получения списка доступных экранов
-    ipcMain.handle(ExposedRecording.GET_AVAILABLE_SCREENS, async () => {
-        const displays = screen.getAllDisplays()
-        return displays?.map((display, index) => ({
-            id:        index,
-            name:      display.id === screen.getPrimaryDisplay().id ? 'Primary Screen' : `Screen ${index + 1}`,
-            isPrimary: display.id === screen.getPrimaryDisplay().id,
-            width:     display.size.width,
-            height:    display.size.height
-        }))
+    ipcMain.handle(ExposedRecording.GET_DEVICES, async () => {
+        return await screenRecorder.getSeparatedDevices()
     })
 
     // Обработчик для открытия папки

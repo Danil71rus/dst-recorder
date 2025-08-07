@@ -1,5 +1,4 @@
 import { ExposedIpcRenderer } from "@/ipc-handlers/definitions/renderer"
-import { LoDashStatic } from "lodash"
 
 declare global {
     interface Window {
