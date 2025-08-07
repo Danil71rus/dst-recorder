@@ -6,8 +6,8 @@ const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD =
 
 export function createMainWindow() {
     const mainWindow = new BrowserWindow({
-        width:  1600,
-        height: 1000,
+        width:  550,
+        height: 400,
         show:   false,
         webPreferences: {
             preload: join(__dirname, "preload.js"),
@@ -18,7 +18,7 @@ export function createMainWindow() {
 
     if (isDev) {
         mainWindow.loadURL("http://localhost:5173")
-        mainWindow.webContents.openDevTools()
+        // mainWindow.webContents.openDevTools()
     } else {
         // В production используем правильный путь
         const indexPath = join(__dirname, '../dist/index.html')
@@ -31,7 +31,7 @@ export function createMainWindow() {
 
     mainWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.Main, mainWindow)
-        // mainWindow.show()
+        mainWindow.show()
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы

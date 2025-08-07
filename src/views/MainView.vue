@@ -5,7 +5,7 @@
                 v-model="selectedVideo"
                 :items="screensList"
                 :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Primary"
+                :variant="ComboboxStyle.Secondary"
                 placeholder="Экран"
                 label="Выбор экрана"
             />
@@ -14,7 +14,7 @@
                 v-model="selectedAudio"
                 :items="audioList"
                 :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Primary"
+                :variant="ComboboxStyle.Secondary"
                 placeholder="Звук"
                 label="Выбор звука"
             />
@@ -116,12 +116,13 @@ async function onSave() {
 
 .container {
     text-align: center;
-    background: white;
+    background: rgba(1, 12, 12, 0.48);
     padding: 3rem;
     border-radius: 1rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.16);
     max-width: 500px;
     width: 100%;
+    color: #ffffff;
 
     &>*:not(:first-child) {
         margin-top: 24px;
