@@ -1,11 +1,13 @@
 import { BrowserWindow } from 'electron'
 import { join } from "path"
 import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
+import { getIconPath } from "../utils/icon-utils.ts"
 
 const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true'
 
 export async function createMainWindow() {
     const mainWindow = new BrowserWindow({
+        icon: getIconPath(),
         width:  550,
         height: 400,
         show:   false,

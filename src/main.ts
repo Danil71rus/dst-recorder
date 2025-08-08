@@ -1,8 +1,9 @@
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, nativeImage } from "electron"
 import { createMainWindow } from "./window/win-main.ts"
-import {createTimerWindow} from "./window/win-timer.ts";
-import { join } from "path";
-import { existsSync } from "fs";
+import {createTimerWindow } from "./window/win-timer.ts"
+import { join } from "path"
+import { existsSync } from "fs"
+import { getIconPath } from "./utils/icon-utils.ts"
 
 // Диагностика путей FFmpeg при запуске
 function logFFmpegPaths() {
@@ -35,6 +36,24 @@ function logFFmpegPaths() {
 }
 
 app.whenReady().then(async () => {
+    // Устанавливаем иконку приложения
+    if (process.platform === 'darwin') {
+        const iconPath = getIconPath();
+        console.log(`Setting dock icon to: ${iconPath}`);
+
+        if (existsSync(iconPath)) {
+            console.log(`Icon file exists at ${iconPath}`);
+            try {
+                app.dock.setIcon(nativeImage.createFromPath(iconPath));
+                console.log(`Dock icon set successfully`);
+            } catch (error) {
+                console.error(`Failed to set dock icon:`, error);
+            }
+        } else {
+            console.error(`Icon file not found at ${iconPath}`);
+        }
+    }
+
     // Логируем диагностику FFmpeg
     logFFmpegPaths();
 
