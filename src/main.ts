@@ -4,6 +4,9 @@ import {createTimerWindow } from "./window/win-timer.ts"
 import { join } from "path"
 import { existsSync } from "fs"
 import { getIconPath } from "./utils/icon-utils.ts"
+import os from "os"
+
+const isDarwin = os.platform() === "darwin"
 
 // Диагностика путей FFmpeg при запуске
 function logFFmpegPaths() {
@@ -37,20 +40,12 @@ function logFFmpegPaths() {
 
 app.whenReady().then(async () => {
     // Устанавливаем иконку приложения
-    if (process.platform === 'darwin') {
-        const iconPath = getIconPath();
-        console.log(`Setting dock icon to: ${iconPath}`);
-
-        if (existsSync(iconPath)) {
-            console.log(`Icon file exists at ${iconPath}`);
-            try {
-                app.dock.setIcon(nativeImage.createFromPath(iconPath));
-                console.log(`Dock icon set successfully`);
-            } catch (error) {
-                console.error(`Failed to set dock icon:`, error);
-            }
-        } else {
-            console.error(`Icon file not found at ${iconPath}`);
+    if (isDarwin) {
+        try {
+            const iconPath = getIconPath();
+            app.dock.setIcon(nativeImage.createFromPath(iconPath))
+        } catch (error) {
+            console.error(`Failed to set dock icon:`, error);
         }
     }
 
