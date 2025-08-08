@@ -38,7 +38,7 @@ export async function createTimerWindow() {
     timerWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.Timer, timerWindow)
         timerWindow.setAlwaysOnTop(true)
-        timerWindow.show()
+        // timerWindow.show() // Не показываем автоматически - управление через трей
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы

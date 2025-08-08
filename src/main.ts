@@ -4,6 +4,7 @@ import {createTimerWindow } from "./window/win-timer.ts"
 import { join } from "path"
 import { existsSync } from "fs"
 import { getIconPath } from "./utils/icon-utils.ts"
+import { trayManager } from "./tray/tray-manager.ts"
 import os from "os"
 
 const isDarwin = os.platform() === "darwin"
@@ -58,7 +59,7 @@ app.whenReady().then(async () => {
     }
 
     await Promise.all([createMainWindow(), createTimerWindow()])
-    // createTray()
+    trayManager.createTray()
 
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
@@ -74,6 +75,7 @@ app.whenReady().then(async () => {
 })
 
 app.on("window-all-closed", () => {
+    trayManager.destroy()
     app.quit()
 })
 

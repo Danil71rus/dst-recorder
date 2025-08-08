@@ -1,6 +1,7 @@
 import { BrowserWindow } from "electron"
 import { initMainWindowControlsHandlers } from "../../ipc-handlers/ipc-win-main.ts"
 import { initTimerWindowControlsHandlers } from "../../ipc-handlers/ipc-win-timer.ts"
+import { initTrayHandlers } from "../../ipc-handlers/ipc-tray.ts"
 
 export enum WindowName {
     Main = "mainWindow",
@@ -49,6 +50,14 @@ const _handlersRegister = [
                 return
             }
             initTimerWindowControlsHandlers()
+        },
+    },
+    {
+        type:        "tray",
+        isRegister:  false,
+        isAvailable: () => true, // Трей не зависит от окон
+        register:    () => {
+            initTrayHandlers()
         },
     },
 ]

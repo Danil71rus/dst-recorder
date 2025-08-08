@@ -14,8 +14,9 @@ import {
     RecordingStatus,
     StartRecordingResponse
 } from "./deinitions/ffmpeg.ts"
-import { ExposedWinMain } from "./ipc-handlers/definitions/renderer.ts"
+import { ExposedWinMain, ExposedTray } from "./ipc-handlers/definitions/renderer.ts"
 import { getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
+import { ipcMain } from 'electron'
 
 
 export class ScreenRecorder {
@@ -219,16 +220,22 @@ export class ScreenRecorder {
                         console.log('FFmpeg started:', cmd)
                         this.isRecording = true
                         this.recordingStartTime = Date.now()
+                        // Уведомляем трей о начале записи
+                        ipcMain.emit(ExposedTray.UPDATE_RECORDING_STATE, null, true)
                         resolve({  outputPathAndFileName: this.outputPathAndFileName })
                     })
                     .on('end', () => {
                         console.log('Recording finished.')
                         this.isRecording = false
                         this.ffmpegCommand = null
+                        // Уведомляем трей об остановке записи
+                        ipcMain.emit(ExposedTray.UPDATE_RECORDING_STATE, null, false)
                     })
                     .on('error', (err) => {
                         console.error('FFmpeg error:', err.message)
                         this.isRecording = false
+                        // Уведомляем трей об остановке записи в случае ошибки
+                        ipcMain.emit(ExposedTray.UPDATE_RECORDING_STATE, null, false)
                         reject({ error: err.message })
                     })
                     // .on('stderr', (line) => {

@@ -20,7 +20,13 @@ export enum ExposedWinTimer {
     GET_RECORDING_STATUS = "get-recording-status",
 }
 
-export type ExposedChannel = ExposedWinMain | ExposedWinTimer | string
+export enum ExposedTray {
+    UPDATE_RECORDING_STATE = "tray:update-recording-state",
+    SHOW_TRAY_MENU = "tray:show-menu",
+    DESTROY_TRAY = "tray:destroy"
+}
+
+export type ExposedChannel = ExposedWinMain | ExposedWinTimer | ExposedTray | string
 
 export interface ExposedIpcRenderer {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => void
