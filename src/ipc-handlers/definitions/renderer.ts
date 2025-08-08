@@ -22,8 +22,6 @@ export enum ExposedWinTimer {
 
 export enum ExposedTray {
     UPDATE_RECORDING_STATE = "tray:update-recording-state",
-    SHOW_TRAY_MENU = "tray:show-menu",
-    DESTROY_TRAY = "tray:destroy"
 }
 
 export type ExposedChannel = ExposedWinMain | ExposedWinTimer | ExposedTray | string

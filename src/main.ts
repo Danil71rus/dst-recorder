@@ -75,7 +75,6 @@ app.whenReady().then(async () => {
 })
 
 app.on("window-all-closed", () => {
-    trayManager.destroy()
     app.quit()
 })
 

@@ -1,4 +1,4 @@
-import { ipcMain, shell } from "electron"
+import {BrowserWindow, ipcMain, shell} from "electron"
 import { ExposedWinTimer, ExposedWinMain } from "./definitions/renderer.ts"
 import { screenRecorder } from "../ffmpeg.ts"
 import { getWindowAll, getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
@@ -30,13 +30,15 @@ export function initTimerWindowControlsHandlers() {
 
     ipcMain.on(ExposedWinTimer.OPEN_MAIN_WIN, () => {
         const mainWin = getWindowByName(WindowName.Main)
-        if (mainWin) {
-            mainWin.show()
-            mainWin.webContents.send(ExposedWinMain.SHOW)
-        }
+        if (mainWin) showSettingsWin(mainWin)
     })
 
     ipcMain.on(ExposedWinTimer.CLOSE_ALL_WINDOW, () => {
         getWindowAll().map(item => item?.close())
     })
+}
+
+export function showSettingsWin(mainWin?: BrowserWindow) {
+    mainWin?.show()
+    mainWin?.webContents.send(ExposedWinMain.SHOW)
 }
