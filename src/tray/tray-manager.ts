@@ -1,8 +1,8 @@
-import {app, Tray, Menu, nativeImage, shell} from 'electron'
+import { app, Tray, Menu, nativeImage, shell} from 'electron'
 import { join } from 'path'
 import { getWindowByName, WindowName } from '../window/utils/ipc-controller.ts'
 import { screenRecorder } from '../ffmpeg.ts'
-import { showSettingsWin } from "@/ipc-handlers/ipc-win-timer.ts"
+import { ExposedWinMain } from '../ipc-handlers/definitions/renderer.ts'
 
 export class TrayManager {
     private static instance: TrayManager
@@ -172,7 +172,10 @@ export class TrayManager {
 
     private openSettings(): void {
         const mainWindow = getWindowByName(WindowName.Main)
-        if (mainWindow) showSettingsWin(mainWindow)
+        if (mainWindow) {
+            mainWindow.show()
+            mainWindow.webContents.send(ExposedWinMain.SHOW)
+        }
     }
 
     private openRecordingsFolder(): void {
