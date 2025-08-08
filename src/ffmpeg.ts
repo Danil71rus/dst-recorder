@@ -260,6 +260,14 @@ export class ScreenRecorder {
         }
     }
 
+    public getIsRecording(): boolean {
+        return this.isRecording
+    }
+
+    public getRecordingStartTime(): number {
+        return this.recordingStartTime
+    }
+
     getRecordingStatus(): RecordingStatus {
         const duration = this.isRecording ? Math.floor((Date.now() - this.recordingStartTime) / 1000) : 0
         return { isRecording: this.isRecording, duration }

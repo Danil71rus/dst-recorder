@@ -9,8 +9,6 @@ export class TrayManager {
     private static instance: TrayManager
     private tray: Tray | null = null
     private recordingInterval: NodeJS.Timeout | null = null
-    private recordingStartTime: number = 0
-    private isRecording: boolean = false
 
     private constructor() {}
 
@@ -91,7 +89,9 @@ export class TrayManager {
     private updateMenu(): void {
         if (!this.tray) return
 
-        const contextMenu = this.isRecording ? this.getRecordingMenu() : this.getDefaultMenu()
+        const contextMenu = screenRecorder.getIsRecording()
+            ? this.getRecordingMenu()
+            : this.getDefaultMenu()
         this.tray.setContextMenu(contextMenu)
     }
 
@@ -179,9 +179,6 @@ export class TrayManager {
                 return
             }
 
-            this.isRecording = true
-            this.recordingStartTime = Date.now()
-
             // Обновляем иконку трея
             this.updateTrayIcon(true)
 
@@ -208,8 +205,6 @@ export class TrayManager {
     private async stopRecording(): Promise<void> {
         try {
             await screenRecorder.stopRecording()
-
-            this.isRecording = false
 
             // Останавливаем таймер
             if (this.recordingInterval) {
@@ -253,7 +248,7 @@ export class TrayManager {
 
     private quitApp(): void {
         // Если идет запись, сначала останавливаем её
-        if (this.isRecording) {
+        if (screenRecorder.getIsRecording()) {
             this.stopRecording().then(() => {
                 app.quit()
             })
@@ -263,9 +258,12 @@ export class TrayManager {
     }
 
     private getFormattedDuration(): string {
-        if (!this.isRecording) return '00:00'
+        if (!screenRecorder.getIsRecording()) return '00:00'
 
-        const duration = Math.floor((Date.now() - this.recordingStartTime) / 1000)
+        const startTime = screenRecorder.getRecordingStartTime()
+        if (startTime === 0) return '00:00'
+
+        const duration = Math.floor((Date.now() - startTime) / 1000)
         const minutes = Math.floor(duration / 60)
         const seconds = duration % 60
 
@@ -278,7 +276,7 @@ export class TrayManager {
         try {
             const isDev = !app.isPackaged
             const iconFileName = 'camera.png'
-            
+
             let iconPath: string
             if (isDev) {
                 iconPath = join(process.cwd(), 'src/assets', iconFileName)
@@ -287,7 +285,7 @@ export class TrayManager {
             }
 
             let icon = nativeImage.createFromPath(iconPath)
-            
+
             if (icon.isEmpty()) {
                 // Используем иконку из getIconPath как запасной вариант
                 iconPath = getIconPath()
@@ -314,11 +312,7 @@ export class TrayManager {
     }
 
     public updateRecordingState(isRecording: boolean): void {
-        this.isRecording = isRecording
-
         if (isRecording) {
-            this.recordingStartTime = Date.now()
-
             // Запускаем таймер для обновления меню
             if (!this.recordingInterval) {
                 this.recordingInterval = setInterval(() => {
