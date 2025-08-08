@@ -10,7 +10,8 @@ import {
     FfmpegDevice,
     FfmpegDeviceLists,
     FfmpegSettings,
-    getDefaultSettings, RecordingStatus,
+    getDefaultSettings,
+    RecordingStatus,
     StartRecordingResponse
 } from "./deinitions/ffmpeg.ts"
 import { ExposedWinMain } from "./ipc-handlers/definitions/renderer.ts"
@@ -36,9 +37,9 @@ export class ScreenRecorder {
         if (!existsSync(this.settings.outputPath)) {
             mkdirSync(this.settings.outputPath, { recursive: true });
         }
-        this.ffmpegBinaryPath = this.initializeFfmpegPath();
+        this.ffmpegBinaryPath = this.initializeFfmpegPath()
         if (this.ffmpegBinaryPath) {
-            ffmpeg.setFfmpegPath(this.ffmpegBinaryPath);
+            ffmpeg.setFfmpegPath(this.ffmpegBinaryPath)
         } else {
             console.error('CRITICAL: FFmpeg binary not found. Recording will fail.');
         }
