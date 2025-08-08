@@ -45,10 +45,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import { ExposedWinTimer } from "@/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
+import { RecordingStatus, StartRecordingResponse } from "@/deinitions/ffmpeg.ts"
 
 
 // Реактивные переменные состояния
@@ -57,22 +58,14 @@ const isCompleted = ref(false)
 const isSaving = ref(false)
 const savePathFile = ref('')
 
-const recordingTime = ref(0)
+const duration = ref(0)
 const recordingTimer = ref<number | null>(null)
-
-// Проверка доступности Electron API
-const isIpcRenderer = ref(false)
 
 // Получаем значения из стора
 const formattedTime = computed(() => {
-    const sec = recordingTime.value
-    const mins = `${Math.floor(sec / 60)}`
-    const secs = `${sec % 60}`
-    return `${mins.padStart(2, '0')}:${secs.padStart(2, '0')}`
-})
-
-onMounted(async () => {
-    isIpcRenderer.value = !!window.ipcRenderer
+    const mins = `${Math.floor(duration.value / 60)}`
+    const sec = `${duration.value % 60}`
+    return `${mins.padStart(2, '0')}:${sec.padStart(2, '0')}`
 })
 
 // Функция для начала записи
@@ -80,35 +73,27 @@ async function startRecording() {
     resetParams()
     isRecording.value = true
 
-    // Проверка доступности API
-    if (!isIpcRenderer.value) {
-        console.error('Electron API is not available in this context')
-        return
-    }
-
-    // Запускаем запись через FFmpeg с выбранным экраном
-    const result = await window.ipcRenderer?.invoke(ExposedWinTimer.START_FFMPEG_RECORDING) as { outputPathAndFileName?: string; error?: string }
+    const result = await window.ipcRenderer?.invoke<StartRecordingResponse>(ExposedWinTimer.START_FFMPEG_RECORDING)
     if (result?.error) {
         console.error(result.error || 'Failed to start recording')
         return
     }
-
     savePathFile.value = result?.outputPathAndFileName || ""
-    console.log('FFmpeg recording started:', result?.outputPathAndFileName)
-
-    // Запускаем таймер отсчета времени
-    recordingTimer.value = window.setInterval(() => {
-        recordingTime.value += 1
+    recordingTimer.value = window.setInterval(async () => {
+        const resStatus = await window.ipcRenderer?.invoke<RecordingStatus>(ExposedWinTimer.GET_RECORDING_STATUS)
+        if (resStatus?.isRecording) {
+            isRecording.value = true
+            duration.value = resStatus.duration
+        } else {
+             resetParams()
+        }
     }, 1000)
 }
 
 // Функция для остановки записи
 async function stopRecording() {
     isSaving.value = true
-    console.log('Stopping FFmpeg recording...')
-    // Останавливаем запись через FFmpeg
     await window.ipcRenderer?.invoke(ExposedWinTimer.STOP_FFMPEG_RECORDING)
-    resetParams()
 }
 
 function openSaveFolder() {
@@ -119,20 +104,19 @@ function openMainWin() {
     window.ipcRenderer?.send(ExposedWinTimer.OPEN_MAIN_WIN)
 }
 
+function close() {
+    window.ipcRenderer?.send(ExposedWinTimer.CLOSE_ALL_WINDOW)
+}
+
 function resetParams() {
-    // Сброс состояния
     isRecording.value = false
     isCompleted.value = false
     isSaving.value = false
-    recordingTime.value = 0
+    duration.value = 0
     if (recordingTimer.value) {
         clearInterval(recordingTimer.value)
         recordingTimer.value = null
     }
-}
-
-function close() {
-    window.ipcRenderer?.send(ExposedWinTimer.CLOSE_ALL_WINDOW)
 }
 
 /** Перемещение окна */
@@ -157,13 +141,8 @@ function stopDrag() {
 
 // Очистка при размонтировании компонента
 onBeforeUnmount(() => {
-    if (isRecording.value) {
-        stopRecording()
-    }
-
-    if (recordingTimer.value) {
-        clearInterval(recordingTimer.value)
-    }
+    if (isRecording.value) stopRecording()
+    if (recordingTimer.value) clearInterval(recordingTimer.value)
 })
 </script>
 

@@ -20,6 +20,16 @@ export interface FfmpegSettings {
     video?: FfmpegDevice,
 }
 
+export interface StartRecordingResponse {
+    outputPathAndFileName?: string
+    error?:                 string
+}
+
+export interface RecordingStatus {
+    isRecording: boolean
+    duration:    number
+}
+
 export const getDefaultSettings = (): FfmpegSettings => ({
     outputPath: "",
     fps:        30,

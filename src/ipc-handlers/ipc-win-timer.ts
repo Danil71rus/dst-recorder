@@ -1,26 +1,16 @@
-import {ipcMain, shell} from "electron"
-import {ExposedWinTimer, ExposedWinMain} from "./definitions/renderer.ts"
-import {screenRecorder} from "../ffmpeg.ts"
-import {getWindowAll, getWindowByName, WindowName} from "../window/utils/ipc-controller.ts"
+import { ipcMain, shell } from "electron"
+import { ExposedWinTimer, ExposedWinMain } from "./definitions/renderer.ts"
+import { screenRecorder } from "../ffmpeg.ts"
+import { getWindowAll, getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
 
 
 export function initTimerWindowControlsHandlers() {
     ipcMain.handle(ExposedWinTimer.START_FFMPEG_RECORDING, async () => {
-        try {
-            return await screenRecorder.startRecording()
-        } catch (error) {
-            console.error('Error starting FFmpeg recording:', error)
-            return { error: error instanceof Error ? error.message : 'Unknown error' }
-        }
+        return await screenRecorder.startRecording()
     })
 
     ipcMain.handle(ExposedWinTimer.STOP_FFMPEG_RECORDING, async () => {
-        try {
-            return await screenRecorder.stopRecording()
-        } catch (error) {
-            console.error('Error stopping FFmpeg recording:', error)
-            return { error: error instanceof Error ? error.message : 'Unknown error' }
-        }
+        return await screenRecorder.stopRecording()
     })
 
     ipcMain.handle(ExposedWinTimer.GET_RECORDING_STATUS, async () => {
@@ -35,20 +25,18 @@ export function initTimerWindowControlsHandlers() {
     ipcMain.on(ExposedWinTimer.MOVE_TIMER_WINDOW, (_event, position) => {
         const timerWin = getWindowByName(WindowName.Timer)
         if (!timerWin) return
-
         timerWin.setPosition(position.x, position.y)
-    })
-
-    ipcMain.on(ExposedWinTimer.CLOSE_ALL_WINDOW, () => {
-        getWindowAll().map(item => item?.close())
     })
 
     ipcMain.on(ExposedWinTimer.OPEN_MAIN_WIN, () => {
         const mainWin = getWindowByName(WindowName.Main)
         if (mainWin) {
             mainWin.show()
-            // Отправляем событие для инициализации данных в окне настроек
             mainWin.webContents.send(ExposedWinMain.SHOW)
         }
+    })
+
+    ipcMain.on(ExposedWinTimer.CLOSE_ALL_WINDOW, () => {
+        getWindowAll().map(item => item?.close())
     })
 }
