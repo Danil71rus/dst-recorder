@@ -111,14 +111,23 @@ export class ScreenRecorder {
     }
 
     public getSeparatedDevices(): Promise<FfmpegDeviceLists> {
-        // Убедитесь, что путь к ffmpeg правильный, особенно для собранного приложения
-        const ffmpegPath = FfmpegStatic.ffmpegPath;
-        if (!ffmpegPath) return Promise.resolve({ video: [], audio: [] });
+        // Используем сохраненный путь к ffmpeg, который корректно работает в собранной версии
+        const ffmpegPath = this.ffmpegBinaryPath || FfmpegStatic.ffmpegPath;
+        if (!ffmpegPath) {
+            console.error('FFmpeg path not available for getting devices');
+            return Promise.resolve({ video: [], audio: [] });
+        }
 
+        console.log('Getting devices with FFmpeg path:', ffmpegPath);
         const command = `"${ffmpegPath}" -f avfoundation -list_devices true -i ""`;
 
         return new Promise((resolve) => {
-            exec(command, (_error, _stdout, stderr) => {
+            exec(command, (error, _stdout, stderr) => {
+                if (error && !stderr) {
+                    console.error('Error executing FFmpeg command:', error);
+                    resolve({ video: [], audio: [] });
+                    return;
+                }
                 const lines = stderr.split('\n')
                 const result: FfmpegDeviceLists = {
                     video: [],

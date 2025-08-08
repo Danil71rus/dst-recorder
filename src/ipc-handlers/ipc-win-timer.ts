@@ -1,5 +1,5 @@
 import {ipcMain, shell} from "electron"
-import {ExposedWinTimer} from "./definitions/renderer.ts"
+import {ExposedWinTimer, ExposedWinMain} from "./definitions/renderer.ts"
 import {screenRecorder} from "../ffmpeg.ts"
 import {getWindowAll, getWindowByName, WindowName} from "../window/utils/ipc-controller.ts"
 
@@ -44,7 +44,11 @@ export function initTimerWindowControlsHandlers() {
     })
 
     ipcMain.on(ExposedWinTimer.OPEN_MAIN_WIN, () => {
-       const mainWin = getWindowByName(WindowName.Main)
-        mainWin?.show()
+        const mainWin = getWindowByName(WindowName.Main)
+        if (mainWin) {
+            mainWin.show()
+            // Отправляем событие для инициализации данных в окне настроек
+            mainWin.webContents.send(ExposedWinMain.SHOW)
+        }
     })
 }
