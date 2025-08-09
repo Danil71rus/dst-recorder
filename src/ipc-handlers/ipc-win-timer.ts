@@ -1,7 +1,7 @@
 import { ipcMain, shell } from "electron"
 import { ExposedWinTimer, ExposedWinMain } from "./definitions/renderer.ts"
 import { screenRecorder } from "../ffmpeg.ts"
-import { getWindowAll, getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
+import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
 
 
 export function initTimerWindowControlsHandlers() {
@@ -36,7 +36,8 @@ export function initTimerWindowControlsHandlers() {
         }
     })
 
-    ipcMain.on(ExposedWinTimer.CLOSE_ALL_WINDOW, () => {
-        getWindowAll().map(item => item?.close())
+    ipcMain.on(ExposedWinTimer.HIDE, () => {
+        const timerWin = getWindowByName(WindowName.Timer)
+        if (timerWin) timerWin.hide()
     })
 }

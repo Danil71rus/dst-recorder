@@ -74,6 +74,10 @@ export class TrayManager {
                 click: () => this.openSettings()
             },
             {
+                label: '⏱️ Таймер',
+                click: () => this.openTimer()
+            },
+            {
                 label: '📂 Открыть папку с записями',
                 click: () => this.openRecordingsFolder()
             },
@@ -101,6 +105,10 @@ export class TrayManager {
                 click: () => this.openSettings()
             },
             {
+                label: '⏱️ Таймер',
+                click: () => this.openTimer()
+            },
+            {
                 label: '📂 Открыть папку с записями',
                 click: () => this.openRecordingsFolder()
             },
@@ -108,7 +116,7 @@ export class TrayManager {
                 type: 'separator'
             },
             {
-                label: '🚪 Выход',
+                label: 'Выход',
                 click: () => this.quitApp()
             }
         ])
@@ -176,6 +184,11 @@ export class TrayManager {
             mainWindow.show()
             mainWindow.webContents.send(ExposedWinMain.SHOW)
         }
+    }
+
+    private openTimer(): void {
+        const timerWindow = getWindowByName(WindowName.Timer)
+        if (timerWindow) timerWindow.show()
     }
 
     private openRecordingsFolder(): void {

@@ -105,7 +105,7 @@ function openMainWin() {
 }
 
 function close() {
-    window.ipcRenderer?.send(ExposedWinTimer.CLOSE_ALL_WINDOW)
+    window.ipcRenderer?.send(ExposedWinTimer.HIDE)
 }
 
 function resetParams() {

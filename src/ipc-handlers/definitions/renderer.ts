@@ -14,7 +14,7 @@ export enum ExposedWinTimer {
     OPEN_MAIN_WIN = "open-main-win",
     OPEN_SAVE_FOLDER = "open-save-folder",
     MOVE_TIMER_WINDOW = "move-timer-window",
-    CLOSE_ALL_WINDOW = "close-all-window",
+    HIDE = "hide",
     // FFmpeg каналы
     START_FFMPEG_RECORDING = "start-ffmpeg-recording",
     STOP_FFMPEG_RECORDING = "stop-ffmpeg-recording",
