@@ -8,8 +8,8 @@ const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD =
 export async function createMainWindow() {
     const mainWindow = new BrowserWindow({
         icon: getIconPath(),
-        width:  1550,
-        height: 1400,
+        width:  550,
+        height: 500,
         show:   false,
         frame: false,
         alwaysOnTop: true,
@@ -25,12 +25,12 @@ export async function createMainWindow() {
 
     if (isDev) {
         await mainWindow.loadURL("http://localhost:5173")
-        mainWindow.webContents.openDevTools()
+        // mainWindow.webContents.openDevTools()
     } else {
         // В production используем правильный путь
         const indexPath = join(__dirname, '../dist/index.html')
         await mainWindow.loadFile(indexPath)
-        mainWindow.webContents.openDevTools()
+        // mainWindow.webContents.openDevTools()
     }
 
     mainWindow.on("ready-to-show", () => {

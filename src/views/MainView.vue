@@ -1,6 +1,18 @@
 <template>
-    <div class="main-view">
+    <div
+        class="main-view"
+        @mousedown="startDrag"
+    >
         <div class="container">
+            <dst-combobox
+                v-model="selectedDefSize"
+                :items="sizes"
+                :display-type="ComboboxDisplayType.Right"
+                :variant="ComboboxStyle.Secondary"
+                placeholder="Качество"
+                label="Качество"
+            />
+
             <dst-combobox
                 v-model="selectedVideo"
                 :items="screensList"
@@ -32,7 +44,7 @@
                     class="ml-x2"
                     value="Закрыть"
                     :variant="ButtonVariant.OutlineSecondary"
-                    @click="onSave"
+                    @click="onClose"
                 />
             </div>
         </div>
@@ -47,7 +59,7 @@ import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/defini
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings } from "../deinitions/ffmpeg.ts"
+import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
 
 // Проверка доступности Electron API
 const deviceList = ref<FfmpegDeviceLists>({
@@ -56,13 +68,42 @@ const deviceList = ref<FfmpegDeviceLists>({
 })
 const currentState = ref<FfmpegSettings>(getDefaultSettings())
 
+const sizeSettings = ref<{ [key: string]: { w: number, h: number } }>({
+    [Size.HD]:    { w: 1280, h: 720 },
+    [Size.FulHD]: { w: 1920, h: 1080 },
+    [Size.QHD]:   { w: 2560, h: 1440 },
+    [Size.UHD]:   { w: 3840, h: 2160 }
+})
+const sizes = computed((): ComboboxItem[] => {
+    return Object.entries(sizeSettings.value)
+        .filter(([, val]) => !currentState.value.video?.scaleMax?.width || val.w <= currentState.value.video?.scaleMax.width)
+        .map(([key]) => ({
+            id:       key,
+            title:    key,
+        }))
+})
+const selectedDefSize = computed({
+    get() {
+        return `${currentState.value.defSize}`
+    },
+    set(newSize: Size) {
+        currentState.value.defSize = newSize
+        setSize(newSize)
+        console.log(toRaw(currentState.value))
+    }
+})
+
 const selectedVideo = computed({
     get() {
         return `${currentState.value.video?.index}`
     },
     set(newIndex: string) {
         const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
-        if (newVideo?.name) currentState.value.video = newVideo
+        if (newVideo?.name) {
+            currentState.value.video = newVideo
+            setSize()
+            console.log(toRaw(currentState.value))
+        }
     }
 })
 const screensList = computed((): ComboboxItem[] => {
@@ -71,7 +112,7 @@ const screensList = computed((): ComboboxItem[] => {
         .map(item => ({
             id:       `${item.index}`,
             title:    `${item.label}`,
-            subtitle: `${item.size?.width || ""}:${item.size?.height || ""}`
+            subtitle: `${item.size?.width || ""} × ${item.size?.height || ""}`
         }))
 })
 
@@ -102,8 +143,47 @@ window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => {
     console.log(" currentState.value: ",  currentState.value)
 })
 
+function setSize(newSize?: Size) {
+    const newVideo = deviceList.value.video.find(item => item.index === Number(currentState.value.video?.index))
+    const resultSize = newSize || Size.FulHD
+    const selSizeSettings = sizeSettings.value?.[resultSize]
+
+    if (newVideo?.name) {
+        currentState.value.scale.w = Math.min(selSizeSettings.w, newVideo.scaleMax?.width || 0)
+        currentState.value.scale.h = Math.min(selSizeSettings.h, newVideo.scaleMax?.height || 0)
+
+        currentState.value.crop.w = currentState.value.scale.w
+        currentState.value.crop.h = currentState.value.scale.h
+
+        currentState.value.defSize = resultSize
+    }
+}
+
+/** Перемещение окна */
+let dragPosition: { x: number; y: number } | null = null;
+function startDrag(e: MouseEvent) {
+    dragPosition = { x: e.clientX, y: e.clientY };
+    window.addEventListener('mousemove', drag);
+    window.addEventListener('mouseup', stopDrag);
+}
+function drag(e: MouseEvent) {
+    if (!dragPosition) return;
+    window.ipcRenderer?.send(ExposedWinMain.MOVE_MAIN_WINDOW, {
+        x: e.screenX - dragPosition.x,
+        y: e.screenY - dragPosition.y
+    });
+}
+function stopDrag() {
+    dragPosition = null;
+    window.removeEventListener('mousemove', drag);
+    window.removeEventListener('mouseup', stopDrag);
+}
+
 async function onSave() {
     await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, toRaw(currentState.value))
+}
+function onClose() {
+    window.ipcRenderer?.send(ExposedWinMain.HIDE)
 }
 </script>
 

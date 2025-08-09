@@ -1,5 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg'
-import { app, systemPreferences, screen } from 'electron'
+import { app, systemPreferences, screen, shell } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
@@ -48,8 +48,7 @@ export class ScreenRecorder {
 
     public async asyncInit() {
         const device = await this.getSeparatedDevices()
-        console.log("!!!! device: ", device)
-
+        // console.log("!!!! device: ", device)
         this.setSettings({
             ...this.settings,
             audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
@@ -135,6 +134,8 @@ export class ScreenRecorder {
                     .sort((a, b) => a.bounds.x - b.bounds.x)
                     .map((item, index) => ({ ...item, index }))
 
+                console.log("allDisplays: ", allDisplays)
+
                 if (error && !stderr) {
                     console.error('Error executing FFmpeg command:', error);
                     resolve({ video: [], audio: [] });
@@ -174,7 +175,13 @@ export class ScreenRecorder {
                             if (isScreen) {
                                 const index = Number(device.name.replace(/\D/g, ''))
                                 const { bounds, workArea, scaleFactor, size, label } = allDisplays?.[index] || {}
-                                addParams = { bounds, workArea, scaleFactor, size, label }
+                                addParams = {
+                                    bounds, workArea, scaleFactor, size, label,
+                                    scaleMax: {
+                                        width: scaleFactor * size.width,
+                                        height: scaleFactor * size.height,
+                                    },
+                                }
                             }
                             result.video.push({ ...addParams, ...device, isScreen })
                         } else {
@@ -275,6 +282,7 @@ export class ScreenRecorder {
         } catch (e) {
             this.ffmpegCommand?.kill('SIGINT');
         }
+        shell.showItemInFolder(this.outputPathAndFileName)
     }
 
     public getIsRecording(): boolean {
