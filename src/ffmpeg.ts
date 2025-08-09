@@ -18,21 +18,20 @@ import { ExposedWinMain, ExposedTray } from "./ipc-handlers/definitions/renderer
 import { getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { ipcMain } from 'electron'
 
-
 export class ScreenRecorder {
     private static instance: ScreenRecorder
-
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
-    private outputPathAndFileName: string = ''
-    private recordingStartTime: number = 0
-    private isRecording: boolean = false
 
-    private settings: FfmpegSettings = {
+    public outputPathAndFileName: string = ''
+    public recordingStartTime: number = 0
+    public isRecording: boolean = false
+
+    public settings: FfmpegSettings = {
         ...getDefaultSettings(),
         outputPath: join(homedir(), 'Desktop', 'Dst-Recorder'),
     }
 
-    private readonly ffmpegBinaryPath: string | null = null;
+    public readonly ffmpegBinaryPath: string | null = null;
 
     private constructor() {
         if (!existsSync(this.settings.outputPath)) {
@@ -45,21 +44,19 @@ export class ScreenRecorder {
             console.error('CRITICAL: FFmpeg binary not found. Recording will fail.');
         }
 
-        setTimeout(async () => {
+        (async () => {
             const device = await this.getSeparatedDevices()
             this.setSettings({
                 ...this.settings,
                 audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
                 video: device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0],
             })
-        }, 1000)
+        })()
     }
 
     public static getInstance(): ScreenRecorder {
-        if (!ScreenRecorder.instance) {
-            ScreenRecorder.instance = new ScreenRecorder();
-        }
-        return ScreenRecorder.instance;
+        if (!ScreenRecorder.instance)  ScreenRecorder.instance = new ScreenRecorder()
+        return ScreenRecorder.instance
     }
 
     private initializeFfmpegPath(): string | null {
@@ -195,6 +192,9 @@ export class ScreenRecorder {
                     .inputFormat('avfoundation')
                     .inputFPS(this.settings.fps)
                     .inputOptions(['-thread_queue_size', '2048', '-capture_cursor', '1'])
+                    .videoFilter([
+                        `scale=${this.settings.scale.w}:${this.settings.scale.h},crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y}`
+                    ])
                     // Фильтр для смешивания каналов и увеличения громкости микрофона
                     .audioFilter([
                         // Смешиваем многоканальный звук в стерео.
@@ -207,7 +207,6 @@ export class ScreenRecorder {
                         '-preset', 'ultrafast',
                         '-crf', '23',
                         '-pix_fmt', 'yuv420p',
-                        '-s', `${this.settings.size.width}x${this.settings.size.height}`,
                         '-r', `${this.settings.fps}`,
                         '-c:a', 'aac',
                         '-b:a', '192k',
@@ -290,4 +289,4 @@ export class ScreenRecorder {
     }
 }
 
-export const screenRecorder = ScreenRecorder.getInstance();
+export const screenRecorder = ScreenRecorder.getInstance()

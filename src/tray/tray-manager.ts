@@ -81,7 +81,7 @@ export class TrayManager {
                 type: 'separator'
             },
             {
-                label: '🚪 Выход',
+                label: 'Выход',
                 click: () => this.quitApp()
             }
         ])
