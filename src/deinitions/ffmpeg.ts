@@ -4,8 +4,17 @@ export interface FfmpegDevice {
     name:  string
 }
 
+export interface FfmpegDeviceVideo extends FfmpegDevice {
+    isScreen?:    boolean
+    bounds?:      { x: number, y: number, width: number, height: number }
+    workArea?:    { x: number, y: number, width: number, height: number }
+    scaleFactor?: number
+    size?:        { width: number, height: number }
+    label?:       string
+}
+
 export interface FfmpegDeviceLists {
-    video: FfmpegDevice[]
+    video: FfmpegDeviceVideo[]
     audio: FfmpegDevice[]
 }
 

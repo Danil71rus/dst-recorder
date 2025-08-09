@@ -66,10 +66,13 @@ const selectedVideo = computed({
     }
 })
 const screensList = computed((): ComboboxItem[] => {
-    return deviceList.value.video.map(item => ({
-        id:    `${item.index}`,
-        title: `${item.name} `,
-    }))
+    return deviceList.value.video
+        .filter(item => item.isScreen)
+        .map(item => ({
+            id:       `${item.index}`,
+            title:    `${item.label}`,
+            subtitle: `${item.size?.width || ""}:${item.size?.height || ""}`
+        }))
 })
 
 const selectedAudio = computed({
@@ -95,6 +98,7 @@ window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => {
     const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 
+    console.log(" deviceList.value: ",  deviceList.value)
     console.log(" currentState.value: ",  currentState.value)
 })
 

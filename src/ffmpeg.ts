@@ -1,5 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg'
-import { app, systemPreferences } from 'electron'
+import { app, systemPreferences, screen } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
@@ -44,14 +44,17 @@ export class ScreenRecorder {
             console.error('CRITICAL: FFmpeg binary not found. Recording will fail.');
         }
 
-        (async () => {
-            const device = await this.getSeparatedDevices()
-            this.setSettings({
-                ...this.settings,
-                audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
-                video: device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0],
-            })
-        })()
+    }
+
+    public async asyncInit() {
+        const device = await this.getSeparatedDevices()
+        console.log("!!!! device: ", device)
+
+        this.setSettings({
+            ...this.settings,
+            audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
+            video: device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0],
+        })
     }
 
     public static getInstance(): ScreenRecorder {
@@ -127,6 +130,11 @@ export class ScreenRecorder {
 
         return new Promise((resolve) => {
             exec(command, (error, _stdout, stderr) => {
+
+                const allDisplays = screen.getAllDisplays()
+                    .sort((a, b) => a.bounds.x - b.bounds.x)
+                    .map((item, index) => ({ ...item, index }))
+
                 if (error && !stderr) {
                     console.error('Error executing FFmpeg command:', error);
                     resolve({ video: [], audio: [] });
@@ -160,8 +168,18 @@ export class ScreenRecorder {
                             name:  deviceMatch[2].trim(),
                         }
 
-                        if (currentSection === 'video') result.video.push(device)
-                        else result.audio.push(device)
+                        if (currentSection === 'video') {
+                            const isScreen = device.name.startsWith("Capture screen")
+                            let addParams = {}
+                            if (isScreen) {
+                                const index = Number(device.name.replace(/\D/g, ''))
+                                const { bounds, workArea, scaleFactor, size, label } = allDisplays?.[index] || {}
+                                addParams = { bounds, workArea, scaleFactor, size, label }
+                            }
+                            result.video.push({ ...addParams, ...device, isScreen })
+                        } else {
+                            result.audio.push(device)
+                        }
                     }
                 }
 
