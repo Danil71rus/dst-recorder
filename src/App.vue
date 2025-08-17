@@ -1,11 +1,11 @@
 <template>
-  <div id="app">
-    <router-view />
-  </div>
+    <div id="app">
+        <router-view />
+    </div>
 </template>
 
+
 <style lang="scss">
-// Импорт общих стилей
 @use 'src/assets/styles/main.scss';
 
 * {
@@ -14,9 +14,16 @@
   box-sizing: border-box;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f5f5;
+//body {
+//  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+//}
+
+/* Убираем фон по умолчанию для body и html */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background-color: transparent; /* Самое важное правило! */
 }
 
 #app {

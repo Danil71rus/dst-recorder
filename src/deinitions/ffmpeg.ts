@@ -33,11 +33,11 @@ export interface FfmpegSettings {
     fps:        number
     defSize:    Size
     // итоговое разрешение видео: hd, fulHD, 2k, 4k
-    scale:      { w: number; h: number }
+    scale:      { w: number, h: number }
     // область записи
-    crop:       { w: number; h: number }
+    crop:       { w: number, h: number }
     // смещение области от начала экрана
-    offset:     { x: number; y: number }
+    offset:     { x: number, y: number }
     audio?:  FfmpegDevice
     video?:  FfmpegDeviceVideo
 }

@@ -4,8 +4,14 @@
         @mousedown="startDrag"
     >
         <div class="flex-row">
-            <b-button variant="link" @click="close">❌</b-button>
-            <div class="line"/>
+            <b-button
+                variant="link"
+                @click="close"
+            >
+                ❌
+            </b-button>
+
+            <div class="line" />
         </div>
 
         <!-- Основной таймер -->
@@ -14,16 +20,18 @@
                 v-if="isRecording"
                 :class="{ 'recording-dot': true, 'animate-active': true }"
             />
+
             <span class="time">{{ formattedTime }}</span>
         </div>
 
-        <div class="line"/>
+        <div class="line" />
 
         <dst-button
             v-if="isRecording"
             value="Stop"
             @click="stopRecording"
         />
+
         <dst-button
             v-else
             :variant="ButtonVariant.Danger"
@@ -46,23 +54,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount } from "vue"
 import { ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import {RecordingStatus, StartRecordingResponse} from "@/deinitions/ffmpeg.ts"
+import { RecordingStatus, StartRecordingResponse } from "@/deinitions/ffmpeg.ts"
 
 
 // Реактивные переменные состояния
 const isRecording = ref(false)
-const savePathFile = ref('')
+const savePathFile = ref("")
 const duration = ref(0)
 
 // Получаем значения из стора
 const formattedTime = computed(() => {
     const mins = `${Math.floor(duration.value / 60)}`
     const sec = `${duration.value % 60}`
-    return `${mins.padStart(2, '0')}:${sec.padStart(2, '0')}`
+    return `${mins.padStart(2, "0")}:${sec.padStart(2, "0")}`
 })
 
 // Функция для начала записи
@@ -72,7 +80,7 @@ async function startRecording() {
 
     const result = await window.ipcRenderer?.invoke<StartRecordingResponse>(ExposedWinTimer.START_FFMPEG_RECORDING)
     if (result?.error) {
-        console.error(result.error || 'Failed to start recording')
+        console.error(result.error || "Failed to start recording")
         return
     }
     savePathFile.value = result?.outputPathAndFileName || ""
@@ -112,23 +120,23 @@ function resetParams() {
 }
 
 /** Перемещение окна */
-let dragPosition: { x: number; y: number } | null = null;
+let dragPosition: { x: number, y: number } | null = null
 function startDrag(e: MouseEvent) {
-    dragPosition = { x: e.clientX, y: e.clientY };
-    window.addEventListener('mousemove', drag);
-    window.addEventListener('mouseup', stopDrag);
+    dragPosition = { x: e.clientX, y: e.clientY }
+    window.addEventListener("mousemove", drag)
+    window.addEventListener("mouseup", stopDrag)
 }
 function drag(e: MouseEvent) {
-    if (!dragPosition) return;
+    if (!dragPosition) return
     window.ipcRenderer?.send(ExposedWinTimer.MOVE_TIMER_WINDOW, {
         x: e.screenX - dragPosition.x,
-        y: e.screenY - dragPosition.y
-    });
+        y: e.screenY - dragPosition.y,
+    })
 }
 function stopDrag() {
-    dragPosition = null;
-    window.removeEventListener('mousemove', drag);
-    window.removeEventListener('mouseup', stopDrag);
+    dragPosition = null
+    window.removeEventListener("mousemove", drag)
+    window.removeEventListener("mouseup", stopDrag)
 }
 
 // Очистка при размонтировании компонента

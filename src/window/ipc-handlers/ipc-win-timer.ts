@@ -1,11 +1,11 @@
-import { ipcMain, shell } from "electron"
+import { BrowserWindow, ipcMain, shell } from "electron"
 import { ExposedWinTimer, ExposedWinMain, ExposedFfmpeg } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
 import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
 import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 
 
-export function initTimerWindowControlsHandlers() {
+export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
     ipcMain.handle(ExposedWinTimer.START_FFMPEG_RECORDING, async () => {
         return await screenRecorder.startRecording()
     })
@@ -14,13 +14,12 @@ export function initTimerWindowControlsHandlers() {
         return await screenRecorder.stopRecording()
     })
 
-    ipcMain.handle(ExposedWinTimer.GET_RECORDING_STATUS, async () => {
+    ipcMain.handle(ExposedWinTimer.GET_RECORDING_STATUS, () => {
         return screenRecorder.getRecordingStatus()
     })
 
     ipcMain.on(ExposedFfmpeg.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {
-        const timerWin = getWindowByName(WindowName.Timer)
-        if (timerWin) timerWin.webContents.send(ExposedWinTimer.UPDATED_STATE_TIMER, status)
+        timerWin.webContents.send(ExposedWinTimer.UPDATED_STATE_TIMER, status)
     })
 
     ipcMain.on(ExposedWinTimer.OPEN_SAVE_FOLDER, (_event, path: string) => {
@@ -29,8 +28,6 @@ export function initTimerWindowControlsHandlers() {
     })
 
     ipcMain.on(ExposedWinTimer.MOVE_TIMER_WINDOW, (_event, position) => {
-        const timerWin = getWindowByName(WindowName.Timer)
-        if (!timerWin) return
         timerWin.setPosition(position.x, position.y)
     })
 
@@ -43,7 +40,11 @@ export function initTimerWindowControlsHandlers() {
     })
 
     ipcMain.on(ExposedWinTimer.HIDE, () => {
-        const timerWin = getWindowByName(WindowName.Timer)
-        if (timerWin) timerWin.hide()
+        timerWin.hide()
+        const res = screenRecorder.stopRecording()
+        if (res?.error) {
+            // Сбросим для сброса настроек с областью
+            screenRecorder.resetByStop()
+        }
     })
 }

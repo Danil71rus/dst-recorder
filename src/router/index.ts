@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from "vue-router"
 import MainView from "../views/MainView.vue"
 import TimerView from "../views/TimerView.vue"
+import SelectAriaView from "../views/SelectAriaView.vue"
 
 const routes = [
     {
@@ -12,6 +13,11 @@ const routes = [
         path: "/timer",
         name: "Timer",
         component: TimerView,
+    },
+    {
+        path: "/select-aria",
+        name: "SelectAria",
+        component: SelectAriaView,
     },
 ]
 

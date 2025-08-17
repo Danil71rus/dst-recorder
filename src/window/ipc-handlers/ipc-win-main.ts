@@ -1,4 +1,4 @@
-import { ipcMain} from "electron"
+import { ipcMain } from "electron"
 import { ExposedWinMain } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
 import { FfmpegSettings } from "../../deinitions/ffmpeg.ts"

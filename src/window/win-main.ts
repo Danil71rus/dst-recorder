@@ -1,25 +1,25 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow } from "electron"
 import { join } from "path"
 import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
 import { getIconPath } from "../utils/icon-utils.ts"
 
-const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true'
+const isDev = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true"
 
 export async function createMainWindow() {
     const mainWindow = new BrowserWindow({
-        icon: getIconPath(),
-        width:  550,
-        height: 500,
-        show:   false,
-        frame: false,
-        alwaysOnTop: true,
-        resizable: false,
-        skipTaskbar: true,
-        transparent: true,
+        icon:           getIconPath(),
+        width:          550,
+        height:         500,
+        show:           false,
+        frame:          false,
+        alwaysOnTop:    true,
+        resizable:      false,
+        skipTaskbar:    true,
+        transparent:    true,
         webPreferences: {
-            preload: join(__dirname, "preload.js"),
+            preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
-            sandbox: true
+            sandbox:          true,
         },
     })
 
@@ -28,7 +28,7 @@ export async function createMainWindow() {
         // mainWindow.webContents.openDevTools()
     } else {
         // В production используем правильный путь
-        const indexPath = join(__dirname, '../dist/index.html')
+        const indexPath = join(__dirname, "../dist/index.html")
         await mainWindow.loadFile(indexPath)
         // mainWindow.webContents.openDevTools()
     }
@@ -39,8 +39,8 @@ export async function createMainWindow() {
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы
-    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-        console.error('Page failed to load:', errorCode, errorDescription)
+    mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+        console.error("Page failed to load:", errorCode, errorDescription)
     })
 
     return mainWindow

@@ -52,8 +52,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRaw, computed } from 'vue'
-import {ExposedFfmpeg, ExposedWinMain} from "@/window/ipc-handlers/definitions/renderer"
+import { ref, toRaw, computed } from "vue"
+import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
@@ -72,14 +72,14 @@ const sizeSettings = ref<{ [key: string]: { w: number, h: number } }>({
     [Size.HD]:    { w: 1280, h: 720 },
     [Size.FulHD]: { w: 1920, h: 1080 },
     [Size.QHD]:   { w: 2560, h: 1440 },
-    [Size.UHD]:   { w: 3840, h: 2160 }
+    [Size.UHD]:   { w: 3840, h: 2160 },
 })
 const sizes = computed((): ComboboxItem[] => {
     return Object.entries(sizeSettings.value)
         .filter(([, val]) => !currentState.value.video?.scaleMax?.width || val.w <= currentState.value.video?.scaleMax.width)
         .map(([key]) => ({
-            id:       key,
-            title:    key,
+            id:    key,
+            title: key,
         }))
 })
 const selectedDefSize = computed({
@@ -90,7 +90,7 @@ const selectedDefSize = computed({
         currentState.value.defSize = newSize
         setSize(newSize)
         console.log(toRaw(currentState.value))
-    }
+    },
 })
 
 const selectedVideo = computed({
@@ -104,7 +104,7 @@ const selectedVideo = computed({
             setSize(currentState.value.defSize)
             console.log(toRaw(currentState.value))
         }
-    }
+    },
 })
 const screensList = computed((): ComboboxItem[] => {
     return deviceList.value.video
@@ -114,7 +114,7 @@ const screensList = computed((): ComboboxItem[] => {
             return {
                 id:       `${item.index}`,
                 title:    `${item.label}`,
-                subtitle: `${scale.w} × ${scale.h}`
+                subtitle: `${scale.w} × ${scale.h}`,
             }
         })
 })
@@ -126,7 +126,7 @@ const selectedAudio = computed({
     set(newIndex: string) {
         const newAudio = deviceList.value.audio.find(item => item.index === Number(newIndex))
         if (newAudio?.name) currentState.value.audio = newAudio
-    }
+    },
 })
 const audioList = computed((): ComboboxItem[] => {
     return deviceList.value.audio.map(item => ({
@@ -145,8 +145,8 @@ async function updateSettings(newSettings?: unknown) {
     const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 
-    console.log(" deviceList.value: ",  deviceList.value)
-    console.log(" currentState.value: ",  currentState.value)
+    console.log(" deviceList.value: ", deviceList.value)
+    console.log(" currentState.value: ", currentState.value)
 }
 
 function setSize(newSize?: Size) {
@@ -175,23 +175,23 @@ function getResultScale(newVideo: FfmpegDeviceVideo, newSize?: Size) {
 }
 
 /** Перемещение окна */
-let dragPosition: { x: number; y: number } | null = null;
+let dragPosition: { x: number, y: number } | null = null
 function startDrag(e: MouseEvent) {
-    dragPosition = { x: e.clientX, y: e.clientY };
-    window.addEventListener('mousemove', drag);
-    window.addEventListener('mouseup', stopDrag);
+    dragPosition = { x: e.clientX, y: e.clientY }
+    window.addEventListener("mousemove", drag)
+    window.addEventListener("mouseup", stopDrag)
 }
 function drag(e: MouseEvent) {
-    if (!dragPosition) return;
+    if (!dragPosition) return
     window.ipcRenderer?.send(ExposedWinMain.MOVE_MAIN_WINDOW, {
         x: e.screenX - dragPosition.x,
-        y: e.screenY - dragPosition.y
-    });
+        y: e.screenY - dragPosition.y,
+    })
 }
 function stopDrag() {
-    dragPosition = null;
-    window.removeEventListener('mousemove', drag);
-    window.removeEventListener('mouseup', stopDrag);
+    dragPosition = null
+    window.removeEventListener("mousemove", drag)
+    window.removeEventListener("mouseup", stopDrag)
 }
 
 async function onSave() {

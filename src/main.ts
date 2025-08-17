@@ -2,6 +2,7 @@ import { app, BrowserWindow, nativeImage } from "electron"
 import { screenRecorder } from "./ffmpeg.ts"
 import { createMainWindow } from "./window/win-main.ts"
 import { createTimerWindow } from "./window/win-timer.ts"
+import { createSelectAriaWindow } from "./window/win-select-aria.ts"
 import { join } from "path"
 import { existsSync } from "fs"
 import { getIconPath } from "./utils/icon-utils.ts"
@@ -59,7 +60,7 @@ app.whenReady().then(async () => {
         return
     }
 
-    await Promise.all([createMainWindow(), createTimerWindow()])
+    await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow()])
     trayManager.createTray()
     await screenRecorder.asyncInit()
 

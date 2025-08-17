@@ -1,21 +1,21 @@
 import { BrowserWindow } from "electron"
 import { join } from "path"
 import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
-// import { getIconPath } from "../utils/icon-utils.ts"
+import { updatePositionByAria, updateSettingCropByAria } from "./ipc-handlers/ipc-win-select-aria.ts"
 
 const isDev = process.env.NODE_ENV === "development" || process.env.DEBUG_PROD === "true"
 
-export async function createTimerWindow() {
-    const timerWindow = new BrowserWindow({
+export async function createSelectAriaWindow() {
+    const selectAriaWindow = new BrowserWindow({
         // icon: getIconPath(),
-        width:          500,
-        height:         54,
+        width:  669,
+        height: 508,
         // width:  1200,
         // height: 1000,
+
         show:           false,
         frame:          false,
         alwaysOnTop:    true,
-        resizable:      false,
         skipTaskbar:    true,
         transparent:    true,
         webPreferences: {
@@ -26,25 +26,28 @@ export async function createTimerWindow() {
     })
 
     if (isDev) {
-        await timerWindow.loadURL("http://localhost:5173/#/timer")
-        // timerWindow.webContents.openDevTools()
+        await selectAriaWindow.loadURL("http://localhost:5173/#/select-aria")
+        // selectAriaWindow.webContents.openDevTools()
     } else {
         // В production используем правильный путь
         const indexPath = join(__dirname, "../dist/index.html")
-        await timerWindow.loadFile(indexPath, { hash: "timer" })
-        // timerWindow.webContents.openDevTools()
+        await selectAriaWindow.loadFile(indexPath, { hash: "select-aria" })
+        // selectAriaWindow.webContents.openDevTools()
     }
 
-    timerWindow.on("ready-to-show", () => {
-        setWindowReady(WindowName.Timer, timerWindow)
-        timerWindow.setAlwaysOnTop(true)
-        // timerWindow.show() // Не показываем автоматически - управление через трей
+    selectAriaWindow.on("ready-to-show", () => {
+        setWindowReady(WindowName.SelectAria, selectAriaWindow)
+        // selectAriaWindow.setAlwaysOnTop(true)
+        // selectAriaWindow.show()
     })
 
+    selectAriaWindow.on("resize", () => updatePositionByAria(selectAriaWindow))
+    selectAriaWindow.on("resized", () => updateSettingCropByAria(selectAriaWindow))
+
     // Добавляем обработчик для отладки загрузки только если есть проблемы
-    timerWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+    selectAriaWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
         console.error("Page failed to load:", errorCode, errorDescription)
     })
 
-    return timerWindow
+    return selectAriaWindow
 }

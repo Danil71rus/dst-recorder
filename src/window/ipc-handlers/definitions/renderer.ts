@@ -26,7 +26,12 @@ export enum ExposedWinTimer {
     GET_RECORDING_STATUS = "get-recording-status",
 }
 
-export type ExposedChannel = ExposedFfmpeg | ExposedWinMain | ExposedWinTimer | string
+export enum ExposedWinSelectAria {
+    MOVE_ARIA_WINDOW = "move-aria-window",
+    STOP_MOVE_WINDOW = "stop-move-window",
+}
+
+export type ExposedChannel = ExposedFfmpeg | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | string
 
 export interface ExposedIpcRenderer {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => void

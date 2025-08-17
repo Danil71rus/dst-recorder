@@ -9,3 +9,4 @@ export function initTrayHandlers() {
         trayManager.updateMenu(status)
     })
 }
+

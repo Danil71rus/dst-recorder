@@ -1,14 +1,15 @@
-import { app, Tray, Menu, nativeImage, shell} from 'electron'
-import { join } from 'path'
-import { getWindowByName, WindowName } from '../window/utils/ipc-controller.ts'
-import { screenRecorder } from '../ffmpeg.ts'
-import { ExposedWinMain } from '../window/ipc-handlers/definitions/renderer.ts'
-import {RecordingStatus} from "@/deinitions/ffmpeg.ts";
+import { app, Tray, Menu, nativeImage, shell } from "electron"
+import { join } from "path"
+import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
+import { screenRecorder } from "../ffmpeg.ts"
+import { ExposedWinMain } from "../window/ipc-handlers/definitions/renderer.ts"
+import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import { updatePositionByAria } from "../window/ipc-handlers/ipc-win-select-aria.ts"
 
 export class TrayManager {
     private static instance: TrayManager
     private tray: Tray | null = null
-    private isDarwin = process.platform === 'darwin'
+    private isDarwin = process.platform === "darwin"
 
     private constructor() {}
 
@@ -21,10 +22,10 @@ export class TrayManager {
 
     private createIcon() {
         const isDev = !app.isPackaged
-        const iconFileName = 'camera.png'
+        const iconFileName = "camera.png"
         const iconPath = isDev
-            ? join(process.cwd(), 'src/assets', iconFileName)
-            : join(app.getAppPath(), 'src/assets', iconFileName)
+            ? join(process.cwd(), "src/assets", iconFileName)
+            : join(app.getAppPath(), "src/assets", iconFileName)
 
         const icon = nativeImage.createFromPath(iconPath)
         if (icon.isEmpty()) return nativeImage.createFromPath(iconPath)
@@ -36,18 +37,18 @@ export class TrayManager {
     public createTray(): void {
         try {
             this.tray = new Tray(this.createIcon())
-            this.tray.setToolTip('DST Recorder')
+            this.tray.setToolTip("DST Recorder")
 
             this.updateMenu()
 
             // На macOS клик по трею обычно показывает меню
             // На других платформах - правый клик
             if (this.isDarwin) {
-                this.tray.on('click', () => this.tray?.popUpContextMenu())
-                this.tray.on('right-click', () => this.tray?.popUpContextMenu())
+                this.tray.on("click", () => this.tray?.popUpContextMenu())
+                this.tray.on("right-click", () => this.tray?.popUpContextMenu())
             }
         } catch (error) {
-            console.error('Error creating tray:', error)
+            console.error("Error creating tray:", error)
         }
     }
 
@@ -66,62 +67,66 @@ export class TrayManager {
     private getDefaultMenu(): Menu {
         return Menu.buildFromTemplate([
             {
-                label: '▶️ Начать запись',
-                click: () => this.startRecording()
+                label: "▶️ Начать запись",
+                click: () => this.startRecording(),
             },
             {
-                type: 'separator'
+                type: "separator",
             },
             {
-                label: '⚙️ Настройки',
-                click: () => this.openSettings()
+                label: "⚙️ Настройки",
+                click: () => this.openSettings(),
             },
             {
-                label: '⏱️ Таймер',
-                click: () => this.openTimer()
+                label: "⏱️ Таймер",
+                click: () => this.openTimer(),
             },
             {
-                label: '📂 Открыть папку с записями',
-                click: () => this.openRecordingsFolder()
+                label: "📐Область",
+                click: () => this.openAria(),
             },
             {
-                type: 'separator'
+                label: "📂 Открыть папку с записями",
+                click: () => this.openRecordingsFolder(),
             },
             {
-                label: 'Выход',
-                click: () => this.quitApp()
-            }
+                type: "separator",
+            },
+            {
+                label: "Выход",
+                click: () => this.quitApp(),
+            },
         ])
     }
 
     private getRecordingMenu(): Menu {
         return Menu.buildFromTemplate([
             {
-                label: '⏹️ Остановить запись',
-                click: () => this.stopRecording()
+                label: "⏹️ Остановить запись",
+                click: () => this.stopRecording(),
             },
             {
-                type: 'separator'
+                type: "separator",
             },
             {
-                label: '⚙️ Настройки',
-                click: () => this.openSettings()
+                label: "⚙️ Настройки",
+                click: () => this.openSettings(),
             },
             {
-                label: '⏱️ Таймер',
-                click: () => this.openTimer()
+                label: "⏱️ Таймер",
+                click: () => this.openTimer(),
             },
             {
-                label: '📂 Открыть папку с записями',
-                click: () => this.openRecordingsFolder()
+                label: "📂 Открыть папку с записями",
+                click: () => this.openRecordingsFolder(),
             },
             {
-                type: 'separator'
+                type: "separator",
             },
             {
-                label: 'Выход',
-                click: () => this.quitApp()
-            }
+                label: "Выход",
+                click: () => this.quitApp(),
+            },
         ])
     }
 
@@ -137,14 +142,14 @@ export class TrayManager {
             // Начинаем запись
             const result = await screenRecorder.startRecording()
             if (result?.error) {
-                console.error('Failed to start recording:', result.error)
+                console.error("Failed to start recording:", result.error)
                 return
             }
 
             // Показываем окно таймера
             // if (timerWindow) timerWindow.show()
         } catch (error) {
-            console.error('Error starting recording:', error)
+            console.error("Error starting recording:", error)
         }
     }
 
@@ -169,6 +174,14 @@ export class TrayManager {
         if (timerWindow) timerWindow.show()
     }
 
+    private openAria(): void {
+        const ariaWindow = getWindowByName(WindowName.SelectAria)
+        if (ariaWindow) {
+            ariaWindow.show()
+            updatePositionByAria(ariaWindow)
+        }
+    }
+
     private openRecordingsFolder(): void {
         const recordingsPath = screenRecorder.getSettings()?.outputPath
         if (recordingsPath) shell.openPath(recordingsPath)
@@ -186,7 +199,7 @@ export class TrayManager {
     private getFormattedDuration(duration: number): string {
         const minutes = Math.floor(duration / 60)
         const seconds = duration % 60
-        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     }
 }
 

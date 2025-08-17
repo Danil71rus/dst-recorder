@@ -22,3 +22,4 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
         ipcRenderer.removeAllListeners(channel)
     },
 })
+
