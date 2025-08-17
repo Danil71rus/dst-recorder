@@ -285,17 +285,7 @@ export class ScreenRecorder {
         this.recordingStartTime = 0
         this.ffmpegCommand = null
         this.resetTimer(true)
-
-        const ariaWin = getWindowByName(WindowName.SelectAria)
-        if (ariaWin) {
-            ariaWin.hide()
-            const scale = this.settings.scale
-            this.setSettings({
-                ...this.settings,
-                crop:   { w: scale.w, h: scale.h },
-                offset: { x: 0, y: 0 },
-            })
-        }
+        this.stopForAria()
     }
 
     public getIsRecording(): boolean {
@@ -332,10 +322,39 @@ export class ScreenRecorder {
     }
     startTimer() {
         this.resetTimer()
+        this.startForAria()
         this.recordingInterval = setInterval(() => {
             ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
         }, 1000)
     }
+
+    // Если запись области
+    startForAria() {
+        const ariaWin = getWindowByName(WindowName.SelectAria)
+        if (ariaWin && ariaWin.isVisible()) {
+            // Заставляет окно полностью игнорировать все события мыши, "пропуская" клики насквозь к окнам, находящимся под ним
+            ariaWin.setIgnoreMouseEvents(true)
+            ariaWin.setMovable(false)
+        }
+    }
+
+    // Если запись области
+    stopForAria() {
+        const ariaWin = getWindowByName(WindowName.SelectAria)
+        if (ariaWin && ariaWin.isVisible()) {
+            // Заставляет окно полностью игнорировать все события мыши, "пропуская" клики насквозь к окнам, находящимся под ним
+            ariaWin.setIgnoreMouseEvents(false)
+            ariaWin.setMovable(true)
+            ariaWin.hide()
+            const scale = this.settings.scale
+            this.setSettings({
+                ...this.settings,
+                crop:   { w: scale.w, h: scale.h },
+                offset: { x: 0, y: 0 },
+            })
+        }
+    }
+
 }
 
 export const screenRecorder = ScreenRecorder.getInstance()

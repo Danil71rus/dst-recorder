@@ -37,7 +37,7 @@ export async function createSelectAriaWindow() {
 
     selectAriaWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.SelectAria, selectAriaWindow)
-        // selectAriaWindow.setAlwaysOnTop(true)
+        selectAriaWindow.setAlwaysOnTop(true)
         // selectAriaWindow.show()
     })
 
