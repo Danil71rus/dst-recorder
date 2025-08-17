@@ -41,7 +41,7 @@
                 />
 
                 <dst-button
-                    class="ml-x2"
+                    class="ml-x4"
                     value="Закрыть"
                     :variant="ButtonVariant.OutlineSecondary"
                     @click="onClose"
@@ -197,37 +197,15 @@ function onClose() {
 }
 
 .container {
-    text-align: center;
     background: rgba(1, 12, 12, 0.48);
-    padding: 3rem;
+    padding: 25px;
     border-radius: 1rem;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.16);
-    max-width: 500px;
-    width: 100%;
+    margin: 8px;
     color: #ffffff;
 
     &>*:not(:first-child) {
         margin-top: 24px;
     }
-}
-
-h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    color: #1a202c;
-}
-
-p {
-    font-size: 1.125rem;
-    color: #718096;
-    margin-bottom: 2rem;
-}
-.flex-row {
-    display: flex;
-    justify-content: flex-start;
-}
-
-.ml-x2 {
-    margin-left: 16px;
 }
 </style>

@@ -1,0 +1,18 @@
+// Базовые отступы
+$indent-x1: 4px;
+$indent-x2: 8px;
+$indent-x3: 12px;
+$indent-x4: 16px;
+$indent-x5: 20px;
+$indent-x6: 24px;
+$indent-x7: 28px;
+$indent-x8: 32px;
+
+// Лимит для генерации классов отступов
+$indent-x-limit: 20;
+
+// CSS переменные для цветов
+:root {
+  --divider: #e0e0e0;
+  --textColorGray: #777777;
+}

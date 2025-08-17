@@ -1,0 +1,24 @@
+// Flex mixins
+@mixin flex-start {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+@mixin flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@mixin flex-main-axis-center {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+@mixin flex-cross-axis-center {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}

@@ -5,6 +5,9 @@
 </template>
 
 <style lang="scss">
+// Импорт общих стилей
+@use 'src/assets/styles/main.scss';
+
 * {
   margin: 0;
   padding: 0;
