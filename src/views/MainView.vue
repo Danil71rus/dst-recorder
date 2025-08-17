@@ -59,7 +59,7 @@ import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/defini
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
+import { FfmpegDeviceLists, FfmpegDeviceVideo, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
 
 // Проверка доступности Electron API
 const deviceList = ref<FfmpegDeviceLists>({
@@ -101,7 +101,7 @@ const selectedVideo = computed({
         const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
         if (newVideo?.name) {
             currentState.value.video = newVideo
-            setSize()
+            setSize(currentState.value.defSize)
             console.log(toRaw(currentState.value))
         }
     }
@@ -109,11 +109,14 @@ const selectedVideo = computed({
 const screensList = computed((): ComboboxItem[] => {
     return deviceList.value.video
         .filter(item => item.isScreen)
-        .map(item => ({
-            id:       `${item.index}`,
-            title:    `${item.label}`,
-            subtitle: `${item.size?.width || ""} × ${item.size?.height || ""}`
-        }))
+        .map(item => {
+            const scale = getResultScale(item)
+            return {
+                id:       `${item.index}`,
+                title:    `${item.label}`,
+                subtitle: `${scale.w} × ${scale.h}`
+            }
+        })
 })
 
 const selectedAudio = computed({
@@ -148,17 +151,26 @@ async function updateSettings(newSettings?: unknown) {
 
 function setSize(newSize?: Size) {
     const newVideo = deviceList.value.video.find(item => item.index === Number(currentState.value.video?.index))
-    const resultSize = newSize || Size.FulHD
-    const selSizeSettings = sizeSettings.value?.[resultSize]
-
     if (newVideo?.name) {
-        currentState.value.scale.w = Math.min(selSizeSettings.w, newVideo.scaleMax?.width || 0)
-        currentState.value.scale.h = Math.min(selSizeSettings.h, newVideo.scaleMax?.height || 0)
+        const { w, h, resultSize } = getResultScale(newVideo, newSize)
 
-        currentState.value.crop.w = currentState.value.scale.w
-        currentState.value.crop.h = currentState.value.scale.h
+        currentState.value.scale.w = w
+        currentState.value.scale.h = h
+
+        currentState.value.crop.w = w
+        currentState.value.crop.h = h
 
         currentState.value.defSize = resultSize
+    }
+}
+
+function getResultScale(newVideo: FfmpegDeviceVideo, newSize?: Size) {
+    const resultSize = newSize || currentState.value.defSize || Size.FulHD
+    const selSizeSettings = sizeSettings.value?.[resultSize]
+    return {
+        w: Math.min(selSizeSettings.w, newVideo.scaleMax?.width || 0),
+        h: Math.min(selSizeSettings.h, newVideo.scaleMax?.height || 0),
+        resultSize,
     }
 }
 

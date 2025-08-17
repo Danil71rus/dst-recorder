@@ -10,7 +10,10 @@
 
         <!-- Основной таймер -->
         <div class="timer-display">
-            <div :class="{ 'recording-dot': true, 'animate-active': isRecording }" />
+            <div
+                v-if="isRecording"
+                :class="{ 'recording-dot': true, 'animate-active': true }"
+            />
             <span class="time">{{ formattedTime }}</span>
         </div>
 
