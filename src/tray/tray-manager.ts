@@ -3,11 +3,11 @@ import { join } from 'path'
 import { getWindowByName, WindowName } from '../window/utils/ipc-controller.ts'
 import { screenRecorder } from '../ffmpeg.ts'
 import { ExposedWinMain } from '../window/ipc-handlers/definitions/renderer.ts'
+import {RecordingStatus} from "@/deinitions/ffmpeg.ts";
 
 export class TrayManager {
     private static instance: TrayManager
     private tray: Tray | null = null
-    private recordingInterval: NodeJS.Timeout | null = null
     private isDarwin = process.platform === 'darwin'
 
     private constructor() {}
@@ -42,7 +42,7 @@ export class TrayManager {
 
             // На macOS клик по трею обычно показывает меню
             // На других платформах - правый клик
-            if (process.platform === 'darwin') {
+            if (this.isDarwin) {
                 this.tray.on('click', () => this.tray?.popUpContextMenu())
                 this.tray.on('right-click', () => this.tray?.popUpContextMenu())
             }
@@ -51,13 +51,16 @@ export class TrayManager {
         }
     }
 
-    private updateMenu(): void {
+    public updateMenu(status?: RecordingStatus): void {
         if (!this.tray) return
 
-        const contextMenu = screenRecorder.getIsRecording()
-            ? this.getRecordingMenu()
-            : this.getDefaultMenu()
-        this.tray.setContextMenu(contextMenu)
+        if (status?.isRecording) {
+            this.tray.setContextMenu(this.getRecordingMenu())
+            if (this.isDarwin) this.tray?.setTitle(this.getFormattedDuration(status.duration))
+        } else {
+            this.tray.setContextMenu(this.getDefaultMenu())
+            if (this.isDarwin) this.tray?.setTitle("")
+        }
     }
 
     private getDefaultMenu(): Menu {
@@ -138,18 +141,6 @@ export class TrayManager {
                 return
             }
 
-            // Обновляем иконку трея
-            this.updateTrayIcon(true)
-
-            // Запускаем таймер для обновления меню и заголовка трея
-            this.recordingInterval = setInterval(() => {
-                this.updateMenu()
-                if (process.platform === 'darwin') this.tray?.setTitle(this.getFormattedDuration())
-            }, 1000)
-
-            // Обновляем меню сразу
-            this.updateMenu()
-
             // Показываем окно таймера
             // if (timerWindow) timerWindow.show()
         } catch (error) {
@@ -159,19 +150,6 @@ export class TrayManager {
 
     private async stopRecording(): Promise<void> {
         await screenRecorder.stopRecording()
-
-        // Останавливаем таймер
-        if (this.recordingInterval) {
-            clearInterval(this.recordingInterval)
-            this.recordingInterval = null
-        }
-
-        // Обновляем иконку трея и сбрасываем заголовок
-        this.updateTrayIcon(false)
-        if (this.isDarwin) this.tray?.setTitle('')
-
-        // Обновляем меню
-        this.updateMenu()
 
         // Скрываем окно таймера
         // const timerWindow = getWindowByName(WindowName.Timer)
@@ -192,10 +170,8 @@ export class TrayManager {
     }
 
     private openRecordingsFolder(): void {
-        const recordingsPath = screenRecorder.getRecordingsPath()
-        shell.openPath(recordingsPath).catch(err => {
-            console.error('Failed to open recordings folder:', err)
-        })
+        const recordingsPath = screenRecorder.getSettings()?.outputPath
+        if (recordingsPath) shell.openPath(recordingsPath)
     }
 
     private quitApp(): void {
@@ -207,43 +183,10 @@ export class TrayManager {
         }
     }
 
-    private getFormattedDuration(): string {
-        if (!screenRecorder.getIsRecording()) return '00:00'
-
-        const startTime = screenRecorder.getRecordingStartTime()
-        if (startTime === 0) return '00:00'
-
-        const duration = Math.floor((Date.now() - startTime) / 1000)
+    private getFormattedDuration(duration: number): string {
         const minutes = Math.floor(duration / 60)
         const seconds = duration % 60
-
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    }
-
-    private updateTrayIcon(isRecording: boolean): void {
-        if (!this.tray) return
-        // Обновляем подсказку
-        if (isRecording) this.tray.setToolTip('DST Recorder - Идет запись')
-        else this.tray.setToolTip('DST Recorder')
-        this.tray.setImage(this.createIcon())
-    }
-
-    public updateRecordingState(isRecording: boolean): void {
-        if (isRecording) {
-            // Запускаем таймер для обновления меню
-            if (!this.recordingInterval) {
-                this.recordingInterval = setInterval(() => this.updateMenu(), 1000)
-            }
-        } else {
-            // Останавливаем таймер
-            if (this.recordingInterval) {
-                clearInterval(this.recordingInterval)
-                this.recordingInterval = null
-            }
-        }
-
-        this.updateTrayIcon(isRecording)
-        this.updateMenu()
     }
 }
 

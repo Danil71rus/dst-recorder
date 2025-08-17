@@ -14,8 +14,8 @@ import {
     RecordingStatus,
     StartRecordingResponse
 } from "./deinitions/ffmpeg.ts"
-import { ExposedWinMain, ExposedTray } from "./window/ipc-handlers/definitions/renderer.ts"
-import { getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
+import { ExposedFfmpeg } from "./window/ipc-handlers/definitions/renderer.ts"
+import { getWindowAll } from "./window/utils/ipc-controller.ts"
 import { ipcMain } from 'electron'
 
 export class ScreenRecorder {
@@ -25,6 +25,7 @@ export class ScreenRecorder {
     public outputPathAndFileName: string = ''
     public recordingStartTime: number = 0
     public isRecording: boolean = false
+    private recordingInterval: NodeJS.Timeout | null = null
 
     public settings: FfmpegSettings = {
         ...getDefaultSettings(),
@@ -244,22 +245,21 @@ export class ScreenRecorder {
                         console.log('FFmpeg started:', cmd)
                         this.isRecording = true
                         this.recordingStartTime = Date.now()
-                        // Уведомляем трей о начале записи
-                        ipcMain.emit(ExposedTray.UPDATE_RECORDING_STATE, null, true)
+                        this.startTimer()
                         resolve({  outputPathAndFileName: this.outputPathAndFileName })
                     })
                     .on('end', () => {
                         console.log('Recording finished.')
                         this.isRecording = false
+                        this.recordingStartTime = 0
                         this.ffmpegCommand = null
-                        // Уведомляем трей об остановке записи
-                        ipcMain.emit(ExposedTray.UPDATE_RECORDING_STATE, null, false)
+                        this.resetTimer(true)
                     })
                     .on('error', (err) => {
                         console.error('FFmpeg error:', err.message)
                         this.isRecording = false
-                        // Уведомляем трей об остановке записи в случае ошибки
-                        ipcMain.emit(ExposedTray.UPDATE_RECORDING_STATE, null, false)
+                        this.recordingStartTime = 0
+                        this.resetTimer(true)
                         reject({ error: err.message })
                     })
                     // .on('stderr', (line) => {
@@ -289,16 +289,10 @@ export class ScreenRecorder {
         return this.isRecording
     }
 
-    public getRecordingStartTime(): number {
-        return this.recordingStartTime
-    }
-
     getRecordingStatus(): RecordingStatus {
         const duration = this.isRecording ? Math.floor((Date.now() - this.recordingStartTime) / 1000) : 0
         return { isRecording: this.isRecording, duration }
     }
-
-    getRecordingsPath(): string { return this.settings.outputPath }
 
     getSettings() {
         return this.settings
@@ -307,11 +301,27 @@ export class ScreenRecorder {
     setSettings(settings?: FfmpegSettings) {
         if (!settings) return
         this.settings = settings
-        getWindowByName(WindowName.Main)?.webContents.send(ExposedWinMain.SHOW)
+        getWindowAll()?.forEach(item => {
+          item?.webContents.send(ExposedFfmpeg.UPDATED_SETTINGS, settings)
+        })
     }
 
     generateShortFilename(): string {
         return `SR_${DateTime.now().toFormat('dd-MM-yyyy_HH_mm_ss')}.mp4`;
+    }
+
+    resetTimer(sendStatus?: boolean) {
+        if (this.recordingInterval) {
+            clearInterval(this.recordingInterval)
+            this.recordingInterval = null
+        }
+        if (sendStatus) ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
+    }
+    startTimer() {
+        this.resetTimer()
+        this.recordingInterval = setInterval(() => {
+            ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
+        }, 1000)
     }
 }
 

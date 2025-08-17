@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { ref, toRaw, computed } from 'vue'
-import { ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
+import {ExposedFfmpeg, ExposedWinMain} from "@/window/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
@@ -132,8 +132,11 @@ const audioList = computed((): ComboboxItem[] => {
     }))
 })
 
-window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => {
-    const settings = await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS) as FfmpegSettings
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
+window.ipcRenderer?.on(ExposedFfmpeg.UPDATED_SETTINGS, async (_event, newSettings) => await updateSettings(newSettings))
+
+async function updateSettings(newSettings?: unknown) {
+    const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
     if (settings) currentState.value = settings
 
     const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
@@ -141,7 +144,7 @@ window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => {
 
     console.log(" deviceList.value: ",  deviceList.value)
     console.log(" currentState.value: ",  currentState.value)
-})
+}
 
 function setSize(newSize?: Size) {
     const newVideo = deviceList.value.video.find(item => item.index === Number(currentState.value.video?.index))

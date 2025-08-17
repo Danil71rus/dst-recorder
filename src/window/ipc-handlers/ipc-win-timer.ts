@@ -1,7 +1,8 @@
 import { ipcMain, shell } from "electron"
-import { ExposedWinTimer, ExposedWinMain } from "./definitions/renderer.ts"
+import { ExposedWinTimer, ExposedWinMain, ExposedFfmpeg } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
 import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
+import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 
 
 export function initTimerWindowControlsHandlers() {
@@ -17,9 +18,14 @@ export function initTimerWindowControlsHandlers() {
         return screenRecorder.getRecordingStatus()
     })
 
+    ipcMain.on(ExposedFfmpeg.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {
+        const timerWin = getWindowByName(WindowName.Timer)
+        if (timerWin) timerWin.webContents.send(ExposedWinTimer.UPDATED_STATE_TIMER, status)
+    })
+
     ipcMain.on(ExposedWinTimer.OPEN_SAVE_FOLDER, (_event, path: string) => {
         if (path) shell.showItemInFolder(path)
-        else shell.openPath(screenRecorder.getRecordingsPath())
+        else shell.openPath(screenRecorder.getSettings()?.outputPath)
     })
 
     ipcMain.on(ExposedWinTimer.MOVE_TIMER_WINDOW, (_event, position) => {

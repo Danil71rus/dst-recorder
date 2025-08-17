@@ -1,10 +1,11 @@
 import { ipcMain } from "electron"
 import { trayManager } from "../../tray/tray-manager.ts"
-import { ExposedTray } from "./definitions/renderer.ts"
+import { ExposedFfmpeg } from "./definitions/renderer.ts"
+import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 
 export function initTrayHandlers() {
     // Обновление состояния записи в трее
-    ipcMain.on(ExposedTray.UPDATE_RECORDING_STATE, (_event, isRecording: boolean) => {
-        trayManager.updateRecordingState(isRecording)
+    ipcMain.on(ExposedFfmpeg.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {
+        trayManager.updateMenu(status)
     })
 }

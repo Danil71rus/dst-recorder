@@ -1,5 +1,9 @@
 import type { IpcRendererEvent } from "electron"
 
+export enum ExposedFfmpeg {
+    UPDATED_SETTINGS = "Ffmpeg::updated-settings",
+    UPDATED_STATE_TIMER = "Ffmpeg::updated-state-timer",
+}
 
 export enum ExposedWinMain {
     SHOW = "show",
@@ -14,6 +18,7 @@ export enum ExposedWinTimer {
     OPEN_MAIN_WIN = "open-main-win",
     OPEN_SAVE_FOLDER = "open-save-folder",
     MOVE_TIMER_WINDOW = "move-timer-window",
+    UPDATED_STATE_TIMER = "updated-state-timer",
     HIDE = "hide",
     // FFmpeg каналы
     START_FFMPEG_RECORDING = "start-ffmpeg-recording",
@@ -21,11 +26,7 @@ export enum ExposedWinTimer {
     GET_RECORDING_STATUS = "get-recording-status",
 }
 
-export enum ExposedTray {
-    UPDATE_RECORDING_STATE = "tray:update-recording-state",
-}
-
-export type ExposedChannel = ExposedWinMain | ExposedWinTimer | ExposedTray | string
+export type ExposedChannel = ExposedFfmpeg | ExposedWinMain | ExposedWinTimer | string
 
 export interface ExposedIpcRenderer {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => void
