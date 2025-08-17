@@ -1,8 +1,8 @@
 import { ipcMain} from "electron"
 import { ExposedWinMain } from "./definitions/renderer.ts"
-import { screenRecorder } from "../ffmpeg.ts"
-import { FfmpegSettings } from "../deinitions/ffmpeg.ts"
-import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
+import { screenRecorder } from "../../ffmpeg.ts"
+import { FfmpegSettings } from "../../deinitions/ffmpeg.ts"
+import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
 
 
 export function initMainWindowControlsHandlers() {

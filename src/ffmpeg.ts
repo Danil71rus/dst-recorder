@@ -14,7 +14,7 @@ import {
     RecordingStatus,
     StartRecordingResponse
 } from "./deinitions/ffmpeg.ts"
-import { ExposedWinMain, ExposedTray } from "./ipc-handlers/definitions/renderer.ts"
+import { ExposedWinMain, ExposedTray } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { ipcMain } from 'electron'
 

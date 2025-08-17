@@ -1,5 +1,5 @@
 import { ipcMain } from "electron"
-import { trayManager } from "../tray/tray-manager.ts"
+import { trayManager } from "../../tray/tray-manager.ts"
 import { ExposedTray } from "./definitions/renderer.ts"
 
 export function initTrayHandlers() {

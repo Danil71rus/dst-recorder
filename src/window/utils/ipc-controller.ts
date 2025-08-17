@@ -1,7 +1,7 @@
 import { BrowserWindow } from "electron"
-import { initMainWindowControlsHandlers } from "../../ipc-handlers/ipc-win-main.ts"
-import { initTimerWindowControlsHandlers } from "../../ipc-handlers/ipc-win-timer.ts"
-import { initTrayHandlers } from "../../ipc-handlers/ipc-tray.ts"
+import { initMainWindowControlsHandlers } from "../ipc-handlers/ipc-win-main.ts"
+import { initTimerWindowControlsHandlers } from "../ipc-handlers/ipc-win-timer.ts"
+import { initTrayHandlers } from "../ipc-handlers/ipc-tray.ts"
 
 export enum WindowName {
     Main = "mainWindow",

@@ -1,4 +1,4 @@
-import { ExposedIpcRenderer } from "@/ipc-handlers/definitions/renderer.ts"
+import { ExposedIpcRenderer } from "../../window/ipc-handlers/definitions/renderer.ts"
 
 
 declare global {

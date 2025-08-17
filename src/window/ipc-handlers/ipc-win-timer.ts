@@ -1,7 +1,7 @@
 import { ipcMain, shell } from "electron"
 import { ExposedWinTimer, ExposedWinMain } from "./definitions/renderer.ts"
-import { screenRecorder } from "../ffmpeg.ts"
-import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
+import { screenRecorder } from "../../ffmpeg.ts"
+import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
 
 
 export function initTimerWindowControlsHandlers() {

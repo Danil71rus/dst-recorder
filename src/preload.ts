@@ -3,7 +3,7 @@
 import { contextBridge, ipcRenderer } from "electron"
 import type { IpcRendererEvent } from "electron"
 // import "@sentry/electron/preload"
-import { ExposedChannel } from "./ipc-handlers/definitions/renderer.ts"
+import { ExposedChannel } from "./window/ipc-handlers/definitions/renderer.ts"
 
 contextBridge.exposeInMainWorld("ipcRenderer", {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => {

@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { ref, toRaw, computed } from 'vue'
-import { ExposedWinMain } from "@/ipc-handlers/definitions/renderer"
+import { ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"

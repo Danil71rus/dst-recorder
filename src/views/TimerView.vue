@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from 'vue'
-import { ExposedWinTimer } from "@/ipc-handlers/definitions/renderer.ts"
+import { ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { RecordingStatus, StartRecordingResponse } from "@/deinitions/ffmpeg.ts"

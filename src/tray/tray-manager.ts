@@ -2,7 +2,7 @@ import { app, Tray, Menu, nativeImage, shell} from 'electron'
 import { join } from 'path'
 import { getWindowByName, WindowName } from '../window/utils/ipc-controller.ts'
 import { screenRecorder } from '../ffmpeg.ts'
-import { ExposedWinMain } from '../ipc-handlers/definitions/renderer.ts'
+import { ExposedWinMain } from '../window/ipc-handlers/definitions/renderer.ts'
 
 export class TrayManager {
     private static instance: TrayManager
