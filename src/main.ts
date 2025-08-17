@@ -45,7 +45,7 @@ app.whenReady().then(async () => {
     if (isDarwin) {
         try {
             const iconPath = getIconPath();
-            app.dock.setIcon(nativeImage.createFromPath(iconPath))
+            app.dock?.setIcon(nativeImage.createFromPath(iconPath))
         } catch (error) {
             console.error(`Failed to set dock icon:`, error);
         }
