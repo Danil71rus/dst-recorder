@@ -20,10 +20,9 @@ export interface FfmpegDeviceLists {
 }
 
 export enum Size {
-    HD = "720p",
-    FulHD = "1080p",
-    QHD = "2k",
-    UHD = "4k",
+    Max = 1,
+    Medium = 2,
+    Min = 4,
 }
 
 export interface FfmpegSettings {
@@ -55,8 +54,8 @@ export interface RecordingStatus {
 export const getDefaultSettings = (): FfmpegSettings => ({
     outputPath: "",
     fps:        30,
-    defSize:    Size.FulHD,
-    scale:      { w: 1920, h: 1080 },
-    crop:       { w: 1920, h: 1080 },
+    defSize:    Size.Max,
+    scale:      { w: 0, h: 0 },
+    crop:       { w: 0, h: 0 },
     offset:     { x: 0, y: 0 },
 })

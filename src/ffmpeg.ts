@@ -16,6 +16,7 @@ import {
 } from "./deinitions/ffmpeg.ts"
 import { ExposedFfmpeg } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
+import { getResultScale } from "./window/utils/main.ts"
 
 export class ScreenRecorder {
     private static instance: ScreenRecorder
@@ -52,11 +53,13 @@ export class ScreenRecorder {
 
     public async asyncInit() {
         const device = await this.getSeparatedDevices()
-        // console.log("!!!! device: ", device)
+        console.log("!!!! device: ", device.video)
+        const video = device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0]
         this.setSettings({
             ...this.settings,
             audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
-            video: device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0],
+            video,
+            ...getResultScale(video),
         })
     }
 

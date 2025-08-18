@@ -5,21 +5,21 @@
     >
         <div class="container">
             <dst-combobox
-                v-model="selectedDefSize"
-                :items="sizes"
-                :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Secondary"
-                placeholder="Качество"
-                label="Качество"
-            />
-
-            <dst-combobox
                 v-model="selectedVideo"
                 :items="screensList"
                 :display-type="ComboboxDisplayType.Right"
                 :variant="ComboboxStyle.Secondary"
                 placeholder="Экран"
                 label="Выбор экрана"
+            />
+
+            <dst-combobox
+                v-model="selectedDefSize"
+                :items="sizesCombobox"
+                :display-type="ComboboxDisplayType.Right"
+                :variant="ComboboxStyle.Secondary"
+                placeholder="Качество"
+                label="Качество"
             />
 
             <dst-combobox
@@ -59,7 +59,8 @@ import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/defini
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import { FfmpegDeviceLists, FfmpegDeviceVideo, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
+import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
+import { getResultScale } from "@/window/utils/main.ts"
 
 // Проверка доступности Electron API
 const deviceList = ref<FfmpegDeviceLists>({
@@ -68,28 +69,34 @@ const deviceList = ref<FfmpegDeviceLists>({
 })
 const currentState = ref<FfmpegSettings>(getDefaultSettings())
 
-const sizeSettings = ref<{ [key: string]: { w: number, h: number } }>({
-    [Size.HD]:    { w: 1280, h: 720 },
-    [Size.FulHD]: { w: 1920, h: 1080 },
-    [Size.QHD]:   { w: 2560, h: 1440 },
-    [Size.UHD]:   { w: 3840, h: 2160 },
+const sizes = computed(() => {
+    return Object.keys(Size)
+        .map(id => {
+            const size = Number(Size[id as keyof typeof Size])
+            const maxW = currentState.value.video?.scaleMax?.width || 0
+            const maxH = currentState.value.video?.scaleMax?.height || 0
+            return {
+                id: size,
+                w:  maxW / size,
+                h:  maxH / size,
+            }
+        })
+        .filter(item => item.w > 0)
 })
-const sizes = computed((): ComboboxItem[] => {
-    return Object.entries(sizeSettings.value)
-        .filter(([, val]) => !currentState.value.video?.scaleMax?.width || val.w <= currentState.value.video?.scaleMax.width)
-        .map(([key]) => ({
-            id:    key,
-            title: key,
+const sizesCombobox = computed((): ComboboxItem[] => {
+    return sizes.value
+        .map(item => ({
+            id:    item.id,
+            title: `${item.w} * ${item.h}`,
         }))
 })
+
 const selectedDefSize = computed({
     get() {
         return `${currentState.value.defSize}`
     },
-    set(newSize: Size) {
-        currentState.value.defSize = newSize
+    set(newSize: string) {
         setSize(newSize)
-        console.log(toRaw(currentState.value))
     },
 })
 
@@ -101,8 +108,7 @@ const selectedVideo = computed({
         const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
         if (newVideo?.name) {
             currentState.value.video = newVideo
-            setSize(currentState.value.defSize)
-            console.log(toRaw(currentState.value))
+            setSize()
         }
     },
 })
@@ -110,7 +116,7 @@ const screensList = computed((): ComboboxItem[] => {
     return deviceList.value.video
         .filter(item => item.isScreen)
         .map(item => {
-            const scale = getResultScale(item)
+            const { scale } = getResultScale(item, currentState.value.defSize)
             return {
                 id:       `${item.index}`,
                 title:    `${item.label}`,
@@ -135,44 +141,35 @@ const audioList = computed((): ComboboxItem[] => {
     }))
 })
 
-window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings({ forceUpdateDevices: true }))
-window.ipcRenderer?.on(ExposedFfmpeg.UPDATED_SETTINGS, async (_event, newSettings) => await updateSettings({ newSettings }))
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings({ forceUpdate: true }))
+window.ipcRenderer?.on(
+    ExposedFfmpeg.UPDATED_SETTINGS,
+    async (_event, newSettings) => await updateSettings({ newSettings }),
+)
 
-async function updateSettings({ newSettings, forceUpdateDevices }: { newSettings?: unknown, forceUpdateDevices?: boolean }) {
+async function updateSettings({ newSettings, forceUpdate }: { newSettings?: unknown, forceUpdate?: boolean }) {
     const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
     if (settings) currentState.value = settings
 
-    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES, forceUpdateDevices) as FfmpegDeviceLists
+    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES, forceUpdate) as FfmpegDeviceLists
     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 
     console.log(" deviceList.value: ", deviceList.value)
     console.log(" currentState.value: ", currentState.value)
 }
 
-function setSize(newSize?: Size) {
-    const newVideo = deviceList.value.video.find(item => item.index === Number(currentState.value.video?.index))
+function setSize(size = "") {
+    const newSize = Number(size) || Size.Max
+    const newVideo = currentState.value.video
     if (newVideo?.name) {
-        const { w, h, resultSize } = getResultScale(newVideo, newSize)
-
-        currentState.value.scale.w = w
-        currentState.value.scale.h = h
-
-        currentState.value.crop.w = w
-        currentState.value.crop.h = h
-
-        currentState.value.defSize = resultSize
+        currentState.value = {
+            ...currentState.value,
+            ...getResultScale(newVideo, newSize),
+            defSize: newSize,
+        }
     }
 }
 
-function getResultScale(newVideo: FfmpegDeviceVideo, newSize?: Size) {
-    const resultSize = newSize || currentState.value.defSize || Size.FulHD
-    const selSizeSettings = sizeSettings.value?.[resultSize]
-    return {
-        w: Math.min(selSizeSettings.w, newVideo.scaleMax?.width || 0),
-        h: Math.min(selSizeSettings.h, newVideo.scaleMax?.height || 0),
-        resultSize,
-    }
-}
 
 /** Перемещение окна */
 let dragPosition: { x: number, y: number } | null = null
@@ -195,7 +192,8 @@ function stopDrag() {
 }
 
 async function onSave() {
-    await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, toRaw(currentState.value))
+    const settingsToSave = JSON.parse(JSON.stringify(toRaw(currentState.value)))
+    await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, settingsToSave)
 }
 function onClose() {
     window.ipcRenderer?.send(ExposedWinMain.HIDE)
