@@ -14,10 +14,6 @@
   box-sizing: border-box;
 }
 
-//body {
-//  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-//}
-
 /* Убираем фон по умолчанию для body и html */
 html, body {
     margin: 0;

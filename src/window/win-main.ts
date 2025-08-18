@@ -35,6 +35,7 @@ export async function createMainWindow() {
 
     mainWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.Main, mainWindow)
+        mainWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
         // mainWindow.show()
     })
 

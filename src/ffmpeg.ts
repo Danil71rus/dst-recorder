@@ -307,6 +307,7 @@ export class ScreenRecorder {
         getWindowAll()?.forEach(item => {
             item?.webContents.send(ExposedFfmpeg.UPDATED_SETTINGS, settings)
         })
+        ipcMain.emit(ExposedFfmpeg.UPDATED_SETTINGS, null, settings)
     }
 
     generateShortFilename(): string {

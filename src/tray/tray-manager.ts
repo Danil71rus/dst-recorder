@@ -65,10 +65,19 @@ export class TrayManager {
     }
 
     private getDefaultMenu(): Menu {
+        const { crop, defSize, video, audio } = screenRecorder.getSettings()
         return Menu.buildFromTemplate([
             {
                 label: "▶️ Начать запись",
                 click: () => this.startRecording(),
+            },
+            {
+                label:   `-Видео: ${video?.label} (${crop.w}*${crop.h} / ${defSize})`,
+                enabled: false,
+            },
+            {
+                label:   `-Звук:    ${audio?.name}`,
+                enabled: false,
             },
             {
                 type: "separator",
