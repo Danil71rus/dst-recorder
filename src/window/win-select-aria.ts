@@ -38,6 +38,7 @@ export async function createSelectAriaWindow() {
     selectAriaWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.SelectAria, selectAriaWindow)
         selectAriaWindow.setAlwaysOnTop(true)
+        selectAriaWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
         // selectAriaWindow.show()
     })
 

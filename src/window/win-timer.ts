@@ -38,6 +38,7 @@ export async function createTimerWindow() {
     timerWindow.on("ready-to-show", () => {
         setWindowReady(WindowName.Timer, timerWindow)
         timerWindow.setAlwaysOnTop(true)
+        timerWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
         // timerWindow.show() // Не показываем автоматически - управление через трей
     })
 

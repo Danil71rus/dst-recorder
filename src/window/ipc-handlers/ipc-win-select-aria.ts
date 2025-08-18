@@ -2,7 +2,6 @@ import { BrowserWindow, ipcMain } from "electron"
 import { ExposedWinSelectAria } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
 import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
-import { showOnCurrentWin } from "../utils/open-win.ts"
 
 export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
     ipcMain.on(ExposedWinSelectAria.MOVE_ARIA_WINDOW, (_event, val) => {
@@ -49,8 +48,6 @@ export function updatePositionByAria(ariaWin: BrowserWindow) {
             Math.max(tX + aW - tW, 0),
             Math.max(tY + aH + border, 0),
         )
-        if (!timerWin.isVisible()) {
-            showOnCurrentWin(timerWin, true)
-        }
+        if (!timerWin.isVisible()) timerWin.show()
     }
 }

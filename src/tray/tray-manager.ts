@@ -5,7 +5,6 @@ import { screenRecorder } from "../ffmpeg.ts"
 import { ExposedWinMain } from "../window/ipc-handlers/definitions/renderer.ts"
 import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 import { updatePositionByAria } from "../window/ipc-handlers/ipc-win-select-aria.ts"
-import { showOnCurrentWin } from "../window/utils/open-win.ts"
 
 export class TrayManager {
     private static instance: TrayManager
@@ -172,7 +171,7 @@ export class TrayManager {
 
     private openTimer(): void {
         const timerWindow = getWindowByName(WindowName.Timer)
-        if (timerWindow) showOnCurrentWin(timerWindow)
+        if (timerWindow) timerWindow.show()
     }
 
     private openAria(): void {
@@ -182,7 +181,7 @@ export class TrayManager {
             ariaWindow.hide()
             getWindowByName(WindowName.Timer)?.hide()
 
-            showOnCurrentWin(ariaWindow)
+            ariaWindow.show()
             updatePositionByAria(ariaWindow)
         }
     }
