@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from "electron"
+import { BrowserWindow, ipcMain, screen } from "electron"
 import { ExposedWinSelectAria } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
 import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
@@ -19,21 +19,31 @@ export function updateSettingCropByAria(ariaWin: BrowserWindow) {
         const border = 4
         const size = ariaWin.getSize()
         const position = ariaWin.getPosition()
+        const newPosition = { x: position[0] + border, y: position[1] + border }
 
-        // console.log("size: ", size)
-        // console.log("position: ", position)
-        // console.log("currentSettings.crop: ", currentSettings.crop)
-        // console.log("currentSettings.offset: ", currentSettings.offset)
+
+        const currentWinName = screen.getDisplayNearestPoint(newPosition).label
+        const video = (() => {
+            if (currentSettings.video?.label === currentWinName) return currentSettings.video
+            // Если переместились на другой экран
+            return screenRecorder
+                .getCurrentDevicesList()
+                .video
+                .find(item => item.label === currentWinName) || currentSettings.video
+        })()
+
+        // [0] screen.bounds: HP 27f ({"x":1920,"y":0,"width":1920,"height":1080})
+        newPosition.x = Math.max(newPosition.x - (video?.bounds?.x || 0), 0)
+        newPosition.y = Math.max(newPosition.y - (video?.bounds?.y || 0), 0)
+
+        console.log("newPosition: ", JSON.stringify(newPosition))
 
         screenRecorder.setSettings({
             ...currentSettings,
-            offset: { x: position[0] + border, y: position[1] + border },
+            offset: newPosition,
             crop:   { w: size[0] - (border * 2), h: size[1] - (border * 2) },
+            video,
         })
-
-        // const newSet = screenRecorder.getSettings()
-        // console.log("newSet.crop: ", newSet.crop)
-        // console.log("newSet.offset: ", newSet.offset)
     }
 }
 

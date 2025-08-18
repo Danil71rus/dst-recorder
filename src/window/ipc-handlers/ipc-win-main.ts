@@ -15,8 +15,10 @@ export function initMainWindowControlsHandlers() {
         getWindowByName(WindowName.Main)?.hide()
     })
 
-    ipcMain.handle(ExposedWinMain.GET_DEVICES, async () => {
-        return await screenRecorder.getSeparatedDevices()
+    ipcMain.handle(ExposedWinMain.GET_DEVICES, async (_event, forceUpdate?: boolean) => {
+        return !forceUpdate
+            ? screenRecorder.getCurrentDevicesList()
+            : await screenRecorder.getSeparatedDevices()
     })
 
     ipcMain.on(ExposedWinMain.MOVE_MAIN_WINDOW, (_event, position) => {

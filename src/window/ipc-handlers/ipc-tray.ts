@@ -11,7 +11,6 @@ export function initTrayHandlers() {
     })
 
     ipcMain.on(ExposedFfmpeg.UPDATED_SETTINGS, () => {
-        console.log("@@@@@@")
         trayManager.updateMenu(screenRecorder.getRecordingStatus())
     })
 }

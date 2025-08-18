@@ -135,14 +135,14 @@ const audioList = computed((): ComboboxItem[] => {
     }))
 })
 
-window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
-window.ipcRenderer?.on(ExposedFfmpeg.UPDATED_SETTINGS, async (_event, newSettings) => await updateSettings(newSettings))
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings({ forceUpdateDevices: true }))
+window.ipcRenderer?.on(ExposedFfmpeg.UPDATED_SETTINGS, async (_event, newSettings) => await updateSettings({ newSettings }))
 
-async function updateSettings(newSettings?: unknown) {
+async function updateSettings({ newSettings, forceUpdateDevices }: { newSettings?: unknown, forceUpdateDevices?: boolean }) {
     const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
     if (settings) currentState.value = settings
 
-    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
+    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES, forceUpdateDevices) as FfmpegDeviceLists
     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 
     console.log(" deviceList.value: ", deviceList.value)

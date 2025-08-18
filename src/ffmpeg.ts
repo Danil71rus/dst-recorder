@@ -25,6 +25,10 @@ export class ScreenRecorder {
     public recordingStartTime: number = 0
     public isRecording: boolean = false
     private recordingInterval: NodeJS.Timeout | null = null
+    public devicesList: FfmpegDeviceLists = {
+        video: [],
+        audio: [],
+    }
 
     public settings: FfmpegSettings = {
         ...getDefaultSettings(),
@@ -134,7 +138,7 @@ export class ScreenRecorder {
                     .sort((a, b) => a.bounds.x - b.bounds.x)
                     .map((item, index) => ({ ...item, index }))
 
-                console.log("allDisplays: ", allDisplays)
+                // console.log("allDisplays: ", allDisplays)
 
                 if (error && !stderr) {
                     console.error("Error executing FFmpeg command:", error)
@@ -190,9 +194,14 @@ export class ScreenRecorder {
                     }
                 }
 
+                this.devicesList = result
                 resolve(result)
             })
         })
+    }
+
+    public getCurrentDevicesList() {
+        return this.devicesList
     }
 
     startRecording(): Promise<StartRecordingResponse> {
