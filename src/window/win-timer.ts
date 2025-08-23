@@ -44,7 +44,7 @@ export async function createTimerWindow() {
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы
     timerWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
-        console.error("Page failed to load:", errorCode, errorDescription)
+        console.error("Timer window page failed to load:", errorCode, errorDescription)
     })
 
     return timerWindow

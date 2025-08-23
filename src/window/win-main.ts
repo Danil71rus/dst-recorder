@@ -41,7 +41,7 @@ export async function createMainWindow() {
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы
     mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
-        console.error("Page failed to load:", errorCode, errorDescription)
+        console.error("Main window page failed to load:", errorCode, errorDescription)
     })
 
     return mainWindow

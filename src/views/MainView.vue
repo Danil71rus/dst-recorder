@@ -53,6 +53,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue"
+import _ from "lodash"
 import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
