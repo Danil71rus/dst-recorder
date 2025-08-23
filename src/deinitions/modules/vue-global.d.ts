@@ -1,5 +1,5 @@
 import type sanitizeHtml from "sanitize-html"
-import type { formatPhone } from "@/utils/format-phone"
+import type * as _ from "lodash"
 
 declare module "@vue/runtime-core" {
     export interface ComponentCustomProperties {
@@ -14,7 +14,7 @@ declare module "@vue/runtime-core" {
         activated?(): void
         deactivated?(): void
         $sanitizeHtml: typeof sanitizeHtml
-        $formatPhone: typeof formatPhone
         $scrollTo: (element: string | Element, duration?: number, options?: {[key: string]: unknown}) => void
+        _: typeof _
     }
 }

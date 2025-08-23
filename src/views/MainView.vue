@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRaw, computed } from "vue"
+import { ref, computed } from "vue"
 import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
@@ -192,8 +192,7 @@ function stopDrag() {
 }
 
 async function onSave() {
-    const settingsToSave = JSON.parse(JSON.stringify(toRaw(currentState.value)))
-    await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, settingsToSave)
+    await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, _.cloneDeep(currentState.value))
 }
 function onClose() {
     window.ipcRenderer?.send(ExposedWinMain.HIDE)

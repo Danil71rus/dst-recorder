@@ -7,10 +7,14 @@ import { createI18n } from "vue-i18n"
 import { BootstrapVue3 } from "bootstrap-vue-3"
 import App from "./App.vue"
 import router from "./router"
+import _ from "lodash"
 
 // Импорт переводов
 import en from "./locales/en.json"
 import ru from "./locales/ru.json"
+
+// Регистрируем lodash глобально
+(window as any)._ = _
 
 // Создание i18n
 const i18n = createI18n({
@@ -30,5 +34,8 @@ app.use(pinia)
 app.use(i18n)
 app.use(router)
 app.use(BootstrapVue3)
+
+// Добавляем lodash как глобальное свойство Vue
+app.config.globalProperties.$_ = _
 
 app.mount("#app")

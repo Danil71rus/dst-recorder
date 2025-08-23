@@ -1,7 +1,7 @@
 import { ExposedIpcRenderer } from "../../window/ipc-handlers/definitions/renderer.ts"
 
-
 declare global {
+    const _: typeof import("lodash")
     interface Window {
         ipcRenderer?: ExposedIpcRenderer
         isElectron: boolean
