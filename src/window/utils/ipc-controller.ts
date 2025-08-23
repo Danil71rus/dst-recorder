@@ -39,7 +39,7 @@ const _handlersRegister = [
                 console.log("Main window not found, skipping IPC registration")
                 return
             }
-            initMainWindowControlsHandlers()
+            initMainWindowControlsHandlers(mainWindow)
         },
     },
     {

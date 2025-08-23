@@ -13,47 +13,47 @@ const isDarwin = os.platform() === "darwin"
 
 // Диагностика путей FFmpeg при запуске
 function logFFmpegPaths() {
-    console.log("=== FFmpeg Path Diagnostics at Startup ===");
-    console.log("App packaged:", app.isPackaged);
-    console.log("App path:", app.getAppPath());
-    console.log("Resources path:", process.resourcesPath);
-    console.log("Platform:", process.platform);
+    console.log("=== FFmpeg Path Diagnostics at Startup ===")
+    console.log("App packaged:", app.isPackaged)
+    console.log("App path:", app.getAppPath())
+    console.log("Resources path:", process.resourcesPath)
+    console.log("Platform:", process.platform)
 
     if (app.isPackaged) {
-        const ffmpegName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
-        const expectedPath = join(process.resourcesPath, 'bin', ffmpegName);
-        console.log("Expected FFmpeg path:", expectedPath);
-        console.log("FFmpeg exists at expected path:", existsSync(expectedPath));
+        const ffmpegName = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"
+        const expectedPath = join(process.resourcesPath, "bin", ffmpegName)
+        console.log("Expected FFmpeg path:", expectedPath)
+        console.log("FFmpeg exists at expected path:", existsSync(expectedPath))
 
         // Проверяем содержимое директории bin
-        const binPath = join(process.resourcesPath, 'bin');
+        const binPath = join(process.resourcesPath, "bin")
         if (existsSync(binPath)) {
             try {
-                const files = require('fs').readdirSync(binPath);
-                console.log("Files in bin directory:", files);
+                const files = require("fs").readdirSync(binPath)
+                console.log("Files in bin directory:", files)
             } catch (e) {
-                console.error("Error reading bin directory:", e);
+                console.error("Error reading bin directory:", e)
             }
         } else {
-            console.log("Bin directory does not exist at:", binPath);
+            console.log("Bin directory does not exist at:", binPath)
         }
     }
-    console.log("=== End FFmpeg Diagnostics ===\n");
+    console.log("=== End FFmpeg Diagnostics ===\n")
 }
 
 app.whenReady().then(async () => {
     // Устанавливаем иконку приложения
     if (isDarwin) {
         try {
-            const iconPath = getIconPath();
+            const iconPath = getIconPath()
             app.dock?.setIcon(nativeImage.createFromPath(iconPath))
         } catch (error) {
-            console.error(`Failed to set dock icon:`, error);
+            console.error("Failed to set dock icon:", error)
         }
     }
 
     // Логируем диагностику FFmpeg
-    logFFmpegPaths();
+    logFFmpegPaths()
 
     if (!app.requestSingleInstanceLock()) {
         app.quit()

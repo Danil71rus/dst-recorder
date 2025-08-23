@@ -77,8 +77,8 @@ const sizes = computed(() => {
             const maxH = currentState.value.video?.scaleMax?.height || 0
             return {
                 id: size,
-                w:  maxW / size,
-                h:  maxH / size,
+                w:  Math.ceil(maxW / size),
+                h:  Math.ceil(maxH / size),
             }
         })
         .filter(item => item.w > 0)
@@ -141,17 +141,17 @@ const audioList = computed((): ComboboxItem[] => {
     }))
 })
 
-window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings({ forceUpdate: true }))
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
 window.ipcRenderer?.on(
     ExposedFfmpeg.UPDATED_SETTINGS,
     async (_event, newSettings) => await updateSettings({ newSettings }),
 )
 
-async function updateSettings({ newSettings, forceUpdate }: { newSettings?: unknown, forceUpdate?: boolean }) {
+async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
     const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
     if (settings) currentState.value = settings
 
-    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES, forceUpdate) as FfmpegDeviceLists
+    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
     if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 
     console.log(" deviceList.value: ", deviceList.value)

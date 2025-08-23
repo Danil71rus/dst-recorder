@@ -15,12 +15,10 @@ export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
 export function updateSettingCropByAria(ariaWin: BrowserWindow) {
     const currentSettings = screenRecorder.getSettings()
     if (currentSettings) {
-
         const border = 4
         const size = ariaWin.getSize()
         const position = ariaWin.getPosition()
         const newPosition = { x: position[0] + border, y: position[1] + border }
-
 
         const currentWinName = screen.getDisplayNearestPoint(newPosition).label
         const video = (() => {
