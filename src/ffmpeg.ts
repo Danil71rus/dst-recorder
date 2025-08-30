@@ -223,7 +223,10 @@ export class ScreenRecorder {
                 }
 
                 const hasScreenPermission = systemPreferences.getMediaAccessStatus("screen") === "granted"
-                if (!hasScreenPermission) return reject({ error: "Screen Recording permission required." })
+                if (!hasScreenPermission) {
+                    checkErrorAndShowMessageBox("permission", this.ffmpegBinaryPath || "")
+                    return reject({ error: "Screen Recording permission required." })
+                }
 
                 if (!this.settings.audio || !this.settings.video) return reject({ error: "Display with index not found." })
 
