@@ -6,7 +6,7 @@
 
 
 <style lang="scss">
-@use 'src/assets/styles/main.scss';
+@use '@/assets/styles/main.scss';
 
 * {
   margin: 0;
