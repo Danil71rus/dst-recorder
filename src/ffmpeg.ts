@@ -1,6 +1,6 @@
 import ffmpeg from "fluent-ffmpeg"
 import { app, ipcMain, screen, shell, systemPreferences, dialog } from "electron"
-import { join } from "path"
+import { join, dirname } from "path"
 import { existsSync, mkdirSync } from "fs"
 import { homedir } from "os"
 import { DateTime } from "luxon"
@@ -83,11 +83,15 @@ export class ScreenRecorder {
                     : staticPath
 
             candidates = [
-                // 1) extraResources (копируем через scripts/copy-ffmpeg.js)
+                // 1) Предпочитаем бинарь внутри Contents/MacOS — тогда TCC чаще относит разрешение к самому приложению
+                join(process.resourcesPath, "..", "MacOS", ffmpegName),
+                // 2) То же, но через app.getPath('exe') (Contents/MacOS/Dst-Recorder)
+                join(dirname(app.getPath("exe")), ffmpegName),
+                // 3) extraResources (копируем через scripts/copy-ffmpeg.js)
                 join(process.resourcesPath, "bin", ffmpegName),
-                // 2) Путь, предоставленный модулем, но с заменой app.asar -> app.asar.unpacked
+                // 4) Путь, предоставленный модулем, но с заменой app.asar -> app.asar.unpacked
                 staticUnpacked || "",
-                // 3) На случай, если бинарь лежит прямо в корне модуля (редко, но проверим)
+                // 5) На случай, если бинарь лежит прямо в корне модуля (редко, но проверим)
                 join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-ffprobe-static", ffmpegName),
             ].filter(Boolean) as string[]
 
@@ -230,40 +234,10 @@ export class ScreenRecorder {
                 }
 
                 // 2) Проверка доступа к записи экрана
+                // ВАЖНО: не блокируем запуск на основе этого статуса.
+                // На macOS TCC может возвращать "denied" до фактической попытки захвата.
                 const statusScreen = systemPreferences.getMediaAccessStatus("screen")
-                console.log("Screen permission status (screen):", statusScreen)
-                if (statusScreen !== "granted") {
-                    const message = "Для записи экрана требуется разрешение macOS (Screen Recording). Откройте настройки и разрешите приложению доступ. После этого перезапустите приложение."
-                    console.error("macOS screen recording permission is NOT granted (status:", statusScreen, ")")
-
-                    // Подсказка пользователю с возможностью открыть настройки или перезапустить приложение
-                    try {
-                        const res = dialog.showMessageBoxSync({
-                            type: "warning",
-                            buttons: ["Открыть настройки", "Перезапустить приложение", "Отмена"],
-                            defaultId: 0,
-                            cancelId: 2,
-                            title: "Требуется доступ к записи экрана",
-                            message,
-                            detail: "Settings → Privacy & Security → Screen Recording → отметьте Dst-Recorder. После изменения настроек потребуется перезапуск приложения."
-                        })
-                        if (res === 0) {
-                            // Открываем нужный раздел настроек
-                            shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
-                        } else if (res === 1) {
-                            app.relaunch()
-                            app.exit(0)
-                        }
-                    } catch (e) {
-                        console.warn("Failed to show permission dialog:", e)
-                        // Попытка хотя бы открыть нужный раздел
-                        try {
-                            shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
-                        } catch {}
-                    }
-
-                    return reject({ error: "Screen Recording permission required." })
-                }
+                console.log("Screen permission status (screen):", statusScreen, "(continue to attempt capture)")
 
                 if (!this.settings.audio || !this.settings.video) return reject({ error: "Display with index not found." })
 
@@ -312,13 +286,57 @@ export class ScreenRecorder {
                         this.resetByStop()
                     })
                     .on("error", (err) => {
-                        console.error("FFmpeg error:", err.message)
+                        const msg = err?.message || ""
+                        console.error("FFmpeg error:", msg)
+
+                        // Если ошибка похожа на отсутствие разрешения на запись экрана — подскажем пользователю
+                        if (this.isScreenPermissionError(msg)) {
+                            try {
+                                const ffPath = this.ffmpegBinaryPath || ""
+                                const ffDir = ffPath ? dirname(ffPath) : ""
+                                const detailLines = [
+                                    "Откройте Settings → Privacy & Security → Screen Recording и отметьте:",
+                                    " • Dst-Recorder",
+                                    " • ffmpeg (если появляется в списке для этого приложения)",
+                                    "",
+                                    ffPath ? `Путь к FFmpeg: ${ffPath}` : "",
+                                    "После изменения настроек перезапустите приложение."
+                                ].filter(Boolean)
+
+                                const res = dialog.showMessageBoxSync({
+                                    type: "warning",
+                                    buttons: ["Открыть настройки", "Показать папку FFmpeg", "Перезапустить приложение", "Закрыть"],
+                                    defaultId: 0,
+                                    cancelId: 3,
+                                    title: "Нет доступа к записи экрана",
+                                    message: "macOS блокирует захват экрана (требуется разрешение Screen Recording).",
+                                    detail: detailLines.join("\n")
+                                })
+                                if (res === 0) {
+                                    // Открываем нужный раздел настроек
+                                    shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                                } else if (res === 1 && ffDir) {
+                                    // Откроем папку с бинарём — иногда macOS показывает пункт именно как 'ffmpeg'
+                                    shell.showItemInFolder(ffPath)
+                                } else if (res === 2) {
+                                    app.relaunch()
+                                    app.exit(0)
+                                }
+                            } catch {}
+                        }
+
                         this.resetByStop()
-                        reject({ error: err.message })
+                        reject({ error: msg })
                     })
-                    // .on('stderr', (line) => {
-                    //     if (!line.includes('frame=')) console.log('FFmpeg:', line);
-                    // })
+                    .on("stderr", (line) => {
+                        // Ловим диагностические сообщения ffmpeg
+                        if (/permission|not authorized|Operation not permitted|denied/i.test(line)) {
+                            console.warn("FFmpeg stderr:", line)
+                        } else if (!line.includes("frame=")) {
+                            // чтобы не спамить прогрессом
+                            console.log("FFmpeg:", line)
+                        }
+                    })
 
                 this.ffmpegCommand.run()
             } catch (error) {
@@ -413,6 +431,23 @@ export class ScreenRecorder {
                 offset: { x: 0, y: 0 },
             })
         }
+    }
+
+    // Эвристика — определяем, что ошибка, вероятно, вызвана отсутствием разрешения на запись экрана
+    private isScreenPermissionError(text: string): boolean {
+        if (!text) return false
+        const patterns = [
+            /permission/i,
+            /denied/i,
+            /not authorized/i,
+            /operation not permitted/i,
+            /screen.?record/i,
+            /cannot capture/i,
+            /kTCCAccessDenied/i,
+            /AVFoundation.*permission/i,
+            /screencapture|scstream/i,
+        ]
+        return patterns.some(re => re.test(text))
     }
 
 }
