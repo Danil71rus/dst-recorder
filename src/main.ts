@@ -11,6 +11,23 @@ import os from "os"
 
 const isDarwin = os.platform() === "darwin"
 
+// Глобальный single-instance lock — ставим ДО whenReady, чтобы избежать двойного запуска в dev
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+    app.quit()
+    // Завершаем процесс немедленно (важно для dev-скриптов)
+    process.exit(0)
+}
+
+// Обработка попытки второго запуска
+app.on("second-instance", () => {
+    const mainWindow = BrowserWindow.getAllWindows()[0]
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+    }
+})
+
 // Диагностика путей FFmpeg при запуске
 function logFFmpegPaths() {
     console.log("=== FFmpeg Path Diagnostics at Startup ===")
@@ -54,16 +71,17 @@ app.whenReady().then(async () => {
 
     // Логируем диагностику FFmpeg
     logFFmpegPaths()
-// macOS: скрываем Dock и делаем приложение "меню-барным", чтобы иконка в трее гарантированно была видна
-if (isDarwin) {
-    try {
-        app.dock?.hide()
-        // @ts-ignore: доступно только на macOS
-        if (typeof app.setActivationPolicy === "function") app.setActivationPolicy("accessory")
-    } catch (e) {
-        console.warn("Failed to adjust activation policy for tray mode:", e)
+
+    // macOS: скрываем Dock и делаем приложение "меню-барным", чтобы иконка в трее гарантированно была видна
+    if (isDarwin) {
+        try {
+            app.dock?.hide()
+            // @ts-ignore: доступно только на macOS
+            if (typeof app.setActivationPolicy === "function") app.setActivationPolicy("accessory")
+        } catch (e) {
+            console.warn("Failed to adjust activation policy for tray mode:", e)
+        }
     }
-}
 
     if (!app.requestSingleInstanceLock()) {
         app.quit()
@@ -78,13 +96,7 @@ if (isDarwin) {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
     })
 
-    app.on("second-instance", () => {
-        const mainWindow = BrowserWindow.getAllWindows()[0]
-        if (mainWindow) {
-            if (mainWindow.isMinimized()) mainWindow.restore()
-            mainWindow.focus()
-        }
-    })
+    // 'second-instance' обрабатывается до whenReady — см. блок выше
 })
 
 app.on("window-all-closed", () => {
