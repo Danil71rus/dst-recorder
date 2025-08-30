@@ -1,41 +1,51 @@
 import { join } from "path";
 import { app } from "electron";
+import { existsSync } from "fs";
 
 export function getIconPath(): string {
-    // Используем app.isPackaged для более надёжного определения режима
     const isDev = !app.isPackaged;
-    
-    let iconPath: string;
-    
-    if (isDev) {
-        // В dev режиме используем путь относительно корня проекта
-        if (process.platform === 'darwin') {
-            iconPath = join(process.cwd(), 'src/assets/camera.icns');
-        } else if (process.platform === 'win32') {
-            iconPath = join(process.cwd(), 'src/assets/camera.ico');
-        } else {
-            iconPath = join(process.cwd(), 'src/assets/camera.png');
+
+    // Выбираем имя файла по платформе
+    const fileName =
+        process.platform === "darwin"
+            ? "camera.icns"
+            : process.platform === "win32"
+                ? "camera.ico"
+                : "camera.png";
+
+    const candidates = isDev
+        ? [
+            // Dev: исходники
+            join(process.cwd(), "src/assets", fileName),
+            // На случай если dev-сервер упал, но сборка dist есть
+            join(process.cwd(), "dist/assets", fileName),
+        ]
+        : [
+            // Prod: внутри asar
+            join(app.getAppPath(), "src/assets", fileName),
+            join(app.getAppPath(), "dist/assets", fileName),
+            // Prod: прямой путь через resources -> app.asar
+            join(process.resourcesPath, "app.asar", "src/assets", fileName),
+            join(process.resourcesPath, "app.asar", "dist/assets", fileName),
+            // Prod: как extra resource (если когда-то перенесём)
+            join(process.resourcesPath, "assets", fileName),
+        ];
+
+    let resolved = candidates.find(p => {
+        try {
+            return existsSync(p);
+        } catch {
+            return false;
         }
-        console.log(`[DEV] Using icon path: ${iconPath}`);
-    } else {
-        // В production иконки копируются в dist через electron-builder.json
-        // Используем путь относительно appPath
-        const appPath = app.getAppPath();
-        
-        if (process.platform === 'darwin') {
-            // На macOS иконка уже встроена в .app bundle, но для dock нужен путь к файлу
-            iconPath = join(appPath, 'src/assets/camera.icns');
-        } else if (process.platform === 'win32') {
-            iconPath = join(appPath, 'src/assets/camera.ico');
-        } else {
-            iconPath = join(appPath, 'src/assets/camera.png');
-        }
-        console.log(`[PROD] Using icon path: ${iconPath}`);
+    });
+
+    if (!resolved) {
+        // Фоллбек: пробуем png по умолчанию из исходников
+        resolved = join(isDev ? process.cwd() : app.getAppPath(), "src/assets", "camera.png");
+        console.warn("[Icon] No icon found in candidates, fallback to:", resolved);
     }
-    
-    console.log(`Icon path resolved to: ${iconPath}`);
-    console.log(`App packaged: ${app.isPackaged}`);
-    console.log(`App path: ${app.getAppPath()}`);
-    
-    return iconPath;
+
+    console.log(`[Icon] Selected path: ${resolved}`);
+    console.log(`[Icon] App packaged: ${app.isPackaged} | AppPath: ${app.getAppPath()} | Resources: ${process.resourcesPath}`);
+    return resolved;
 }

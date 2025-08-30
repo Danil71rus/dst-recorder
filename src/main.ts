@@ -54,6 +54,16 @@ app.whenReady().then(async () => {
 
     // Логируем диагностику FFmpeg
     logFFmpegPaths()
+// macOS: скрываем Dock и делаем приложение "меню-барным", чтобы иконка в трее гарантированно была видна
+if (isDarwin) {
+    try {
+        app.dock?.hide()
+        // @ts-ignore: доступно только на macOS
+        if (typeof app.setActivationPolicy === "function") app.setActivationPolicy("accessory")
+    } catch (e) {
+        console.warn("Failed to adjust activation policy for tray mode:", e)
+    }
+}
 
     if (!app.requestSingleInstanceLock()) {
         app.quit()
@@ -78,6 +88,9 @@ app.whenReady().then(async () => {
 })
 
 app.on("window-all-closed", () => {
-    app.quit()
+    // Для macOS не выходим, чтобы приложение продолжало жить в трее
+    if (process.platform !== "darwin") {
+        app.quit()
+    }
 })
 

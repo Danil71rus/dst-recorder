@@ -23,15 +23,45 @@ export class TrayManager {
     private createIcon() {
         const isDev = !app.isPackaged
         const iconFileName = "camera.png"
-        const iconPath = isDev
-            ? join(process.cwd(), "src/assets", iconFileName)
-            : join(app.getAppPath(), "src/assets", iconFileName)
 
-        const icon = nativeImage.createFromPath(iconPath)
-        if (icon.isEmpty()) return nativeImage.createFromPath(iconPath)
-        return this.isDarwin
-            ? icon.resize({ width: 22, height: 22 })
-            : icon.resize({ width: 16, height: 16 })
+        // Пытаемся найти иконку в нескольких возможных местах (особенно важно для собранной версии)
+        const candidates = isDev
+            ? [
+                join(process.cwd(), "src/assets", iconFileName),
+            ]
+            : [
+                // 1) Иконка, включённая в asar как src/assets/*
+                join(app.getAppPath(), "src/assets", iconFileName),
+                // 2) Иконка, собранная в dist/assets (рендер бандл)
+                join(app.getAppPath(), "dist/assets", iconFileName),
+                // 3) Явные пути через resources (asar/asar.unpacked)
+                join(process.resourcesPath, "app.asar", "src/assets", iconFileName),
+                join(process.resourcesPath, "app.asar", "dist/assets", iconFileName),
+                // 4) Внешние ресурсы (на случай ручного копирования)
+                join(process.resourcesPath, "assets", iconFileName),
+            ]
+
+        let icon = null as Electron.NativeImage | null
+        for (const p of candidates) {
+            const img = nativeImage.createFromPath(p)
+            if (!img.isEmpty()) {
+                icon = img
+                break
+            }
+            console.warn("Tray icon not found at path:", p)
+        }
+
+        if (!icon) {
+            // Последний шанс: создаём пустую иконку, чтобы не падать
+            icon = nativeImage.createEmpty()
+        }
+
+        // Для macOS включаем template, чтобы иконка корректно отображалась в меню-баре
+        if (this.isDarwin) {
+            icon.setTemplateImage(true)
+            return icon.resize({ width: 22, height: 22 })
+        }
+        return icon.resize({ width: 16, height: 16 })
     }
 
     public createTray(): void {

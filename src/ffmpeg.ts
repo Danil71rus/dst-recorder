@@ -1,5 +1,5 @@
 import ffmpeg from "fluent-ffmpeg"
-import { app, ipcMain, screen, shell, systemPreferences } from "electron"
+import { app, ipcMain, screen, shell, systemPreferences, dialog } from "electron"
 import { join } from "path"
 import { existsSync, mkdirSync } from "fs"
 import { homedir } from "os"
@@ -69,57 +69,54 @@ export class ScreenRecorder {
     }
 
     private initializeFfmpegPath(): string | null {
-        let ffmpegPath: string | null = null
+        const platform = process.platform
+        const ffmpegName = platform === "win32" ? "ffmpeg.exe" : "ffmpeg"
+
+        let candidates: string[] = []
 
         if (app.isPackaged) {
-            // В собранной версии FFmpeg находится в app.asar.unpacked
-            const platform = process.platform
-            let ffmpegName = "ffmpeg"
+            // Основные кандидаты для прод-сборки
+            const staticPath = FfmpegStatic?.ffmpegPath as string | undefined
+            const staticUnpacked =
+                staticPath && staticPath.includes("app.asar")
+                    ? staticPath.replace("app.asar", "app.asar.unpacked")
+                    : staticPath
 
-            // На Windows файл имеет расширение .exe
-            if (platform === "win32") {
-                ffmpegName = "ffmpeg.exe"
-            }
-
-            console.log("App is packaged. Looking for FFmpeg...")
-            console.log("Platform:", platform)
-            console.log("Resource path:", process.resourcesPath)
-
-            // Пробуем найти FFmpeg в разных возможных местах
-            // Порядок важен - сначала проверяем наиболее вероятные места
-            const possiblePaths = [
-                // Путь где FFmpeg был найден в собранной версии
-                join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-ffprobe-static", ffmpegName),
-                // Стандартный путь для extraResources
+            candidates = [
+                // 1) extraResources (копируем через scripts/copy-ffmpeg.js)
                 join(process.resourcesPath, "bin", ffmpegName),
-            ]
+                // 2) Путь, предоставленный модулем, но с заменой app.asar -> app.asar.unpacked
+                staticUnpacked || "",
+                // 3) На случай, если бинарь лежит прямо в корне модуля (редко, но проверим)
+                join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-ffprobe-static", ffmpegName),
+            ].filter(Boolean) as string[]
 
-            console.log("Checking paths:")
-            for (const path of possiblePaths) {
-                console.log("- Checking:", path, "Exists:", existsSync(path))
-                if (existsSync(path)) {
-                    ffmpegPath = path
-                    break
-                }
-            }
+            console.log("[FFmpeg] Packaged lookup candidates:", candidates)
         } else {
-            // В режиме разработки используем путь из ffmpeg-ffprobe-static
-            ffmpegPath = FfmpegStatic.ffmpegPath
+            // Dev-режим — используем путь из модуля
+            const devPath = FfmpegStatic.ffmpegPath
+            candidates = [devPath].filter(Boolean) as string[]
+            console.log("[FFmpeg] Dev path:", devPath)
         }
 
-        if (ffmpegPath && existsSync(ffmpegPath)) {
-            console.log("FFmpeg path successfully set to:", ffmpegPath)
-            // Убедимся, что файл исполняемый
+        for (const p of candidates) {
             try {
-                require("fs").accessSync(ffmpegPath, require("fs").constants.X_OK)
-                console.log("FFmpeg is executable")
+                const exists = p && existsSync(p)
+                console.log(`[FFmpeg] Checking: ${p} -> ${exists ? "FOUND" : "MISS"}`)
+                if (exists) {
+                    // На Unix-подобных системах убеждаемся, что бинарь исполняемый
+                    try {
+                        require("fs").chmodSync(p, 0o755)
+                    } catch { /* noop */ }
+                    console.log("FFmpeg path successfully set to:", p)
+                    return p
+                }
             } catch (e) {
-                console.error("FFmpeg is not executable:", e)
+                console.warn("[FFmpeg] Error while checking path:", p, e)
             }
-            return ffmpegPath
         }
 
-        console.error("CRITICAL: FFmpeg binary not found")
+        console.error("CRITICAL: FFmpeg binary not found. Checked:", candidates)
         return null
     }
 
@@ -208,15 +205,65 @@ export class ScreenRecorder {
     }
 
     startRecording(): Promise<StartRecordingResponse> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             if (this.isRecording) return reject({ error: "Recording is already in progress" })
             if (!this.ffmpegBinaryPath) return reject({ error: "FFmpeg is not available." })
 
             try {
                 if (process.platform !== "darwin") return reject({ error: "This recorder is currently configured for macOS only." })
 
-                const hasPermission = systemPreferences.getMediaAccessStatus("screen") === "granted"
-                if (!hasPermission) return reject({ error: "Screen Recording permission required." })
+                // 1) Проверка и запрос доступа к микрофону (для записи аудио)
+                let micStatus = systemPreferences.getMediaAccessStatus("microphone")
+                console.log("Microphone permission status:", micStatus)
+                if (micStatus !== "granted") {
+                    try {
+                        const granted = await systemPreferences.askForMediaAccess("microphone")
+                        micStatus = systemPreferences.getMediaAccessStatus("microphone")
+                        console.log("Microphone permission after ask:", micStatus, "granted:", granted)
+                        if (micStatus !== "granted") {
+                            return reject({ error: "Microphone permission required." })
+                        }
+                    } catch (e) {
+                        console.warn("askForMediaAccess(microphone) failed:", e)
+                        return reject({ error: "Microphone permission required." })
+                    }
+                }
+
+                // 2) Проверка доступа к записи экрана
+                const statusScreen = systemPreferences.getMediaAccessStatus("screen")
+                console.log("Screen permission status (screen):", statusScreen)
+                if (statusScreen !== "granted") {
+                    const message = "Для записи экрана требуется разрешение macOS (Screen Recording). Откройте настройки и разрешите приложению доступ. После этого перезапустите приложение."
+                    console.error("macOS screen recording permission is NOT granted (status:", statusScreen, ")")
+
+                    // Подсказка пользователю с возможностью открыть настройки или перезапустить приложение
+                    try {
+                        const res = dialog.showMessageBoxSync({
+                            type: "warning",
+                            buttons: ["Открыть настройки", "Перезапустить приложение", "Отмена"],
+                            defaultId: 0,
+                            cancelId: 2,
+                            title: "Требуется доступ к записи экрана",
+                            message,
+                            detail: "Settings → Privacy & Security → Screen Recording → отметьте Dst-Recorder. После изменения настроек потребуется перезапуск приложения."
+                        })
+                        if (res === 0) {
+                            // Открываем нужный раздел настроек
+                            shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                        } else if (res === 1) {
+                            app.relaunch()
+                            app.exit(0)
+                        }
+                    } catch (e) {
+                        console.warn("Failed to show permission dialog:", e)
+                        // Попытка хотя бы открыть нужный раздел
+                        try {
+                            shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                        } catch {}
+                    }
+
+                    return reject({ error: "Screen Recording permission required." })
+                }
 
                 if (!this.settings.audio || !this.settings.video) return reject({ error: "Display with index not found." })
 

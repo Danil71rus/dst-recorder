@@ -31,7 +31,10 @@
         "target": "dmg",
         "arch": ["x64", "arm64"]
       }
-    ]
+    ],
+    "extendInfo": {
+      "NSMicrophoneUsageDescription": "Dst-Recorder использует микрофон для записи звука при захвате экрана."
+    }
   },
   "win": {
     "icon": "src/assets/camera.ico",
