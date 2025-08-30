@@ -17,7 +17,7 @@ import {
 import { ExposedFfmpeg } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { getResultScale } from "./window/utils/main.ts"
-import { appName, checkErrorAndShowMessageBox } from "./utils/utils.ts"
+import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utils.ts"
 
 export class ScreenRecorder {
     private static instance: ScreenRecorder
@@ -224,7 +224,7 @@ export class ScreenRecorder {
 
                 const hasScreenPermission = systemPreferences.getMediaAccessStatus("screen") === "granted"
                 if (!hasScreenPermission) {
-                    checkErrorAndShowMessageBox("permission", this.ffmpegBinaryPath || "")
+                    showMessageBoxPermission()
                     return reject({ error: "Screen Recording permission required." })
                 }
 

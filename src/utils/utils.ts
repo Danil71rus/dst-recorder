@@ -7,6 +7,37 @@ export function sleep(ms = 0) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+export function showMessageBoxPermission() {
+    const message = "Для записи экрана требуется разрешение macOS (Screen Recording). Откройте настройки и разрешите приложению доступ. После этого перезапустите приложение."
+    console.error("macOS screen recording permission is NOT granted")
+
+    // Подсказка пользователю с возможностью открыть настройки или перезапустить приложение
+    try {
+        const res = dialog.showMessageBoxSync({
+            type:      "warning",
+            buttons:   ["Открыть настройки", "Перезапустить приложение", "Отмена"],
+            defaultId: 0,
+            cancelId:  2,
+            title:     "Требуется доступ к записи экрана",
+            message,
+            detail:    "Settings → Privacy & Security → Screen Recording → отметьте Dst-Recorder. После изменения настроек потребуется перезапуск приложения.",
+        })
+        if (res === 0) {
+            // Открываем нужный раздел настроек
+            shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        } else if (res === 1) {
+            app.relaunch()
+            app.exit(0)
+        }
+    } catch (e) {
+        console.warn("Failed to show permission dialog:", e)
+        // Попытка хотя бы открыть нужный раздел
+        try {
+            shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        } catch {}
+    }
+}
+
 export function checkErrorAndShowMessageBox(error: string, ffmpegBinaryPath: string) {
     const patterns = [
         /permission/i,
