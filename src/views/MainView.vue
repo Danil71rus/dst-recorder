@@ -160,7 +160,7 @@ async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
 }
 
 function setSize(size = "") {
-    const newSize = Number(size) || Size.Max
+    const newSize = Number(size) || currentState.value.defSize
     const newVideo = currentState.value.video
     if (newVideo?.name) {
         currentState.value = {
