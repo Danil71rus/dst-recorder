@@ -54,8 +54,8 @@ export default defineConfig({
             {
                 entry: "src/preload.ts",
                 onstart(options) {
-                    if (options.reload) {
-                        options.reload()
+                    if (options.startup) {
+                        options.startup()
                     }
                 },
                 vite: {

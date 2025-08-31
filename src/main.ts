@@ -9,84 +9,8 @@ import { getIconPath } from "./utils/icon-utils.ts"
 import { logger } from "./utils/logger.ts"
 import { trayManager } from "./tray/tray-manager.ts"
 import os from "os"
-import { net } from "electron"
 
 const isDarwin = os.platform() === "darwin"
-
-// Функция для проверки доступности Vite сервера
-async function isViteServerAvailable(): Promise<boolean> {
-    if (app.isPackaged) return true // В продакшене не используем Vite сервер
-    
-    try {
-        const request = net.request('http://localhost:5173')
-        return new Promise((resolve) => {
-            let resolved = false
-            
-            request.on('response', () => {
-                if (!resolved) {
-                    resolved = true
-                    resolve(true)
-                }
-            })
-            
-            request.on('error', () => {
-                if (!resolved) {
-                    resolved = true
-                    resolve(false)
-                }
-            })
-            
-            // Таймаут через 2 секунды
-            setTimeout(() => {
-                if (!resolved) {
-                    resolved = true
-                    request.abort()
-                    resolve(false)
-                }
-            }, 2000)
-            
-            request.end()
-        })
-    } catch {
-        return false
-    }
-}
-
-// Функция ожидания восстановления Vite сервера
-async function waitForViteServer(maxRetries = 10): Promise<boolean> {
-    console.log("[Vite Check] Checking Vite server availability...")
-    
-    for (let i = 0; i < maxRetries; i++) {
-        const isAvailable = await isViteServerAvailable()
-        if (isAvailable) {
-            console.log("[Vite Check] Vite server is available")
-            return true
-        }
-        
-        console.log(`[Vite Check] Vite server not available, retry ${i + 1}/${maxRetries}`)
-        await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-    
-    console.error("[Vite Check] Vite server is not available after all retries")
-    return false
-}
-
-// Глобальный single-instance lock — ставим ДО whenReady, чтобы избежать двойного запуска в dev
-const gotTheLock = app.requestSingleInstanceLock()
-if (!gotTheLock) {
-    app.quit()
-    // Завершаем процесс немедленно (важно для dev-скриптов)
-    process.exit(0)
-}
-
-// Обработка попытки второго запуска
-app.on("second-instance", () => {
-    const mainWindow = BrowserWindow.getAllWindows()[0]
-    if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore()
-        mainWindow.focus()
-    }
-})
 
 // Диагностика путей FFmpeg при запуске (логируем в файл через electron-log)
 function logFFmpegPaths() {
@@ -124,9 +48,9 @@ app.whenReady().then(async () => {
         try {
             const iconPath = getIconPath()
             app.dock?.setIcon(nativeImage.createFromPath(iconPath))
-         } catch (error) {
-             logger.error("Failed to set dock icon:", error)
-         }
+        } catch (error) {
+            logger.error("Failed to set dock icon:", error)
+        }
     }
 
     // Логируем диагностику FFmpeg
@@ -148,14 +72,6 @@ app.whenReady().then(async () => {
         return
     }
 
-    // Проверяем доступность Vite сервера в режиме разработки
-    if (!app.isPackaged) {
-        const viteAvailable = await waitForViteServer()
-        if (!viteAvailable) {
-            logger.warn("Vite server is not available. Windows may not load properly.")
-        }
-    }
-
     await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow()])
     trayManager.createTray()
     await screenRecorder.asyncInit()
@@ -165,6 +81,13 @@ app.whenReady().then(async () => {
     })
 
     // 'second-instance' обрабатывается до whenReady — см. блок выше
+    app.on("second-instance", () => {
+        const mainWindow = BrowserWindow.getAllWindows()[0]
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore()
+            mainWindow.focus()
+        }
+    })
 })
 
 app.on("window-all-closed", () => {
