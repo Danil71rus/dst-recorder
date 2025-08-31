@@ -1,5 +1,6 @@
 import { app, shell, dialog } from "electron"
 import { dirname } from "path"
+import { logger } from "./logger.ts"
 
 export const appName = "Dst-Recorder"
 
@@ -9,7 +10,7 @@ export function sleep(ms = 0) {
 
 export function showMessageBoxPermission() {
     const message = "Для записи экрана требуется разрешение macOS (Screen Recording). Откройте настройки и разрешите приложению доступ. После этого перезапустите приложение."
-    console.error("macOS screen recording permission is NOT granted")
+    logger.warn("macOS screen recording permission is NOT granted")
 
     // Подсказка пользователю с возможностью открыть настройки или перезапустить приложение
     try {
@@ -30,7 +31,7 @@ export function showMessageBoxPermission() {
             app.exit(0)
         }
     } catch (e) {
-        console.warn("Failed to show permission dialog:", e)
+        logger.warn("Failed to show permission dialog:", e)
         // Попытка хотя бы открыть нужный раздел
         try {
             shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
@@ -53,6 +54,8 @@ export function checkErrorAndShowMessageBox(error: string, ffmpegBinaryPath: str
     // Если ошибка похожа на отсутствие разрешения на запись экрана — подскажем пользователю
     if (patterns.some(re => re.test(error))) {
         try {
+            // Логируем отказ TCC/Screen Recording для packaged режима в файл
+            logger.error(`Screen Recording permission denied or blocked. Error: ${error}`)
             const ffPath = ffmpegBinaryPath || ""
             const ffDir = ffPath ? dirname(ffPath) : ""
             const detailLines = [
@@ -83,7 +86,7 @@ export function checkErrorAndShowMessageBox(error: string, ffmpegBinaryPath: str
                 app.exit(0)
             }
         } catch (e) {
-            console.error("checkErrorAndShowMessageBox error: ", e)
+            logger.error("checkErrorAndShowMessageBox error: ", e)
         }
     }
 }

@@ -18,6 +18,7 @@ import { ExposedFfmpeg } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { getResultScale } from "./window/utils/main.ts"
 import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utils.ts"
+import { logger } from "./utils/logger.ts"
 
 export class ScreenRecorder {
     private static instance: ScreenRecorder
@@ -47,7 +48,7 @@ export class ScreenRecorder {
         if (this.ffmpegBinaryPath) {
             ffmpeg.setFfmpegPath(this.ffmpegBinaryPath)
         } else {
-            console.error("CRITICAL: FFmpeg binary not found. Recording will fail.")
+            logger.error("CRITICAL: FFmpeg binary not found. Recording will fail.")
         }
 
     }
@@ -96,32 +97,32 @@ export class ScreenRecorder {
                 join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-ffprobe-static", ffmpegName),
             ].filter(Boolean) as string[]
 
-            console.log("[FFmpeg] Packaged lookup candidates:", candidates)
+            logger.info("[FFmpeg] Packaged lookup candidates:", candidates)
         } else {
             // Dev-режим — используем путь из модуля
             const devPath = FfmpegStatic.ffmpegPath
             candidates = [devPath].filter(Boolean) as string[]
-            console.log("[FFmpeg] Dev path:", devPath)
+            logger.info("[FFmpeg] Dev path:", devPath)
         }
 
         for (const p of candidates) {
             try {
                 const exists = p && existsSync(p)
-                console.log(`[FFmpeg] Checking: ${p} -> ${exists ? "FOUND" : "MISS"}`)
+                logger.info(`[FFmpeg] Checking: ${p} -> ${exists ? "FOUND" : "MISS"}`)
                 if (exists) {
                     // На Unix-подобных системах убеждаемся, что бинарь исполняемый
                     try {
                         require("fs").chmodSync(p, 0o755)
                     } catch { /* noop */ }
-                    console.log("FFmpeg path successfully set to:", p)
+                    logger.info("FFmpeg path successfully set to:", p)
                     return p
                 }
             } catch (e) {
-                console.warn("[FFmpeg] Error while checking path:", p, e)
+                logger.warn("[FFmpeg] Error while checking path:", p, e)
             }
         }
 
-        console.error("CRITICAL: FFmpeg binary not found. Checked:", candidates)
+        logger.error("CRITICAL: FFmpeg binary not found. Checked:", candidates)
         return null
     }
 
@@ -133,7 +134,7 @@ export class ScreenRecorder {
             return Promise.resolve({ video: [], audio: [] })
         }
 
-        console.log("Getting devices with FFmpeg path:", ffmpegPath)
+        logger.info("Getting devices with FFmpeg path:", ffmpegPath)
         const command = `"${ffmpegPath}" -f avfoundation -list_devices true -i ""`
 
         return new Promise((resolve) => {
@@ -146,9 +147,12 @@ export class ScreenRecorder {
                 // console.log("allDisplays: ", allDisplays)
 
                 if (error && !stderr) {
-                    console.error("Error executing FFmpeg command:", error)
+                    logger.error("Error executing FFmpeg command:", error)
                     resolve({ video: [], audio: [] })
                     return
+                }
+                if (stderr?.trim()) {
+                    logger.info("[FFmpeg:list_devices] stderr:\n" + stderr)
                 }
                 const lines = stderr.split("\n")
                 const result: FfmpegDeviceLists = {
@@ -217,14 +221,20 @@ export class ScreenRecorder {
             try {
                 if (process.platform !== "darwin") return reject({ error: "This recorder is currently configured for macOS only." })
 
-                const hasMicPermission = systemPreferences.getMediaAccessStatus("microphone") === "granted"
+                const micStatus = systemPreferences.getMediaAccessStatus("microphone")
+                const hasMicPermission = micStatus === "granted"
+                logger.info(`[TCC] Microphone access status: ${micStatus}`)
                 if (!hasMicPermission) {
-                    systemPreferences.askForMediaAccess("microphone")
+                    try { systemPreferences.askForMediaAccess("microphone") } catch {}
+                    logger.warn("[TCC] Microphone permission required (denied/not-determined)")
                     return reject({ error: "Microphone permission required." })
                 }
 
-                const hasScreenPermission = systemPreferences.getMediaAccessStatus("screen") === "granted"
+                const screenStatus = systemPreferences.getMediaAccessStatus("screen")
+                const hasScreenPermission = screenStatus === "granted"
+                logger.info(`[TCC] Screen Recording access status: ${screenStatus}`)
                 if (!hasScreenPermission) {
+                    logger.warn("[TCC] Screen Recording permission required (denied/not-determined). Opening System Settings hint.")
                     showMessageBoxPermission()
                     return reject({ error: "Screen Recording permission required." })
                 }
@@ -264,7 +274,7 @@ export class ScreenRecorder {
 
                 this.ffmpegCommand
                     .on("start", (cmd) => {
-                        console.log("FFmpeg started:", cmd)
+                        logger.info("FFmpeg started:", cmd)
                         this.isRecording = true
                         this.recordingStartTime = Date.now()
                         this.startTimer()
@@ -272,21 +282,21 @@ export class ScreenRecorder {
                         resolve({ outputPathAndFileName: this.outputPathAndFileName })
                     })
                     .on("end", () => {
-                        console.log("Recording finished.")
+                        logger.info("Recording finished.")
                         this.resetByStop()
                     })
                     .on("error", (err) => {
                         const msg = err?.message || ""
-                        console.error("FFmpeg error:", msg)
+                        logger.error("FFmpeg error:", msg)
 
                         checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
 
                         this.resetByStop()
                         reject({ error: msg })
                     })
-                    // .on('stderr', (line) => {
-                    //     if (!line.includes('frame=')) console.log('FFmpeg:', line);
-                    // })
+                    .on("stderr", (line) => {
+                        if (!line.includes("frame=")) logger.info("[FFmpeg] " + line)
+                    })
 
                 this.ffmpegCommand.run()
             } catch (error) {

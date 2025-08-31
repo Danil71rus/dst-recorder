@@ -6,6 +6,7 @@ import { createSelectAriaWindow } from "./window/win-select-aria.ts"
 import { join } from "path"
 import { existsSync } from "fs"
 import { getIconPath } from "./utils/icon-utils.ts"
+import { logger } from "./utils/logger.ts"
 import { trayManager } from "./tray/tray-manager.ts"
 import os from "os"
 
@@ -28,34 +29,34 @@ app.on("second-instance", () => {
     }
 })
 
-// Диагностика путей FFmpeg при запуске
+// Диагностика путей FFmpeg при запуске (логируем в файл через electron-log)
 function logFFmpegPaths() {
-    console.log("=== FFmpeg Path Diagnostics at Startup ===")
-    console.log("App packaged:", app.isPackaged)
-    console.log("App path:", app.getAppPath())
-    console.log("Resources path:", process.resourcesPath)
-    console.log("Platform:", process.platform)
+    logger.info("=== FFmpeg Path Diagnostics at Startup ===")
+    logger.info(`App packaged: ${app.isPackaged}`)
+    logger.info(`App path: ${app.getAppPath()}`)
+    logger.info(`Resources path: ${process.resourcesPath}`)
+    logger.info(`Platform: ${process.platform}`)
 
     if (app.isPackaged) {
         const ffmpegName = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"
         const expectedPath = join(process.resourcesPath, "bin", ffmpegName)
-        console.log("Expected FFmpeg path:", expectedPath)
-        console.log("FFmpeg exists at expected path:", existsSync(expectedPath))
+        logger.info(`Expected FFmpeg path: ${expectedPath}`)
+        logger.info(`FFmpeg exists at expected path: ${existsSync(expectedPath)}`)
 
         // Проверяем содержимое директории bin
         const binPath = join(process.resourcesPath, "bin")
         if (existsSync(binPath)) {
             try {
                 const files = require("fs").readdirSync(binPath)
-                console.log("Files in bin directory:", files)
+                logger.info(`Files in bin directory: ${files.join(", ")}`)
             } catch (e) {
-                console.error("Error reading bin directory:", e)
+                logger.error("Error reading bin directory:", e)
             }
         } else {
-            console.log("Bin directory does not exist at:", binPath)
+            logger.info(`Bin directory does not exist at: ${binPath}`)
         }
     }
-    console.log("=== End FFmpeg Diagnostics ===\n")
+    logger.info("=== End FFmpeg Diagnostics ===")
 }
 
 app.whenReady().then(async () => {
@@ -64,9 +65,9 @@ app.whenReady().then(async () => {
         try {
             const iconPath = getIconPath()
             app.dock?.setIcon(nativeImage.createFromPath(iconPath))
-        } catch (error) {
-            console.error("Failed to set dock icon:", error)
-        }
+         } catch (error) {
+             logger.error("Failed to set dock icon:", error)
+         }
     }
 
     // Логируем диагностику FFmpeg
@@ -79,7 +80,7 @@ app.whenReady().then(async () => {
             // @ts-ignore: доступно только на macOS
             if (typeof app.setActivationPolicy === "function") app.setActivationPolicy("accessory")
         } catch (e) {
-            console.warn("Failed to adjust activation policy for tray mode:", e)
+            logger.warn("Failed to adjust activation policy for tray mode:", e)
         }
     }
 
