@@ -9,8 +9,67 @@ import { getIconPath } from "./utils/icon-utils.ts"
 import { logger } from "./utils/logger.ts"
 import { trayManager } from "./tray/tray-manager.ts"
 import os from "os"
+import { net } from "electron"
 
 const isDarwin = os.platform() === "darwin"
+
+// Функция для проверки доступности Vite сервера
+async function isViteServerAvailable(): Promise<boolean> {
+    if (app.isPackaged) return true // В продакшене не используем Vite сервер
+    
+    try {
+        const request = net.request('http://localhost:5173')
+        return new Promise((resolve) => {
+            let resolved = false
+            
+            request.on('response', () => {
+                if (!resolved) {
+                    resolved = true
+                    resolve(true)
+                }
+            })
+            
+            request.on('error', () => {
+                if (!resolved) {
+                    resolved = true
+                    resolve(false)
+                }
+            })
+            
+            // Таймаут через 2 секунды
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true
+                    request.abort()
+                    resolve(false)
+                }
+            }, 2000)
+            
+            request.end()
+        })
+    } catch {
+        return false
+    }
+}
+
+// Функция ожидания восстановления Vite сервера
+async function waitForViteServer(maxRetries = 10): Promise<boolean> {
+    console.log("[Vite Check] Checking Vite server availability...")
+    
+    for (let i = 0; i < maxRetries; i++) {
+        const isAvailable = await isViteServerAvailable()
+        if (isAvailable) {
+            console.log("[Vite Check] Vite server is available")
+            return true
+        }
+        
+        console.log(`[Vite Check] Vite server not available, retry ${i + 1}/${maxRetries}`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+    
+    console.error("[Vite Check] Vite server is not available after all retries")
+    return false
+}
 
 // Глобальный single-instance lock — ставим ДО whenReady, чтобы избежать двойного запуска в dev
 const gotTheLock = app.requestSingleInstanceLock()
@@ -87,6 +146,14 @@ app.whenReady().then(async () => {
     if (!app.requestSingleInstanceLock()) {
         app.quit()
         return
+    }
+
+    // Проверяем доступность Vite сервера в режиме разработки
+    if (!app.isPackaged) {
+        const viteAvailable = await waitForViteServer()
+        if (!viteAvailable) {
+            logger.warn("Vite server is not available. Windows may not load properly.")
+        }
     }
 
     await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow()])
