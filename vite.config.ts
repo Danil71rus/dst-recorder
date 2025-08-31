@@ -10,12 +10,32 @@ export default defineConfig({
         // Плагин для копирования иконок
         {
             name: "copy-icons",
+            configureServer(server) {
+                // Копируем иконки при запуске dev сервера
+                server.httpServer?.once("listening", () => {
+                    try {
+                        mkdirSync(resolve(__dirname, "dist/assets"), { recursive: true })
+                        const icons = ["camera.icns", "camera.ico", "camera.png"]
+                        icons.forEach(icon => {
+                            try {
+                                copyFileSync(
+                                    resolve(__dirname, `src/assets/${icon}`),
+                                    resolve(__dirname, `dist/assets/${icon}`),
+                                )
+                                console.log(`[DEV] Copied ${icon} to dist/assets/`)
+                            } catch (error) {
+                                console.error(`[DEV] Failed to copy ${icon}:`, error)
+                            }
+                        })
+                    } catch (error) {
+                        console.error("[DEV] Failed to create assets directory:", error)
+                    }
+                })
+            },
             closeBundle() {
-                // Создаём директорию assets если её нет
+                // Копируем иконки при сборке
                 try {
                     mkdirSync(resolve(__dirname, "dist/assets"), { recursive: true })
-
-                    // Копируем иконки
                     const icons = ["camera.icns", "camera.ico", "camera.png"]
                     icons.forEach(icon => {
                         try {
@@ -23,13 +43,13 @@ export default defineConfig({
                                 resolve(__dirname, `src/assets/${icon}`),
                                 resolve(__dirname, `dist/assets/${icon}`),
                             )
-                            console.log(`Copied ${icon} to dist/assets/`)
+                            console.log(`[BUILD] Copied ${icon} to dist/assets/`)
                         } catch (error) {
-                            console.error(`Failed to copy ${icon}:`, error)
+                            console.error(`[BUILD] Failed to copy ${icon}:`, error)
                         }
                     })
                 } catch (error) {
-                    console.error("Failed to create assets directory:", error)
+                    console.error("[BUILD] Failed to create assets directory:", error)
                 }
             },
         },
