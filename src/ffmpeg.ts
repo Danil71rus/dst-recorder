@@ -1,6 +1,6 @@
 import ffmpeg from "fluent-ffmpeg"
 import { app, ipcMain, screen, shell, systemPreferences } from "electron"
-import { join } from "path"
+import { join, dirname } from "path"
 import { existsSync, mkdirSync } from "fs"
 import { homedir } from "os"
 import { DateTime } from "luxon"
@@ -70,57 +70,58 @@ export class ScreenRecorder {
     }
 
     private initializeFfmpegPath(): string | null {
-        let ffmpegPath: string | null = null
+        const platform = process.platform
+        const ffmpegName = platform === "win32" ? "ffmpeg.exe" : "ffmpeg"
+
+        let candidates: string[] = []
 
         if (app.isPackaged) {
-            // В собранной версии FFmpeg находится в app.asar.unpacked
-            const platform = process.platform
-            let ffmpegName = "ffmpeg"
+            // Основные кандидаты для прод-сборки
+            const staticPath = FfmpegStatic?.ffmpegPath as string | undefined
+            const staticUnpacked =
+                staticPath && staticPath.includes("app.asar")
+                    ? staticPath.replace("app.asar", "app.asar.unpacked")
+                    : staticPath
 
-            // На Windows файл имеет расширение .exe
-            if (platform === "win32") {
-                ffmpegName = "ffmpeg.exe"
-            }
-
-            console.log("App is packaged. Looking for FFmpeg...")
-            console.log("Platform:", platform)
-            console.log("Resource path:", process.resourcesPath)
-
-            // Пробуем найти FFmpeg в разных возможных местах
-            // Порядок важен - сначала проверяем наиболее вероятные места
-            const possiblePaths = [
-                // Путь где FFmpeg был найден в собранной версии
-                join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-ffprobe-static", ffmpegName),
-                // Стандартный путь для extraResources
+            candidates = [
+                // 1) Предпочитаем бинарь внутри Contents/MacOS — тогда TCC чаще относит разрешение к самому приложению
+                join(process.resourcesPath, "..", "MacOS", ffmpegName),
+                // 2) То же, но через app.getPath('exe') (Contents/MacOS/Dst-Recorder)
+                join(dirname(app.getPath("exe")), ffmpegName),
+                // 3) extraResources (копируем через scripts/copy-ffmpeg.js)
                 join(process.resourcesPath, "bin", ffmpegName),
-            ]
+                // 4) Путь, предоставленный модулем, но с заменой app.asar -> app.asar.unpacked
+                staticUnpacked || "",
+                // 5) На случай, если бинарь лежит прямо в корне модуля (редко, но проверим)
+                join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-ffprobe-static", ffmpegName),
+            ].filter(Boolean) as string[]
 
-            console.log("Checking paths:")
-            for (const path of possiblePaths) {
-                console.log("- Checking:", path, "Exists:", existsSync(path))
-                if (existsSync(path)) {
-                    ffmpegPath = path
-                    break
-                }
-            }
+            console.log("[FFmpeg] Packaged lookup candidates:", candidates)
         } else {
-            // В режиме разработки используем путь из ffmpeg-ffprobe-static
-            ffmpegPath = FfmpegStatic.ffmpegPath
+            // Dev-режим — используем путь из модуля
+            const devPath = FfmpegStatic.ffmpegPath
+            candidates = [devPath].filter(Boolean) as string[]
+            console.log("[FFmpeg] Dev path:", devPath)
         }
 
-        if (ffmpegPath && existsSync(ffmpegPath)) {
-            console.log("FFmpeg path successfully set to:", ffmpegPath)
-            // Убедимся, что файл исполняемый
+        for (const p of candidates) {
             try {
-                require("fs").accessSync(ffmpegPath, require("fs").constants.X_OK)
-                console.log("FFmpeg is executable")
+                const exists = p && existsSync(p)
+                console.log(`[FFmpeg] Checking: ${p} -> ${exists ? "FOUND" : "MISS"}`)
+                if (exists) {
+                    // На Unix-подобных системах убеждаемся, что бинарь исполняемый
+                    try {
+                        require("fs").chmodSync(p, 0o755)
+                    } catch { /* noop */ }
+                    console.log("FFmpeg path successfully set to:", p)
+                    return p
+                }
             } catch (e) {
-                console.error("FFmpeg is not executable:", e)
+                console.warn("[FFmpeg] Error while checking path:", p, e)
             }
-            return ffmpegPath
         }
 
-        console.error("CRITICAL: FFmpeg binary not found")
+        console.error("CRITICAL: FFmpeg binary not found. Checked:", candidates)
         return null
     }
 
