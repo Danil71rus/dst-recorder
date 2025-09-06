@@ -1,6 +1,6 @@
 import { FfmpegDeviceVideo, Size } from "../../deinitions/ffmpeg.ts"
 
-export function getResultScale(newVideo: FfmpegDeviceVideo, size = Size.Max) {
+export function getResultScale(newVideo: FfmpegDeviceVideo, size = Size.Medium) {
     // console.log("getResultScale: newVideo: ", newVideo)
     const res = {
         w: Math.max(Math.ceil((newVideo.scaleMax?.width || 1) / size), 0),

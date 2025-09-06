@@ -54,7 +54,7 @@ export interface RecordingStatus {
 export const getDefaultSettings = (): FfmpegSettings => ({
     outputPath: "",
     fps:        30,
-    defSize:    Size.Max,
+    defSize:    Size.Medium,
     scale:      { w: 0, h: 0 },
     crop:       { w: 0, h: 0 },
     offset:     { x: 0, y: 0 },
