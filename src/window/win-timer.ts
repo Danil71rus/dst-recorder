@@ -8,8 +8,8 @@ const isDev = !app.isPackaged
 export async function createTimerWindow() {
     const timerWindow = new BrowserWindow({
         // icon: getIconPath(),
-        width:          500,
-        height:         54,
+        width:          550,
+        height:         56,
         // width:  1200,
         // height: 1000,
         show:           false,

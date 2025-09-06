@@ -3,7 +3,13 @@
         class="aria"
         :class="{ 'black-fon': !isRecord }"
         @mousedown="startDrag"
-    />
+    >
+        <dst-svg
+            v-if="!isRecord"
+            name="move-96"
+            class="icon-move"
+        />
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -11,6 +17,7 @@ import { ref } from "vue"
 import _ from "lodash"
 import { ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import DstSvg from "@/components/dst-svg.vue"
 
 const isRecord = ref(false)
 
@@ -47,11 +54,19 @@ function stopDrag() {
     width: 100%;
     height: 100%;
     border: #667eea 4px solid;
-    display: block;
     opacity: 100%;
 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
     &.black-fon {
-        background-color: rgba(44, 44, 61, 0.51);
+        background-color: rgba(34, 34, 37, 0.4);
+    }
+
+    .icon-move {
+        width: 200px;
+        color: rgba(255, 255, 255, 0.58);
     }
 }
 </style>

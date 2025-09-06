@@ -2,34 +2,33 @@ import { defineConfig } from "vite"
 import vue from "@vitejs/plugin-vue"
 import electron from "vite-plugin-electron"
 import { resolve } from "path"
-import { copyFileSync, mkdirSync } from "fs"
+// @ts-ignore
+import { build } from "./builder/build.js"
 
 export default defineConfig({
     plugins: [
         vue(),
-        // Плагин для копирования иконок
+        // Плагин для копирования иконок и генерации itl-icons.js
         {
-            name: "copy-icons",
+            name: "build-assets",
             closeBundle() {
-                // Создаём директорию assets если её нет
                 try {
-                    mkdirSync(resolve(__dirname, "dist/assets"), { recursive: true })
-
-                    // Копируем иконки
-                    const icons = ["camera.icns", "camera.ico", "camera.png"]
-                    icons.forEach(icon => {
-                        try {
-                            copyFileSync(
-                                resolve(__dirname, `src/assets/${icon}`),
-                                resolve(__dirname, `dist/assets/${icon}`),
-                            )
-                            console.log(`Copied ${icon} to dist/assets/`)
-                        } catch (error) {
-                            console.error(`Failed to copy ${icon}:`, error)
-                        }
-                    })
+                    build()
                 } catch (error) {
-                    console.error("Failed to create assets directory:", error)
+                    console.error("[Assets] Failed to build assets:", error)
+                }
+            },
+        },
+        // Плагин для генерации иконок в dev режиме
+        {
+            name: "build-dev-icons",
+            buildStart() {
+                if (process.env.NODE_ENV === "development") {
+                    try {
+                        build()
+                    } catch (error) {
+                        console.error("[Dev Icons] Failed to build dev icons:", error)
+                    }
                 }
             },
         },
@@ -78,8 +77,9 @@ export default defineConfig({
     resolve: {
         preserveSymlinks: true,
         alias:            {
-            "@":  resolve(__dirname, "src"),
-            "@a": resolve(__dirname, "src", "assets"),
+            "@":   resolve(__dirname, "src"),
+            "@a":  resolve(__dirname, "src", "assets"),
+            "@ad": resolve(__dirname, "dist-electron", "assets"),
         },
     },
     // Для Electron приложений всегда используем относительные пути

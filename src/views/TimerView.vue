@@ -4,12 +4,11 @@
         @mousedown="startDrag"
     >
         <div class="flex-row">
-            <b-button
-                variant="link"
+            <dst-svg
+                class="close-icon"
+                name="close-24"
                 @click="close"
-            >
-                ❌
-            </b-button>
+            />
 
             <div class="line" />
         </div>
@@ -28,14 +27,14 @@
 
         <dst-button
             v-if="isRecording"
-            value="Stop"
+            icon="player-stop-24"
             @click="stopRecording"
         />
 
         <dst-button
             v-else
             :variant="ButtonVariant.Danger"
-            value="►"
+            icon="player-play-24"
             @click="startRecording"
         />
 
@@ -59,6 +58,7 @@ import { ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { RecordingStatus, StartRecordingResponse } from "@/deinitions/ffmpeg.ts"
+import DstSvg from "@/components/dst-svg.vue"
 
 
 // Реактивные переменные состояния
@@ -192,6 +192,12 @@ onBeforeUnmount(() => {
         font-weight: bold;
         font-family: 'Courier New', monospace;
     }
+}
+
+.close-icon {
+    color: red;
+    width: 35px;
+    cursor: pointer;
 }
 
 @keyframes pulse {

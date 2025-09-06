@@ -17,7 +17,7 @@ import {
 import { ExposedFfmpeg } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { getResultScale } from "./window/utils/main.ts"
-import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utils.ts"
+import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utilsForMain.ts"
 import { logger } from "./utils/logger.ts"
 
 export class ScreenRecorder {
@@ -152,7 +152,7 @@ export class ScreenRecorder {
                     return
                 }
                 if (stderr?.trim()) {
-                    logger.info("[FFmpeg:list_devices] stderr:\n" + stderr)
+                    logger.info(`[FFmpeg:list_devices] stderr:\n${stderr}`)
                 }
                 const lines = stderr.split("\n")
                 const result: FfmpegDeviceLists = {
@@ -225,7 +225,9 @@ export class ScreenRecorder {
                 const hasMicPermission = micStatus === "granted"
                 logger.info(`[TCC] Microphone access status: ${micStatus}`)
                 if (!hasMicPermission) {
-                    try { systemPreferences.askForMediaAccess("microphone") } catch {}
+                    try {
+                        systemPreferences.askForMediaAccess("microphone")
+                    } catch {}
                     logger.warn("[TCC] Microphone permission required (denied/not-determined)")
                     return reject({ error: "Microphone permission required." })
                 }
@@ -295,7 +297,7 @@ export class ScreenRecorder {
                         reject({ error: msg })
                     })
                     .on("stderr", (line) => {
-                        if (!line.includes("frame=")) logger.info("[FFmpeg] " + line)
+                        if (!line.includes("frame=")) logger.info(`[FFmpeg] ${line}`)
                     })
 
                 this.ffmpegCommand.run()

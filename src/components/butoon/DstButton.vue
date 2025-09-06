@@ -1,45 +1,47 @@
 <template>
     <b-button
+        class="dst-button"
         :variant="variant"
         :disabled="disabled"
-        @click="$emit('click', $event)"
+        @click="emit('click')"
     >
-        {{ value }}
+        <div class="content flex-row">
+            <dst-svg
+                v-if="icon"
+                :name="icon"
+            />
+
+            <div :class="{ 'ml-x1': icon }">
+                {{ value }}
+            </div>
+        </div>
     </b-button>
 </template>
 
 <script lang="ts" setup>
-import { PropType } from 'vue';
-import {ButtonVariant} from "@/components/butoon/definitions/button-types.ts"
-// Импортируем enum из отдельного файла
+import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
+import DstSvg from "@/components/dst-svg.vue"
 
-defineProps({
-    /** Текст кнопки */
-    value: {
-        type: String,
-        default: '',
-    },
-    /** Флаг, отключающий кнопку */
-    disabled: {
-        type: Boolean,
-        default: false,
-    },
-    /**
-     * Вариант (цвет) кнопки из bootstrap-vue.
-     */
-    variant: {
-        type: String as PropType<ButtonVariant>,
-        default: ButtonVariant.Primary,
-    },
-});
+const emit = defineEmits<{
+    click: []
+}>()
 
-// Определяем событие, которое компонент может генерировать
-defineEmits(['click']);
+withDefaults(defineProps<{
+    icon?:     string
+    value?:    string
+    disabled?: boolean
+    variant?:  ButtonVariant
+}>(), {
+    icon:     "",
+    value:    "",
+    disabled: false,
+    variant:  ButtonVariant.Primary,
+})
+
 </script>
 
 <style scoped>
-/* Стили можно оставить пустыми, так как bootstrap-vue позаботится об этом. */
-.btn {
-    min-height: 38px; /* Пример стиля для консистентности */
+.dst-button {
+    cursor: pointer;
 }
 </style>
