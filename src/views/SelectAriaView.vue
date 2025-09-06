@@ -1,12 +1,24 @@
 <template>
     <div
         class="aria"
+        :class="{ 'black-fon': !isRecord }"
         @mousedown="startDrag"
     />
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue"
+import _ from "lodash"
 import { ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
+
+const isRecord = ref(false)
+
+// Обновление состояния записи в трее
+window.ipcRenderer?.on(ExposedWinSelectAria.UPDATED_STATE_TIMER, (_event, status) => {
+    const newVal = status as RecordingStatus
+    if (_.isBoolean(newVal?.isRecording)) isRecord.value = newVal.isRecording
+})
 
 /** Перемещение окна */
 let dragPosition: { x: number, y: number } | null = null
@@ -37,5 +49,9 @@ function stopDrag() {
     border: #667eea 4px solid;
     display: block;
     opacity: 100%;
+
+    &.black-fon {
+        background-color: rgba(44, 44, 61, 0.51);
+    }
 }
 </style>

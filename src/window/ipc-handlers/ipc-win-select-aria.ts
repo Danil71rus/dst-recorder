@@ -1,7 +1,8 @@
 import { BrowserWindow, ipcMain, screen } from "electron"
-import { ExposedWinSelectAria } from "./definitions/renderer.ts"
+import { ExposedFfmpeg, ExposedWinSelectAria } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
 import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
+import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 
 export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
     ipcMain.on(ExposedWinSelectAria.MOVE_ARIA_WINDOW, (_event, val) => {
@@ -10,6 +11,10 @@ export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
     })
 
     ipcMain.on(ExposedWinSelectAria.STOP_MOVE_WINDOW, () => updateSettingCropByAria(ariaWin))
+
+    ipcMain.on(ExposedFfmpeg.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {
+        ariaWin.webContents.send(ExposedWinSelectAria.UPDATED_STATE_TIMER, status)
+    })
 }
 
 export function updateSettingCropByAria(ariaWin: BrowserWindow) {
