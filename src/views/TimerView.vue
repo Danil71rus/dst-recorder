@@ -39,8 +39,8 @@
         />
 
         <dst-button
-            :variant="ButtonVariant.OutlineInfo"
-            value="🛠"
+            :variant="ButtonVariant.OutlineLight"
+            icon="settings-24"
             @click="openMainWin"
         />
 

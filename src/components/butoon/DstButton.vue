@@ -5,13 +5,13 @@
         :disabled="disabled"
         @click="emit('click')"
     >
-        <div class="content flex-row">
+        <div class="content flex-row flex-main-axis-center ">
             <dst-svg
                 v-if="icon"
                 :name="icon"
             />
 
-            <div :class="{ 'ml-x1': icon }">
+            <div :class="{ 'ml-x1': icon && value }">
                 {{ value }}
             </div>
         </div>
