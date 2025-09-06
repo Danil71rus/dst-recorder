@@ -18,12 +18,15 @@ export async function createSelectAriaWindow() {
         alwaysOnTop:    true,
         skipTaskbar:    true,
         transparent:    true,
+        hasShadow:      false,
         webPreferences: {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
             sandbox:          true,
         },
     })
+
+    setWindowReady(WindowName.SelectAria, selectAriaWindow)
 
     if (isDev) {
         await selectAriaWindow.loadURL("http://localhost:5173/#/select-aria")
@@ -36,7 +39,6 @@ export async function createSelectAriaWindow() {
     }
 
     selectAriaWindow.on("ready-to-show", () => {
-        setWindowReady(WindowName.SelectAria, selectAriaWindow)
         selectAriaWindow.setAlwaysOnTop(true)
         selectAriaWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
         // selectAriaWindow.show()

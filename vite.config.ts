@@ -36,9 +36,11 @@ export default defineConfig({
         electron([
             {
                 entry: "src/main.ts",
-                // Не автозапускаем Electron из плагина в dev, т.к. он запускается отдельной командой в npm script.
-                // Это устраняет двойной запуск (SingletonLock: File exists).
-                vite:  {
+                // Возвращаем onstart, чтобы плагин сам управлял запуском Electron
+                onstart(options) {
+                    options.startup()
+                },
+                vite: {
                     build: {
                         outDir:        "dist-electron",
                         rollupOptions: {
@@ -54,9 +56,9 @@ export default defineConfig({
             {
                 entry: "src/preload.ts",
                 onstart(options) {
-                    if (options.startup) {
-                        options.startup()
-                    }
+                    // ВАЖНО: нужно перезагружать, а не запускать заново,
+                    // чтобы избежать дублирования окон
+                    options.reload()
                 },
                 vite: {
                     build: {

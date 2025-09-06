@@ -16,12 +16,15 @@ export async function createMainWindow() {
         resizable:      false,
         skipTaskbar:    true,
         transparent:    true,
+        hasShadow:      false,
         webPreferences: {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
             sandbox:          true,
         },
     })
+
+    setWindowReady(WindowName.Main, mainWindow)
 
     if (isDev) {
         await mainWindow.loadURL("http://localhost:5173")
@@ -34,9 +37,8 @@ export async function createMainWindow() {
     }
 
     mainWindow.on("ready-to-show", () => {
-        setWindowReady(WindowName.Main, mainWindow)
         mainWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
-        // mainWindow.show()
+        mainWindow.show()
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы

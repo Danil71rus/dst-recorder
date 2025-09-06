@@ -18,12 +18,15 @@ export async function createTimerWindow() {
         resizable:      false,
         skipTaskbar:    true,
         transparent:    true,
+        hasShadow:      false,
         webPreferences: {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
             sandbox:          true,
         },
     })
+
+    setWindowReady(WindowName.Timer, timerWindow)
 
     if (isDev) {
         await timerWindow.loadURL("http://localhost:5173/#/timer")
@@ -36,7 +39,6 @@ export async function createTimerWindow() {
     }
 
     timerWindow.on("ready-to-show", () => {
-        setWindowReady(WindowName.Timer, timerWindow)
         timerWindow.setAlwaysOnTop(true)
         timerWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
         // timerWindow.show() // Не показываем автоматически - управление через трей

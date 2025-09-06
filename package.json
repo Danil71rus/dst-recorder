@@ -11,7 +11,7 @@
     "build:mac": "vue-tsc --noEmit && vite build && electron-builder --mac",
     "prebuild:win": "node scripts/copy-ffmpeg.js",
     "build:win": "vue-tsc --noEmit && vite build && electron-builder --win",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "vite",
     "preelectron:build": "node scripts/copy-ffmpeg.js",
     "electron:build": "vite build && electron-builder",
     "preview": "vite preview",
