@@ -25,10 +25,13 @@ export class TrayManager {
         const iconFileName = "camera.png"
         const iconPath = isDev
             ? join(process.cwd(), "src/assets", iconFileName)
-            : join(app.getAppPath(), "src/assets", iconFileName)
+            : join(app.getAppPath(), "dist/assets", iconFileName)
 
         const icon = nativeImage.createFromPath(iconPath)
-        if (icon.isEmpty()) return nativeImage.createFromPath(iconPath)
+        if (icon.isEmpty()) {
+            console.error("Failed to create tray icon from path:", iconPath)
+            return nativeImage.createEmpty()
+        }
         return this.isDarwin
             ? icon.resize({ width: 22, height: 22 })
             : icon.resize({ width: 16, height: 16 })
