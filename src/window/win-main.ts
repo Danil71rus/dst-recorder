@@ -38,7 +38,7 @@ export async function createMainWindow() {
 
     mainWindow.on("ready-to-show", () => {
         mainWindow.setVisibleOnAllWorkspaces(true) // окно будет видно на всех столах
-        mainWindow.show()
+        // mainWindow.show()
     })
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы
