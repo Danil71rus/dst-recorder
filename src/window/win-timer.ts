@@ -1,15 +1,17 @@
 import { app, BrowserWindow } from "electron"
 import { join } from "path"
 import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
-// import { getIconPath } from "../utils/icon-utils.ts"
 
 const isDev = !app.isPackaged
+
+export const sizeDef = { width: 550, height: 56 }
+export const sizeMax = { width: 550, height: 356 }
 
 export async function createTimerWindow() {
     const timerWindow = new BrowserWindow({
         // icon: getIconPath(),
-        width:          550,
-        height:         56,
+        width:          sizeDef.width,
+        height:         sizeDef.height,
         // width:  1200,
         // height: 1000,
         show:           false,

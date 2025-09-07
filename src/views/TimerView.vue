@@ -1,65 +1,114 @@
 <template>
     <div
-        class="timer-window"
+        class="timer-window flex-column"
         @mousedown="startDrag"
     >
-        <div class="flex-row">
-            <dst-svg
-                class="close-icon"
-                name="close-24"
-                @click="close"
-            />
+        <div class="timer">
+            <div class="flex-row flex-cross-axis-center">
+                <dst-svg
+                    class="close-icon"
+                    name="close-24"
+                    @click="close"
+                />
+
+                <div class="line" />
+            </div>
+
+            <!-- Основной таймер -->
+            <div class="timer-display">
+                <div
+                    v-if="isRecording"
+                    :class="{ 'recording-dot': true, 'animate-active': true }"
+                />
+
+                <span class="time">{{ formattedTime }}</span>
+            </div>
 
             <div class="line" />
-        </div>
 
-        <!-- Основной таймер -->
-        <div class="timer-display">
-            <div
-                v-if="isRecording"
-                :class="{ 'recording-dot': true, 'animate-active': true }"
+            <dst-button
+                :variant="isShowSettings ? ButtonVariant.Light : ButtonVariant.OutlineLight"
+                :icon="isShowSettings ? 'angle-up-24' : 'settings-24'"
+                @click="toggleSettings"
             />
 
-            <span class="time">{{ formattedTime }}</span>
+            <dst-button
+                class="open-folder"
+                value="Открыть"
+                :variant="ButtonVariant.OutlineSecondary"
+                @click="openSaveFolder"
+            />
+
+            <div class="right">
+                <dst-button
+                    v-if="isRecording"
+                    icon="player-stop-24"
+                    @click="stopRecording"
+                />
+
+                <dst-button
+                    v-else
+                    icon="player-play-24"
+                    :variant="ButtonVariant.Danger"
+                    @click="startRecording"
+                />
+            </div>
         </div>
 
-        <div class="line" />
+        <div
+            v-if="isShowSettings"
+            class="settings"
+        >
+            <dst-combobox
+                v-model="selectedVideo"
+                :items="screensList"
+                :display-type="ComboboxDisplayType.Right"
+                :variant="ComboboxStyle.Secondary"
+                placeholder="Экран"
+                label="Выбор экрана"
+            />
 
-        <dst-button
-            v-if="isRecording"
-            icon="player-stop-24"
-            @click="stopRecording"
-        />
+            <dst-combobox
+                v-model="selectedDefSize"
+                :items="sizesCombobox"
+                :display-type="ComboboxDisplayType.Right"
+                :variant="ComboboxStyle.Secondary"
+                placeholder="Качество"
+                label="Качество"
+            />
 
-        <dst-button
-            v-else
-            :variant="ButtonVariant.Danger"
-            icon="player-play-24"
-            @click="startRecording"
-        />
-
-        <dst-button
-            :variant="ButtonVariant.OutlineLight"
-            icon="settings-24"
-            @click="openMainWin"
-        />
-
-        <dst-button
-            :variant="ButtonVariant.OutlineSecondary"
-            value="Открыть"
-            @click="openSaveFolder"
-        />
+            <dst-combobox
+                v-model="selectedAudio"
+                :items="audioList"
+                :display-type="ComboboxDisplayType.Right"
+                :variant="ComboboxStyle.Secondary"
+                placeholder="Звук"
+                label="Выбор звука"
+            />
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from "vue"
-import { ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { computed, onBeforeUnmount, ref } from "vue"
+import { ExposedFfmpeg, ExposedWinMain, ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import { RecordingStatus, StartRecordingResponse } from "@/deinitions/ffmpeg.ts"
+import {
+    FfmpegDeviceLists,
+    FfmpegSettings,
+    getDefaultSettings,
+    RecordingStatus,
+    Size,
+    StartRecordingResponse,
+} from "@/deinitions/ffmpeg.ts"
 import DstSvg from "@/components/dst-svg.vue"
+import { ComboboxDisplayType, type ComboboxItem, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
+import DstCombobox from "@/components/combobox/DstCombobox.vue"
+import { getResultScale } from "@/window/utils/main.ts"
+import _ from "lodash"
 
+const isShowSettings = ref(false)
 
 // Реактивные переменные состояния
 const isRecording = ref(false)
@@ -106,8 +155,9 @@ function openSaveFolder() {
     window.ipcRenderer?.send(ExposedWinTimer.OPEN_SAVE_FOLDER, savePathFile.value)
 }
 
-function openMainWin() {
-    window.ipcRenderer?.send(ExposedWinTimer.OPEN_MAIN_WIN)
+function toggleSettings() {
+    isShowSettings.value = !isShowSettings.value
+    window.ipcRenderer?.send(ExposedWinTimer.SHOW_SETTINGS, isShowSettings.value)
 }
 
 function close() {
@@ -118,6 +168,123 @@ function resetParams() {
     isRecording.value = false
     duration.value = 0
 }
+
+
+// Проверка доступности Electron API
+const deviceList = ref<FfmpegDeviceLists>({
+    audio: [],
+    video: [],
+})
+const currentState = ref<FfmpegSettings>(getDefaultSettings())
+
+const sizes = computed(() => {
+    return Object.keys(Size)
+        .map(id => {
+            const size = Number(Size[id as keyof typeof Size])
+            const maxW = currentState.value.video?.scaleMax?.width || 0
+            const maxH = currentState.value.video?.scaleMax?.height || 0
+            return {
+                id: size,
+                w:  Math.ceil(maxW / size),
+                h:  Math.ceil(maxH / size),
+            }
+        })
+        .filter(item => item.w > 0)
+})
+const sizesCombobox = computed((): ComboboxItem[] => {
+    return sizes.value
+        .map(item => ({
+            id:    item.id,
+            title: `${item.w} * ${item.h}`,
+        }))
+})
+
+const selectedDefSize = computed({
+    get() {
+        return `${currentState.value.defSize}`
+    },
+    set(newSize: string) {
+        setSize(newSize)
+        save()
+    },
+})
+
+const selectedVideo = computed({
+    get() {
+        return `${currentState.value.video?.index}`
+    },
+    set(newIndex: string) {
+        const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
+        if (newVideo?.name) {
+            currentState.value.video = newVideo
+            setSize()
+            save()
+        }
+    },
+})
+const screensList = computed((): ComboboxItem[] => {
+    return deviceList.value.video
+        .filter(item => item.isScreen)
+        .map(item => {
+            const { scale } = getResultScale(item, currentState.value.defSize)
+            return {
+                id:       `${item.index}`,
+                title:    `${item.label}`,
+                subtitle: `${scale.w} × ${scale.h}`,
+            }
+        })
+})
+
+const selectedAudio = computed({
+    get() {
+        return `${currentState.value.audio?.index}`
+    },
+    set(newIndex: string) {
+        const newAudio = deviceList.value.audio.find(item => item.index === Number(newIndex))
+        if (newAudio?.name) {
+            currentState.value.audio = newAudio
+            save()
+        }
+    },
+})
+const audioList = computed((): ComboboxItem[] => {
+    return deviceList.value.audio.map(item => ({
+        id:    `${item.index}`,
+        title: `${item.name} `,
+    }))
+})
+
+function setSize(size = "") {
+    const newSize = Number(size) || currentState.value.defSize
+    const newVideo = currentState.value.video
+    if (newVideo?.name) {
+        currentState.value = {
+            ...currentState.value,
+            ...getResultScale(newVideo, newSize),
+            defSize: newSize,
+        }
+    }
+}
+async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
+    const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
+    if (settings) currentState.value = settings
+
+    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
+    if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
+
+    console.log(" deviceList.value: ", deviceList.value)
+    console.log(" currentState.value: ", currentState.value)
+}
+async function save() {
+    await window.ipcRenderer?.invoke(ExposedWinTimer.SAVE_SETTINGS, _.cloneDeep(currentState.value))
+}
+
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
+window.ipcRenderer?.on(
+    ExposedFfmpeg.UPDATED_SETTINGS,
+    async (_event, newSettings) => await updateSettings({ newSettings }),
+)
+
 
 /** Перемещение окна */
 let dragPosition: { x: number, y: number } | null = null
@@ -148,61 +315,89 @@ onBeforeUnmount(() => {
 <style scoped>
 .timer-window {
     width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-}
 
-.flex-row {
-    display: flex;
-    align-items: center;
-}
+    .timer {
+        width: 100%;
+        padding: 8px;
+        display: flex;
+        align-items: center;
 
-.line {
-    display: block;
-    height: 24px;
-    color: white;
-    margin: 0 8px;
-    border-right: 1px solid gray;
-}
+        & > *:not(:first-child) {
+            margin-left: 16px;
+        }
 
-.timer-display {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: 36px;
+        .line {
+            display: block;
+            height: 24px;
+            color: white;
+            margin: 0 8px;
+            border-right: 1px solid gray;
+        }
 
-    .recording-dot {
-        width: 10px;
-        height: 10px;
-        background: #ff0000;
-        border-radius: 50%;
+        .timer-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 36px;
 
-        &.animate-active {
-            animation: pulse 1s infinite;
+            .recording-dot {
+                width: 10px;
+                height: 10px;
+                background: #ff0000;
+                border-radius: 50%;
+
+                &.animate-active {
+                    animation: pulse 1s infinite;
+                }
+            }
+
+            .time {
+                color: white;
+                font-size: 25px;
+                font-weight: bold;
+                font-family: 'Courier New', monospace;
+            }
+        }
+
+        .close-icon {
+            color: red;
+            width: 28px;
+            cursor: pointer;
+            transition: all 200ms ease-in-out;
+
+            &:hover {
+                width: 35px;
+            }
+        }
+
+        .right {
+            display: flex;
+            margin-left: auto;
+
+            & > *:not(:first-child) {
+                margin-left: 16px;
+            }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
         }
     }
 
-    .time {
+    overflow: hidden;
+
+    .settings {
+        width: 100%;
+        padding: 8px;
+        border-top: solid white 1px;
         color: white;
-        font-size: 25px;
-        font-weight: bold;
-        font-family: 'Courier New', monospace;
+        & > * {
+            margin-top: 16px;
+        }
     }
-}
-
-.close-icon {
-    color: red;
-    width: 35px;
-    cursor: pointer;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.1); }
-    100% { opacity: 1; transform: scale(1); }
 }
 </style>

@@ -60,7 +60,9 @@ export class TrayManager {
 
         if (status?.isRecording) {
             this.tray.setContextMenu(this.getRecordingMenu())
-            if (this.isDarwin) this.tray?.setTitle(this.getFormattedDuration(status.duration))
+            if (this.isDarwin && !this.isTimerVisible()) {
+                this.tray?.setTitle(this.getFormattedDuration(status.duration))
+            }
         } else {
             this.tray.setContextMenu(this.getDefaultMenu())
             if (this.isDarwin) this.tray?.setTitle("")
@@ -184,6 +186,10 @@ export class TrayManager {
     private openTimer(): void {
         const timerWindow = getWindowByName(WindowName.Timer)
         if (timerWindow) timerWindow.show()
+    }
+
+    private isTimerVisible() {
+        return !!getWindowByName(WindowName.Timer)?.isVisible()
     }
 
     private openAria(): void {

@@ -6,30 +6,31 @@ export enum ExposedFfmpeg {
 }
 
 export enum ExposedWinMain {
-    SHOW = "show",
-    GET_DEVICES = "get-devices",
-    GET_SETTINGS = "get-settings",
-    SAVE_SETTINGS = "save-settings",
-    MOVE_MAIN_WINDOW = "move-main-window",
-    HIDE = "hide",
+    SHOW = "main:show",
+    GET_DEVICES = "main:get-devices",
+    GET_SETTINGS = "main:get-settings",
+    SAVE_SETTINGS = "main:save-settings",
+    MOVE_MAIN_WINDOW = "main:move-main-window",
+    HIDE = "main:hide",
 }
 
 export enum ExposedWinTimer {
-    OPEN_MAIN_WIN = "open-main-win",
-    OPEN_SAVE_FOLDER = "open-save-folder",
-    MOVE_TIMER_WINDOW = "move-timer-window",
-    UPDATED_STATE_TIMER = "updated-state-timer",
+    SHOW_SETTINGS = "timer:show-settings",
+    SAVE_SETTINGS = "timer:save-settings",
+    OPEN_SAVE_FOLDER = "timer:open-save-folder",
+    MOVE_TIMER_WINDOW = "timer:move-timer-window",
+    UPDATED_STATE_TIMER = "timer:updated-state-timer",
     HIDE = "hide",
     // FFmpeg каналы
-    START_FFMPEG_RECORDING = "start-ffmpeg-recording",
-    STOP_FFMPEG_RECORDING = "stop-ffmpeg-recording",
-    GET_RECORDING_STATUS = "get-recording-status",
+    START_FFMPEG_RECORDING = "timer:start-ffmpeg-recording",
+    STOP_FFMPEG_RECORDING = "timer:stop-ffmpeg-recording",
+    GET_RECORDING_STATUS = "timer:get-recording-status",
 }
 
 export enum ExposedWinSelectAria {
-    MOVE_ARIA_WINDOW = "move-aria-window",
-    STOP_MOVE_WINDOW = "stop-move-window",
-    UPDATED_STATE_TIMER = "updated-state-timer",
+    MOVE_ARIA_WINDOW = "aria:move-aria-window",
+    STOP_MOVE_WINDOW = "aria:stop-move-window",
+    UPDATED_STATE_TIMER = "aria:updated-state-timer",
 }
 
 export type ExposedChannel = ExposedFfmpeg | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | string

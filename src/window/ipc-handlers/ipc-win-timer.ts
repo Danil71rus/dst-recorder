@@ -1,8 +1,8 @@
 import { BrowserWindow, ipcMain, shell } from "electron"
-import { ExposedWinTimer, ExposedWinMain, ExposedFfmpeg } from "./definitions/renderer.ts"
+import { ExposedWinTimer, ExposedFfmpeg } from "./definitions/renderer.ts"
 import { screenRecorder } from "../../ffmpeg.ts"
-import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
-import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import { FfmpegSettings, RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import { sizeDef, sizeMax } from "../win-timer.ts"
 
 
 export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
@@ -31,12 +31,13 @@ export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
         timerWin.setPosition(position.x, position.y)
     })
 
-    ipcMain.on(ExposedWinTimer.OPEN_MAIN_WIN, () => {
-        const mainWin = getWindowByName(WindowName.Main)
-        if (mainWin) {
-            mainWin.show()
-            mainWin.webContents.send(ExposedWinMain.SHOW)
-        }
+    ipcMain.on(ExposedWinTimer.SHOW_SETTINGS, (_, show) => {
+        if (!show) timerWin.setSize(sizeDef.width, sizeDef.height, true)
+        else timerWin.setSize(sizeMax.width, sizeMax.height, true)
+    })
+
+    ipcMain.handle(ExposedWinTimer.SAVE_SETTINGS, async (_event, settings?: FfmpegSettings) => {
+        screenRecorder.setSettings(settings)
     })
 
     ipcMain.on(ExposedWinTimer.HIDE, () => {
