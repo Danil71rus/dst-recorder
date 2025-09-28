@@ -1,7 +1,7 @@
 <template>
     <div
         class="main-view"
-        @mousedown="startDrag"
+        @mousedown="drag.startDrag"
     >
         <div class="container">
             <dst-combobox
@@ -62,6 +62,7 @@ import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
 import { getResultScale } from "@/window/utils/main.ts"
+import { dragPosition } from "@/composables/drag-position.ts"
 
 // Проверка доступности Electron API
 const deviceList = ref<FfmpegDeviceLists>({
@@ -69,6 +70,8 @@ const deviceList = ref<FfmpegDeviceLists>({
     video: [],
 })
 const currentState = ref<FfmpegSettings>(getDefaultSettings())
+
+const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
 
 const sizes = computed(() => {
     return Object.keys(Size)
@@ -169,27 +172,6 @@ function setSize(size = "") {
             defSize: newSize,
         }
     }
-}
-
-
-/** Перемещение окна */
-let dragPosition: { x: number, y: number } | null = null
-function startDrag(e: MouseEvent) {
-    dragPosition = { x: e.clientX, y: e.clientY }
-    window.addEventListener("mousemove", drag)
-    window.addEventListener("mouseup", stopDrag)
-}
-function drag(e: MouseEvent) {
-    if (!dragPosition) return
-    window.ipcRenderer?.send(ExposedWinMain.MOVE_MAIN_WINDOW, {
-        x: e.screenX - dragPosition.x,
-        y: e.screenY - dragPosition.y,
-    })
-}
-function stopDrag() {
-    dragPosition = null
-    window.removeEventListener("mousemove", drag)
-    window.removeEventListener("mouseup", stopDrag)
 }
 
 async function onSave() {

@@ -2,7 +2,7 @@
     <div
         class="aria"
         :class="{ 'black-fon': !isRecord }"
-        @mousedown="startDrag"
+        @mousedown="drag.startDrag"
     >
         <dst-svg
             v-if="!isRecord"
@@ -18,35 +18,19 @@ import _ from "lodash"
 import { ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 import DstSvg from "@/components/dst-svg.vue"
+import { dragPosition } from "@/composables/drag-position.ts"
 
 const isRecord = ref(false)
+
+const drag = dragPosition(ExposedWinSelectAria.MOVE_ARIA_WINDOW, () => {
+    window.ipcRenderer?.send(ExposedWinSelectAria.STOP_MOVE_WINDOW)
+})
 
 // Обновление состояния записи в трее
 window.ipcRenderer?.on(ExposedWinSelectAria.UPDATED_STATE_TIMER, (_event, status) => {
     const newVal = status as RecordingStatus
     if (_.isBoolean(newVal?.isRecording)) isRecord.value = newVal.isRecording
 })
-
-/** Перемещение окна */
-let dragPosition: { x: number, y: number } | null = null
-function startDrag(e: MouseEvent) {
-    dragPosition = { x: e.clientX, y: e.clientY }
-    window.addEventListener("mousemove", drag)
-    window.addEventListener("mouseup", stopDrag)
-}
-function drag(e: MouseEvent) {
-    if (!dragPosition) return
-    window.ipcRenderer?.send(ExposedWinSelectAria.MOVE_ARIA_WINDOW, {
-        x: e.screenX - dragPosition.x,
-        y: e.screenY - dragPosition.y,
-    })
-}
-function stopDrag() {
-    dragPosition = null
-    window.removeEventListener("mousemove", drag)
-    window.removeEventListener("mouseup", stopDrag)
-    window.ipcRenderer?.send(ExposedWinSelectAria.STOP_MOVE_WINDOW)
-}
 </script>
 
 <style lang="scss" scoped>

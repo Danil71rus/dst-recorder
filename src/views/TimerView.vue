@@ -1,7 +1,7 @@
 <template>
     <div
         class="timer-window flex-column"
-        @mousedown="startDrag"
+        @mousedown="drag.startDrag"
     >
         <div class="timer">
             <div class="flex-row flex-cross-axis-center">
@@ -107,6 +107,7 @@ import { ComboboxDisplayType, type ComboboxItem, ComboboxStyle } from "@/compone
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import { getResultScale } from "@/window/utils/main.ts"
 import _ from "lodash"
+import { dragPosition } from "@/composables/drag-position.ts"
 
 const isShowSettings = ref(false)
 
@@ -176,6 +177,8 @@ const deviceList = ref<FfmpegDeviceLists>({
     video: [],
 })
 const currentState = ref<FfmpegSettings>(getDefaultSettings())
+
+const drag = dragPosition(ExposedWinTimer.MOVE_TIMER_WINDOW)
 
 const sizes = computed(() => {
     return Object.keys(Size)
@@ -284,27 +287,6 @@ window.ipcRenderer?.on(
     ExposedFfmpeg.UPDATED_SETTINGS,
     async (_event, newSettings) => await updateSettings({ newSettings }),
 )
-
-
-/** Перемещение окна */
-let dragPosition: { x: number, y: number } | null = null
-function startDrag(e: MouseEvent) {
-    dragPosition = { x: e.clientX, y: e.clientY }
-    window.addEventListener("mousemove", drag)
-    window.addEventListener("mouseup", stopDrag)
-}
-function drag(e: MouseEvent) {
-    if (!dragPosition) return
-    window.ipcRenderer?.send(ExposedWinTimer.MOVE_TIMER_WINDOW, {
-        x: e.screenX - dragPosition.x,
-        y: e.screenY - dragPosition.y,
-    })
-}
-function stopDrag() {
-    dragPosition = null
-    window.removeEventListener("mousemove", drag)
-    window.removeEventListener("mouseup", stopDrag)
-}
 
 // Очистка при размонтировании компонента
 onBeforeUnmount(() => {
