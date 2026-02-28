@@ -65,18 +65,21 @@ function iconTray(targetDir) {
 }
 
 function build() {
-    // Определяем целевую директорию в зависимости от режима
-    const targetDir = isDevelopment
-        ? path.resolve(__dirname, "..", "dist-electron")
-        : path.resolve(__dirname, "..", "dist")
+    // Определяем целевые директории в зависимости от режима
+    const targetDirs = isDevelopment
+        ? [path.resolve(__dirname, "..", "dist-electron")]
+        : [path.resolve(__dirname, "..", "dist"), path.resolve(__dirname, "..", "dist-electron")]
 
     console.log(`[Build] Mode: ${isDevelopment ? "development" : "production"}`)
-    console.log(`[Build] Target directory: ${targetDir}`)
 
-    // Создаём директорию assets если её нет
-    fs.mkdirSync(path.resolve(targetDir, "assets"), { recursive: true })
-    iconTray(targetDir)
-    createIconsJS(targetDir)
+    for (const targetDir of targetDirs) {
+        console.log(`[Build] Target directory: ${targetDir}`)
+
+        // Создаём директорию assets если её нет
+        fs.mkdirSync(path.resolve(targetDir, "assets"), { recursive: true })
+        iconTray(targetDir)
+        createIconsJS(targetDir)
+    }
 }
 
 // Если скрипт запускается напрямую
