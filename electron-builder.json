@@ -1,7 +1,6 @@
 {
   "appId": "com.dstrecorder.pro",
   "productName": "Dst-Recorder",
-  "publish": "never",
   "directories": {
     "output": "release"
   },
