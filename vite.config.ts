@@ -11,24 +11,12 @@ export default defineConfig({
         // Плагин для копирования иконок и генерации itl-icons.js
         {
             name: "build-assets",
-            closeBundle() {
+            enforce: "pre",
+            buildStart() {
                 try {
                     build()
                 } catch (error) {
                     console.error("[Assets] Failed to build assets:", error)
-                }
-            },
-        },
-        // Плагин для генерации иконок в dev режиме
-        {
-            name: "build-dev-icons",
-            buildStart() {
-                if (process.env.NODE_ENV === "development") {
-                    try {
-                        build()
-                    } catch (error) {
-                        console.error("[Dev Icons] Failed to build dev icons:", error)
-                    }
                 }
             },
         },
@@ -42,6 +30,7 @@ export default defineConfig({
                 vite: {
                     build: {
                         outDir:        "dist-electron",
+                        emptyOutDir:   false,
                         rollupOptions: {
                             external: [
                                 "electron",
@@ -62,6 +51,7 @@ export default defineConfig({
                 vite: {
                     build: {
                         outDir:        "dist-electron",
+                        emptyOutDir:   false,
                         rollupOptions: {
                             external: [
                                 "electron",
