@@ -140,11 +140,13 @@ export class ScreenRecorder {
         return new Promise((resolve) => {
             exec(command, (error, _stdout, stderr) => {
 
-                const allDisplays = screen.getAllDisplays()
-                    .sort((a, b) => a.bounds.x - b.bounds.x)
-                    .map((item, index) => ({ ...item, index }))
-
-                // console.log("allDisplays: ", allDisplays)
+                // Получаем главный экран (он всегда будет Capture screen 0 в FFmpeg)
+                const primaryDisplay = screen.getPrimaryDisplay()
+                // Получаем все остальные экраны, исключая главный
+                const otherDisplays = screen.getAllDisplays().filter(d => d.id !== primaryDisplay.id)
+                // Склеиваем массив: главный экран строго первый (index: 0), остальные за ним
+                const orderedDisplays = [primaryDisplay, ...otherDisplays].map((item, index) => ({ ...item, index }))
+                console.log("orderedDisplays: ", orderedDisplays)
 
                 if (error && !stderr) {
                     logger.error("Error executing FFmpeg command:", error)
@@ -187,13 +189,17 @@ export class ScreenRecorder {
                             let addParams = {}
                             if (isScreen) {
                                 const index = Number(device.name.replace(/\D/g, ""))
-                                const { bounds, workArea, scaleFactor, size, label } = allDisplays?.[index] || {}
-                                addParams = {
-                                    bounds, workArea, scaleFactor, size, label,
-                                    scaleMax: {
-                                        width:  scaleFactor * size.width,
-                                        height: scaleFactor * size.height,
-                                    },
+                                const displayInfo = orderedDisplays[index]
+
+                                if (displayInfo) {
+                                    const { bounds, workArea, scaleFactor, size, label } = displayInfo
+                                    addParams = {
+                                        bounds, workArea, scaleFactor, size, label,
+                                        scaleMax: {
+                                            width:  scaleFactor * size.width,
+                                            height: scaleFactor * size.height,
+                                        },
+                                    }
                                 }
                             }
                             result.video.push({ ...addParams, ...device, isScreen })
