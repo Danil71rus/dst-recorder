@@ -80,12 +80,25 @@ jobs:
         with:
           name: windows-build
           path: ./artifacts/windows
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p release-assets
+          for file in artifacts/macos/release/*.dmg; do
+            cp -n "$file" release-assets/
+          done
+          for file in artifacts/windows/release/*.exe; do
+            cp -n "$file" release-assets/
+          done
+          rm -f \
+            release-assets/elevate.exe \
+            release-assets/ffmpeg.exe \
+            release-assets/ffprobe.exe
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/macos/release/*.dmg
-            artifacts/windows/release/*.exe
-            !artifacts/windows/release/elevate.exe
-            !artifacts/windows/release/ffmpeg.exe
-            !artifacts/windows/release/ffprobe.exe
+            release-assets/*.dmg
+            release-assets/*.exe
