@@ -1,5 +1,8 @@
 name: Build macOS and Windows
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
