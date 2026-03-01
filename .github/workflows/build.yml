@@ -84,5 +84,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/macos/release/**/*.dmg
-            artifacts/windows/release/**/*.exe
+            artifacts/macos/release/*.dmg
+            artifacts/windows/release/*Recorder*.exe
+            artifacts/windows/release/*Setup*.exe
