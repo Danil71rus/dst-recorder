@@ -85,5 +85,7 @@ jobs:
         with:
           files: |
             artifacts/macos/release/*.dmg
-            artifacts/windows/release/*Recorder*.exe
-            artifacts/windows/release/*Setup*.exe
+            artifacts/windows/release/*.exe
+            !artifacts/windows/release/elevate.exe
+            !artifacts/windows/release/ffmpeg.exe
+            !artifacts/windows/release/ffprobe.exe
