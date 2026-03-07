@@ -42,6 +42,9 @@ function logFFmpegPaths() {
     logger.info("=== End FFmpeg Diagnostics ===")
 }
 
+// Скрываем иконку из Dock (только для macOS)
+if (isDarwin) app.dock?.hide()
+
 app.whenReady().then(async () => {
     // Устанавливаем иконку приложения
     if (isDarwin) {
