@@ -19,35 +19,81 @@ export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
 
 export function updateSettingCropByAria(ariaWin: BrowserWindow) {
     const currentSettings = screenRecorder.getSettings()
-    if (currentSettings) {
-        const border = 4
-        const size = ariaWin.getSize()
-        const position = ariaWin.getPosition()
-        const newPosition = { x: position[0] + border, y: position[1] + border }
+    if (!currentSettings) return
 
-        const currentWinName = screen.getDisplayNearestPoint(newPosition).label
-        const video = (() => {
-            if (currentSettings.video?.label === currentWinName) return currentSettings.video
-            // Если переместились на другой экран
-            return screenRecorder
-                .getDevicesList()
-                .video
-                .find(item => item.label === currentWinName) || currentSettings.video
-        })()
+    const border = 4
+    const size = ariaWin.getSize() // логические пиксели
+    const position = ariaWin.getPosition() // логические пиксели
 
-        // [0] screen.bounds: HP 27f ({"x":1920,"y":0,"width":1920,"height":1080})
-        newPosition.x = Math.max(newPosition.x - (video?.bounds?.x || 0), 0)
-        newPosition.y = Math.max(newPosition.y - (video?.bounds?.y || 0), 0)
+    const newPosition = { x: position[0] + border, y: position[1] + border }
+    const currentWinName = screen.getDisplayNearestPoint(newPosition).label
 
-        console.log("newPosition: ", JSON.stringify(newPosition))
+    const video = (() => {
+        if (currentSettings.video?.label === currentWinName) return currentSettings.video
+        return screenRecorder
+            .getDevicesList()
+            .video
+            .find(item => item.label === currentWinName) || currentSettings.video
+    })()
 
-        screenRecorder.setSettings({
-            ...currentSettings,
-            offset: newPosition,
-            crop:   { w: size[0] - (border * 2), h: size[1] - (border * 2) },
-            video,
-        })
+    // Достаем scaleFactor для правильного маппинга на маках (Retina)
+    const scaleFactor = video?.scaleFactor || 1
+
+    const boundsX = video?.bounds?.x || 0
+    const boundsY = video?.bounds?.y || 0
+    const boundsW = video?.bounds?.width || 1920
+    const boundsH = video?.bounds?.height || 1080
+
+    // 1. Считаем ЛОГИЧЕСКОЕ смещение внутри монитора
+    const logicalX = Math.max(newPosition.x - boundsX, 0)
+    const logicalY = Math.max(newPosition.y - boundsY, 0)
+
+    let logicalCropW = Math.min(size[0] - (border * 2), boundsW - logicalX)
+    let logicalCropH = Math.min(size[1] - (border * 2), boundsH - logicalY)
+
+    logicalCropW = Math.max(logicalCropW, 2)
+    logicalCropH = Math.max(logicalCropH, 2)
+
+    // 2. ПЕРЕВОДИМ В ФИЗИЧЕСКИЕ ПИКСЕЛИ (для FFmpeg)
+    let cropW = logicalCropW * scaleFactor
+    let cropH = logicalCropH * scaleFactor
+    let offsetX = logicalX * scaleFactor
+    let offsetY = logicalY * scaleFactor
+
+    // 3. Строго четные значения (физические)
+    cropW = Math.floor(cropW) & ~1
+    cropH = Math.floor(cropH) & ~1
+    offsetX = Math.floor(offsetX) & ~1
+    offsetY = Math.floor(offsetY) & ~1
+
+    // 4. Применяем логику пресетов (scale)
+    const defSize = Number(currentSettings.defSize) || 1080
+    let scaleW = cropW
+    let scaleH = cropH
+
+    if (cropH > defSize) {
+        scaleH = defSize
+        scaleW = Math.round((cropW / cropH) * scaleH)
     }
+
+    scaleW = scaleW & ~1
+    scaleH = scaleH & ~1
+
+    // === ДОБАВЛЯЕМ ЛОГИ ===
+    // console.log("\n=== AREA SELECT DEBUG ===")
+    // console.log("Scale Factor:", scaleFactor)
+    // console.log("Logical Crop:", { w: logicalCropW, h: logicalCropH, x: logicalX, y: logicalY })
+    // console.log("Physical Crop (to FFmpeg):", { w: cropW, h: cropH, x: offsetX, y: offsetY })
+    // console.log("Target Scale:", { w: scaleW, h: scaleH })
+    // console.log("=========================\n")
+
+    screenRecorder.setSettings({
+        ...currentSettings,
+        offset: { x: offsetX, y: offsetY }, // Передаем физические координаты
+        crop:   { w: cropW, h: cropH },
+        scale:  { w: scaleW, h: scaleH },
+        video,
+    })
 }
 
 export function updatePositionByAria(ariaWin: BrowserWindow) {

@@ -1,14 +1,29 @@
-import { FfmpegDeviceVideo, Size } from "../../deinitions/ffmpeg.ts"
+import { DEFAULT_SIZE, FfmpegDeviceVideo, normalizeSize, Size, sizeTitleMap } from "../../deinitions/ffmpeg.ts"
 
-export function getResultScale(newVideo: FfmpegDeviceVideo, size = Size.Medium) {
-    // console.log("getResultScale: newVideo: ", newVideo)
-    const res = {
-        w: Math.max(Math.ceil((newVideo.scaleMax?.width || 1) / size), 0),
-        h: Math.max(Math.ceil((newVideo.scaleMax?.height || 1) / size), 0),
+export function getResultScale(newVideo: FfmpegDeviceVideo, size: Size | number = DEFAULT_SIZE) {
+    const targetHeight = normalizeSize(Number(size))
+    const maxW = newVideo.scaleMax?.width || 0
+    const maxH = newVideo.scaleMax?.height || 0
+
+    if (maxW <= 0 || maxH <= 0) {
+        return {
+            scale: { w: 0, h: 0 },
+            crop:  { w: 0, h: 0 },
+        }
     }
-    // console.log("!!!!!!getResultScale: res: ", res)
+
+    const ratio = maxW / maxH
+    const h = Math.min(targetHeight, maxH)
+    const w = Math.min(Math.round(h * ratio), maxW)
+
+    const res = {
+        w: Math.max(w, 1),
+        h: Math.max(h, 1),
+    }
+
     return {
-        scale: { ...res },
-        crop:  { ...res },
+        scale:       { ...res },
+        crop:        { ...res },
+        defSizeName: sizeTitleMap[targetHeight],
     }
 }

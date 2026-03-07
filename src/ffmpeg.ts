@@ -254,6 +254,8 @@ export class ScreenRecorder {
 
 
                 this.outputPathAndFileName = join(this.settings.outputPath, this.generateShortFilename())
+                const videoFilterStr = `crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y},scale=${this.settings.scale.w}:${this.settings.scale.h}`
+
                 this.ffmpegCommand = ffmpeg()
                     // ---- МАКСИМАЛЬНО ПРОСТАЯ КОМАНДА ----
                     // Один вход для видео, один для УЖЕ синхронизированного аудио
@@ -261,9 +263,7 @@ export class ScreenRecorder {
                     .inputFormat("avfoundation")
                     .inputFPS(this.settings.fps)
                     .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
-                    .videoFilter([
-                        `scale=${this.settings.scale.w}:${this.settings.scale.h},crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y}`,
-                    ])
+                    .videoFilter([videoFilterStr])
                     // Фильтр для смешивания каналов и увеличения громкости микрофона
                     .audioFilter([
                         // Смешиваем многоканальный звук в стерео.
