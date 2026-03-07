@@ -4,8 +4,8 @@ import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
 
 const isDev = !app.isPackaged
 
-export const sizeDef = { width: 550, height: 56 }
-export const sizeMax = { width: 550, height: 356 }
+export const sizeDef = { width: 650, height: 56 }
+export const sizeMax = { width: 650, height: 356 }
 
 export async function createTimerWindow() {
     const timerWindow = new BrowserWindow({

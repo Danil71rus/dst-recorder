@@ -4,15 +4,15 @@
         @mousedown="drag.startDrag"
     >
         <div class="timer">
-            <div class="flex-row flex-cross-axis-center">
+            <div class="close-icon-wrap">
                 <dst-svg
                     class="close-icon"
                     name="close-24"
                     @click="close"
                 />
-
-                <div class="line" />
             </div>
+
+            <div class="line" />
 
             <!-- Основной таймер -->
             <div class="timer-display">
@@ -45,7 +45,7 @@
             />
 
             <dst-button
-                class="open-folder"
+                class="open-folder ml-x4"
                 value="Открыть"
                 :variant="ButtonVariant.OutlineSecondary"
                 @click="openSaveFolder"
@@ -218,23 +218,19 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
 
-        & > *:not(:first-child) {
-            margin-left: 16px;
-        }
-
         .line {
             display: block;
             height: 24px;
             color: white;
-            margin: 0 8px;
+            margin: 0 16px;
             border-right: 1px solid gray;
         }
 
         .timer-display {
+            width: 93px;
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-right: 36px;
 
             .recording-dot {
                 width: 10px;
@@ -248,11 +244,19 @@ onBeforeUnmount(() => {
             }
 
             .time {
+                margin-left: auto;
                 color: white;
                 font-size: 25px;
                 font-weight: bold;
                 font-family: 'Courier New', monospace;
             }
+        }
+
+        .close-icon-wrap {
+            width: 35px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .close-icon {
@@ -282,11 +286,16 @@ onBeforeUnmount(() => {
         }
 
         .short-settings {
-            margin-left: 0 !important;
-            padding: 0 8px;
+            width: 124px;
             color: white;
-            font-size: 10px;
+            font-size: 9px;
 
+            & > * {
+                width: inherit;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
         }
     }
 
