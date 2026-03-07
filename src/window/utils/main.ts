@@ -7,23 +7,29 @@ export function getResultScale(newVideo: FfmpegDeviceVideo, size: Size | number 
 
     if (maxW <= 0 || maxH <= 0) {
         return {
-            scale: { w: 0, h: 0 },
-            crop:  { w: 0, h: 0 },
+            scale:  { w: 0, h: 0 },
+            crop:   { w: 0, h: 0 },
+            offset: { x: 0, y: 0 },
         }
     }
 
-    const ratio = maxW / maxH
-    const h = Math.min(targetHeight, maxH)
-    const w = Math.min(Math.round(h * ratio), maxW)
+    // 1. CROP: берем полные физические размеры экрана и жестко делаем их четными
+    const cropW = Math.floor(maxW) & ~1
+    const cropH = Math.floor(maxH) & ~1
 
-    const res = {
-        w: Math.max(w, 1),
-        h: Math.max(h, 1),
-    }
+    // 2. SCALE: вычисляем целевое качество с сохранением пропорций
+    const ratio = cropW / cropH
+    const h = Math.min(targetHeight, cropH)
+    const w = Math.min(Math.round(h * ratio), cropW)
+
+    // Жестко делаем целевой масштаб четным (не меньше 2 пикселей)
+    const scaleW = Math.max(Math.floor(w) & ~1, 2)
+    const scaleH = Math.max(Math.floor(h) & ~1, 2)
 
     return {
-        scale:       { ...res },
-        crop:        { ...res },
+        scale:       { w: scaleW, h: scaleH },
+        crop:        { w: cropW, h: cropH },
+        offset:      { x: 0, y: 0 }, // Явно сбрасываем смещение
         defSizeName: sizeTitleMap[targetHeight],
     }
 }

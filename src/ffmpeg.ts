@@ -390,15 +390,21 @@ export class ScreenRecorder {
     // Если запись области
     stopForAria() {
         const ariaWin = getWindowByName(WindowName.SelectAria)
-        if (ariaWin && ariaWin.isVisible()) {
-            // Заставляет окно полностью игнорировать все события мыши, "пропуская" клики насквозь к окнам, находящимся под ним
+
+        // 1. Возвращаем окну выделения нормальное состояние и скрываем его
+        if (ariaWin) {
             ariaWin.setIgnoreMouseEvents(false)
             ariaWin.setMovable(true)
             ariaWin.hide()
-            const scale = this.settings.scale
+        }
+
+        // 2. Гарантированно сбрасываем настройки до полного экрана
+        if (this.settings.video) {
+            // Получаем дефолтные полноэкранные пропорции для текущего монитора и качества
+            const fullScreenReset = getResultScale(this.settings.video, this.settings.defSize)
             this.setSettings({
                 ...this.settings,
-                crop:   { w: scale.w, h: scale.h },
+                ...fullScreenReset,
                 offset: { x: 0, y: 0 },
             })
         }
