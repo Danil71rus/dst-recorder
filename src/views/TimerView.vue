@@ -26,6 +26,18 @@
 
             <div class="line" />
 
+            <div class="short-settings flex-column">
+                <div class="display">
+                    {{ `${selectedVideoName} (${selectedDefSizeName})` }}
+                </div>
+
+                <div class="audio">
+                    {{ selectedAudioName }}
+                </div>
+            </div>
+
+            <div class="line" />
+
             <dst-button
                 :variant="isShowSettings ? ButtonVariant.Light : ButtonVariant.OutlineLight"
                 :icon="isShowSettings ? 'angle-up-24' : 'settings-24'"
@@ -211,6 +223,9 @@ const selectedDefSize = computed({
         save()
     },
 })
+const selectedDefSizeName = computed(() => {
+    return sizesCombobox.value.find(item => item.id === Number(selectedDefSize.value))?.title || ""
+})
 
 const selectedVideo = computed({
     get() {
@@ -237,6 +252,9 @@ const screensList = computed((): ComboboxItem[] => {
             }
         })
 })
+const selectedVideoName = computed(() => {
+    return deviceList.value.video.find(item => item.index === Number(selectedVideo.value))?.label || ""
+})
 
 const selectedAudio = computed({
     get() {
@@ -255,6 +273,9 @@ const audioList = computed((): ComboboxItem[] => {
         id:    `${item.index}`,
         title: `${item.name} `,
     }))
+})
+const selectedAudioName = computed(() => {
+    return deviceList.value.audio.find(item => item.index === Number(selectedAudio.value))?.name
 })
 
 function setSize(size = "") {
@@ -367,6 +388,14 @@ onBeforeUnmount(() => {
             0% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.5; transform: scale(1.1); }
             100% { opacity: 1; transform: scale(1); }
+        }
+
+        .short-settings {
+            margin-left: 0 !important;
+            padding: 0 8px;
+            color: white;
+            font-size: 10px;
+
         }
     }
 
