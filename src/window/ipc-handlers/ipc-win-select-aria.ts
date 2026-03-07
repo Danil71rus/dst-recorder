@@ -30,7 +30,7 @@ export function updateSettingCropByAria(ariaWin: BrowserWindow) {
             if (currentSettings.video?.label === currentWinName) return currentSettings.video
             // Если переместились на другой экран
             return screenRecorder
-                .getCurrentDevicesList()
+                .getDevicesList()
                 .video
                 .find(item => item.label === currentWinName) || currentSettings.video
         })()

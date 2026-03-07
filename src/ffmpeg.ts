@@ -50,11 +50,10 @@ export class ScreenRecorder {
         } else {
             logger.error("CRITICAL: FFmpeg binary not found. Recording will fail.")
         }
-
     }
 
     public async asyncInit() {
-        const device = await this.getSeparatedDevices()
+        const device = await this.updateAndGetDevices()
         console.log("!!!! device: ", device.video)
         const video = device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0]
         this.setSettings({
@@ -63,6 +62,10 @@ export class ScreenRecorder {
             video,
             ...getResultScale(video),
         })
+
+        // отслеживать добавление/удаление мониторов
+        screen.on("display-added", async () => await this.asyncInit())
+        screen.on("display-removed", async () => await this.asyncInit())
     }
 
     public static getInstance(): ScreenRecorder {
@@ -126,7 +129,7 @@ export class ScreenRecorder {
         return null
     }
 
-    public getSeparatedDevices(): Promise<FfmpegDeviceLists> {
+    public updateAndGetDevices(): Promise<FfmpegDeviceLists> {
         // Используем сохраненный путь к ffmpeg, который корректно работает в собранной версии
         const ffmpegPath = this.ffmpegBinaryPath || FfmpegStatic.ffmpegPath
         if (!ffmpegPath) {
@@ -215,7 +218,7 @@ export class ScreenRecorder {
         })
     }
 
-    public getCurrentDevicesList() {
+    public getDevicesList() {
         return this.devicesList
     }
 

@@ -15,7 +15,7 @@ export function initMainWindowControlsHandlers(mainWin: BrowserWindow) {
     })
 
     ipcMain.handle(ExposedWinMain.GET_DEVICES, async () => {
-        return await screenRecorder.getSeparatedDevices()
+        return await screenRecorder.updateAndGetDevices()
     })
 
     ipcMain.on(ExposedWinMain.MOVE_MAIN_WINDOW, (_event, position) => {

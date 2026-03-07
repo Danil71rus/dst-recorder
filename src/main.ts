@@ -92,8 +92,6 @@ app.whenReady().then(async () => {
 
 app.on("window-all-closed", () => {
     // Для macOS не выходим, чтобы приложение продолжало жить в трее
-    if (process.platform !== "darwin") {
-        app.quit()
-    }
+    if (!isDarwin) app.quit()
 })
 
