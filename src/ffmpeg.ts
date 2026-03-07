@@ -14,7 +14,7 @@ import {
     RecordingStatus,
     StartRecordingResponse,
 } from "./deinitions/ffmpeg.ts"
-import { ExposedFfmpeg } from "./window/ipc-handlers/definitions/renderer.ts"
+import { ExposedFfmpeg, ExposedWinSelectAria } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { getResultScale } from "./window/utils/main.ts"
 import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utilsForMain.ts"
@@ -397,6 +397,9 @@ export class ScreenRecorder {
             ariaWin.setMovable(true)
             ariaWin.hide()
         }
+
+        // Уведомляем таймер, что режим области выключен
+        getWindowByName(WindowName.Timer)?.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, false)
 
         // 2. Гарантированно сбрасываем настройки до полного экрана
         if (this.settings.video) {

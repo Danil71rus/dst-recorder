@@ -2,7 +2,7 @@ import { app, Tray, Menu, nativeImage, shell } from "electron"
 import { join } from "path"
 import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
 import { screenRecorder } from "../ffmpeg.ts"
-import { ExposedWinMain } from "../window/ipc-handlers/definitions/renderer.ts"
+import { ExposedWinMain, ExposedWinSelectAria } from "../window/ipc-handlers/definitions/renderer.ts"
 import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
 import { updatePositionByAria } from "../window/ipc-handlers/ipc-win-select-aria.ts"
 
@@ -201,6 +201,8 @@ export class TrayManager {
 
             ariaWindow.show()
             updatePositionByAria(ariaWindow)
+
+            getWindowByName(WindowName.Timer)?.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, true)
         }
     }
 

@@ -72,6 +72,7 @@
             class="settings"
         >
             <dst-combobox
+                v-if="!isAriaActive"
                 v-model="selectedVideo"
                 :items="screensList"
                 :display-type="ComboboxDisplayType.Right"
@@ -103,7 +104,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue"
-import { ExposedFfmpeg, ExposedWinMain, ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
+import {
+    ExposedFfmpeg,
+    ExposedWinMain,
+    ExposedWinSelectAria,
+    ExposedWinTimer,
+} from "@/window/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import {
@@ -117,6 +123,7 @@ import { dragPosition } from "@/composables/drag-position.ts"
 import { useRecordingSettings } from "@/composables/recording-settings"
 
 const isShowSettings = ref(false)
+const isAriaActive = ref(false)
 
 // Реактивные переменные состояния
 const isRecording = ref(false)
@@ -199,6 +206,9 @@ window.ipcRenderer?.on(
     ExposedFfmpeg.UPDATED_SETTINGS,
     async (_event, newSettings) => await updateRecordingSettings({ newSettings }),
 )
+window.ipcRenderer?.on(ExposedWinSelectAria.SET_ARIA_ACTIVE, (_event, isActive) => {
+    isAriaActive.value = Boolean(isActive)
+})
 
 // Очистка при размонтировании компонента
 onBeforeUnmount(() => {

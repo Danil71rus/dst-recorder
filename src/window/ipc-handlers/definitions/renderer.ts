@@ -31,6 +31,7 @@ export enum ExposedWinSelectAria {
     MOVE_ARIA_WINDOW = "aria:move-aria-window",
     STOP_MOVE_WINDOW = "aria:stop-move-window",
     UPDATED_STATE_TIMER = "aria:updated-state-timer",
+    SET_ARIA_ACTIVE = "aria:set_aria_active",
 }
 
 export type ExposedChannel = ExposedFfmpeg | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | string
