@@ -23,19 +23,19 @@
       "filter": ["**/*"]
     }
   ],
+  "extraFiles": [
+    {
+      "from": "bin/ffmpeg",
+      "to": "MacOS/ffmpeg"
+    },
+    {
+      "from": "bin/ffprobe",
+      "to": "MacOS/ffprobe"
+    }
+  ],
   "mac": {
     "icon": "src/assets/camera.icns",
     "category": "public.app-category.productivity",
-    "extraFiles": [
-      {
-        "from": "bin/ffmpeg",
-        "to": "MacOS/ffmpeg"
-      },
-      {
-        "from": "bin/ffprobe",
-        "to": "MacOS/ffprobe"
-      }
-    ],
     "target": [
       {
         "target": "dmg",
@@ -47,6 +47,7 @@
     }
   },
   "win": {
+    "icon": "src/assets/camera.ico",
     "target": [
       {
         "target": "nsis",

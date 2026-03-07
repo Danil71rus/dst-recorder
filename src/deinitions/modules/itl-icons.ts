@@ -1,3 +1,3 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-export { default as itlIcons } from "@ad/itl-icons.js"
+export { default as itlIcons } from "@ad/itl-icons"
