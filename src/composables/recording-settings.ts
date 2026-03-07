@@ -26,10 +26,16 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     })
     const currentState = ref<FfmpegSettings>(getDefaultSettings())
     const sizes = computed(() => {
-        return SIZE_PRESETS.map(size => ({
-            id:    size,
-            title: sizeTitleMap[size],
-        }))
+        // Достаем максимальную физическую высоту текущего монитора (если экрана нет, ставим с запасом)
+        const maxH = currentState.value.video?.scaleMax?.height || 9999
+
+        return SIZE_PRESETS
+            // Оставляем только те пресеты качества, высота которых не превышает матрицу монитора
+            .filter(size => normalizeSize(Number(size)) <= maxH)
+            .map(size => ({
+                id:    size,
+                title: sizeTitleMap[size],
+            }))
     })
 
     const sizesCombobox = computed((): ComboboxItem[] => {
@@ -130,8 +136,16 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     }
 
     function setSize(size = "") {
-        const newSize = normalizeSize(Number(size) || currentState.value.defSize)
+        let newSize = normalizeSize(Number(size) || currentState.value.defSize)
         const newVideo = currentState.value.video
+
+        // Если физическая высота монитора меньше выбранного качества - понижаем качество
+        const maxH = newVideo?.scaleMax?.height || 9999
+        if (newSize > maxH) {
+            // Находим максимально доступный пресет для текущего экрана (например, переключит с 4K на 1080p)
+            const availableSizes = SIZE_PRESETS.filter(s => normalizeSize(Number(s)) <= maxH)
+            newSize = availableSizes.length > 0 ? normalizeSize(Number(availableSizes[0])) : normalizeSize(DEFAULT_SIZE)
+        }
 
         if (newVideo?.name) {
             currentState.value = {
