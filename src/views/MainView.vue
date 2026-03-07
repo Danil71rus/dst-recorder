@@ -37,7 +37,7 @@
                 <dst-button
                     value="Сохранить"
                     :variant="ButtonVariant.Success"
-                    @click="onSave"
+                    @click="save"
                 />
 
                 <dst-button
@@ -52,98 +52,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue"
-import _ from "lodash"
 import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
-import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import { FfmpegDeviceLists, FfmpegSettings, getDefaultSettings, Size } from "../deinitions/ffmpeg.ts"
-import { getResultScale } from "@/window/utils/main.ts"
 import { dragPosition } from "@/composables/drag-position.ts"
+import { useRecordingSettings } from "@/composables/recording-settings"
 
-// Проверка доступности Electron API
-const deviceList = ref<FfmpegDeviceLists>({
-    audio: [],
-    video: [],
-})
-const currentState = ref<FfmpegSettings>(getDefaultSettings())
+const {
+    sizesCombobox,
+    selectedDefSize,
+    selectedVideo,
+    selectedAudio,
+    screensList,
+    audioList,
+    save,
+    updateSettings,
+} = useRecordingSettings()
 
 const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
-
-const sizes = computed(() => {
-    return Object.keys(Size)
-        .map(id => {
-            const size = Number(Size[id as keyof typeof Size])
-            const maxW = currentState.value.video?.scaleMax?.width || 0
-            const maxH = currentState.value.video?.scaleMax?.height || 0
-            return {
-                id: size,
-                w:  Math.ceil(maxW / size),
-                h:  Math.ceil(maxH / size),
-            }
-        })
-        .filter(item => item.w > 0)
-})
-const sizesCombobox = computed((): ComboboxItem[] => {
-    return sizes.value
-        .map(item => ({
-            id:    item.id,
-            title: `${item.w} * ${item.h}`,
-        }))
-})
-
-const selectedDefSize = computed({
-    get() {
-        return `${currentState.value.defSize}`
-    },
-    set(newSize: string) {
-        setSize(newSize)
-    },
-})
-
-const selectedVideo = computed({
-    get() {
-        return `${currentState.value.video?.index}`
-    },
-    set(newIndex: string) {
-        const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
-        if (newVideo?.name) {
-            currentState.value.video = newVideo
-            setSize()
-        }
-    },
-})
-const screensList = computed((): ComboboxItem[] => {
-    return deviceList.value.video
-        .filter(item => item.isScreen)
-        .map(item => {
-            const { scale } = getResultScale(item, currentState.value.defSize)
-            return {
-                id:       `${item.index}`,
-                title:    `${item.label}`,
-                subtitle: `${scale.w} × ${scale.h}`,
-            }
-        })
-})
-
-const selectedAudio = computed({
-    get() {
-        return `${currentState.value.audio?.index}`
-    },
-    set(newIndex: string) {
-        const newAudio = deviceList.value.audio.find(item => item.index === Number(newIndex))
-        if (newAudio?.name) currentState.value.audio = newAudio
-    },
-})
-const audioList = computed((): ComboboxItem[] => {
-    return deviceList.value.audio.map(item => ({
-        id:    `${item.index}`,
-        title: `${item.name} `,
-    }))
-})
 
 window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
 window.ipcRenderer?.on(
@@ -151,32 +79,6 @@ window.ipcRenderer?.on(
     async (_event, newSettings) => await updateSettings({ newSettings }),
 )
 
-async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
-    const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
-    if (settings) currentState.value = settings
-
-    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
-    if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
-
-    console.log(" deviceList.value: ", deviceList.value)
-    console.log(" currentState.value: ", currentState.value)
-}
-
-function setSize(size = "") {
-    const newSize = Number(size) || currentState.value.defSize
-    const newVideo = currentState.value.video
-    if (newVideo?.name) {
-        currentState.value = {
-            ...currentState.value,
-            ...getResultScale(newVideo, newSize),
-            defSize: newSize,
-        }
-    }
-}
-
-async function onSave() {
-    await window.ipcRenderer?.invoke(ExposedWinMain.SAVE_SETTINGS, _.cloneDeep(currentState.value))
-}
 function onClose() {
     window.ipcRenderer?.send(ExposedWinMain.HIDE)
 }

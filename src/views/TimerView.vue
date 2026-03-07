@@ -107,19 +107,14 @@ import { ExposedFfmpeg, ExposedWinMain, ExposedWinTimer } from "@/window/ipc-han
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import {
-    FfmpegDeviceLists,
-    FfmpegSettings,
-    getDefaultSettings,
     RecordingStatus,
-    Size,
     StartRecordingResponse,
 } from "@/deinitions/ffmpeg.ts"
 import DstSvg from "@/components/dst-svg.vue"
-import { ComboboxDisplayType, type ComboboxItem, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
+import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
-import { getResultScale } from "@/window/utils/main.ts"
-import _ from "lodash"
 import { dragPosition } from "@/composables/drag-position.ts"
+import { useRecordingSettings } from "@/composables/recording-settings"
 
 const isShowSettings = ref(false)
 
@@ -182,131 +177,27 @@ function resetParams() {
     duration.value = 0
 }
 
-
-// Проверка доступности Electron API
-const deviceList = ref<FfmpegDeviceLists>({
-    audio: [],
-    video: [],
+const {
+    sizesCombobox,
+    selectedDefSize,
+    selectedVideo,
+    selectedAudio,
+    screensList,
+    audioList,
+    selectedDefSizeName,
+    selectedVideoName,
+    selectedAudioName,
+    updateSettings: updateRecordingSettings,
+} = useRecordingSettings({
+    autoSaveOnChange: true,
 })
-const currentState = ref<FfmpegSettings>(getDefaultSettings())
 
 const drag = dragPosition(ExposedWinTimer.MOVE_TIMER_WINDOW)
 
-const sizes = computed(() => {
-    return Object.keys(Size)
-        .map(id => {
-            const size = Number(Size[id as keyof typeof Size])
-            const maxW = currentState.value.video?.scaleMax?.width || 0
-            const maxH = currentState.value.video?.scaleMax?.height || 0
-            return {
-                id: size,
-                w:  Math.ceil(maxW / size),
-                h:  Math.ceil(maxH / size),
-            }
-        })
-        .filter(item => item.w > 0)
-})
-const sizesCombobox = computed((): ComboboxItem[] => {
-    return sizes.value
-        .map(item => ({
-            id:    item.id,
-            title: `${item.w} * ${item.h}`,
-        }))
-})
-
-const selectedDefSize = computed({
-    get() {
-        return `${currentState.value.defSize}`
-    },
-    set(newSize: string) {
-        setSize(newSize)
-        save()
-    },
-})
-const selectedDefSizeName = computed(() => {
-    return sizesCombobox.value.find(item => item.id === Number(selectedDefSize.value))?.title || ""
-})
-
-const selectedVideo = computed({
-    get() {
-        return `${currentState.value.video?.index}`
-    },
-    set(newIndex: string) {
-        const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
-        if (newVideo?.name) {
-            currentState.value.video = newVideo
-            setSize()
-            save()
-        }
-    },
-})
-const screensList = computed((): ComboboxItem[] => {
-    return deviceList.value.video
-        .filter(item => item.isScreen)
-        .map(item => {
-            const { scale } = getResultScale(item, currentState.value.defSize)
-            return {
-                id:       `${item.index}`,
-                title:    `${item.label}`,
-                subtitle: `${scale.w} × ${scale.h}`,
-            }
-        })
-})
-const selectedVideoName = computed(() => {
-    return deviceList.value.video.find(item => item.index === Number(selectedVideo.value))?.label || ""
-})
-
-const selectedAudio = computed({
-    get() {
-        return `${currentState.value.audio?.index}`
-    },
-    set(newIndex: string) {
-        const newAudio = deviceList.value.audio.find(item => item.index === Number(newIndex))
-        if (newAudio?.name) {
-            currentState.value.audio = newAudio
-            save()
-        }
-    },
-})
-const audioList = computed((): ComboboxItem[] => {
-    return deviceList.value.audio.map(item => ({
-        id:    `${item.index}`,
-        title: `${item.name} `,
-    }))
-})
-const selectedAudioName = computed(() => {
-    return deviceList.value.audio.find(item => item.index === Number(selectedAudio.value))?.name
-})
-
-function setSize(size = "") {
-    const newSize = Number(size) || currentState.value.defSize
-    const newVideo = currentState.value.video
-    if (newVideo?.name) {
-        currentState.value = {
-            ...currentState.value,
-            ...getResultScale(newVideo, newSize),
-            defSize: newSize,
-        }
-    }
-}
-async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
-    const settings = (newSettings || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
-    if (settings) currentState.value = settings
-
-    const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
-    if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
-
-    console.log(" deviceList.value: ", deviceList.value)
-    console.log(" currentState.value: ", currentState.value)
-}
-async function save() {
-    await window.ipcRenderer?.invoke(ExposedWinTimer.SAVE_SETTINGS, _.cloneDeep(currentState.value))
-}
-
-window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
+window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateRecordingSettings())
 window.ipcRenderer?.on(
     ExposedFfmpeg.UPDATED_SETTINGS,
-    async (_event, newSettings) => await updateSettings({ newSettings }),
+    async (_event, newSettings) => await updateRecordingSettings({ newSettings }),
 )
 
 // Очистка при размонтировании компонента
