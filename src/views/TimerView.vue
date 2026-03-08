@@ -52,11 +52,26 @@
             />
 
             <div class="right">
-                <dst-button
-                    v-if="isRecording"
-                    icon="player-stop-24"
-                    @click="stopRecording"
-                />
+                <template v-if="isRecording">
+                    <dst-button
+                        v-if="isPaused"
+                        icon="player-play-24"
+                        :variant="ButtonVariant.Success"
+                        @click="resumeRecording"
+                    />
+
+                    <dst-button
+                        v-else
+                        icon="player-pause-24"
+                        :variant="ButtonVariant.OutlineLight"
+                        @click="pauseRecording"
+                    />
+
+                    <dst-button
+                        icon="player-stop-24"
+                        @click="stopRecording"
+                    />
+                </template>
 
                 <dst-button
                     v-else
@@ -181,6 +196,7 @@ function close() {
 
 function resetParams() {
     isRecording.value = false
+    isPaused.value = false
     duration.value = 0
 }
 
@@ -208,6 +224,26 @@ window.ipcRenderer?.on(
 )
 window.ipcRenderer?.on(ExposedWinSelectAria.SET_ARIA_ACTIVE, (_event, isActive) => {
     isAriaActive.value = Boolean(isActive)
+})
+
+
+const isPaused = ref(false)
+async function pauseRecording() {
+    await window.ipcRenderer?.invoke(ExposedWinTimer.PAUSE_FFMPEG_RECORDING)
+}
+async function resumeRecording() {
+    await window.ipcRenderer?.invoke(ExposedWinTimer.RESUME_FFMPEG_RECORDING)
+}
+// Обнови обработчик UPDATED_STATE_TIMER:
+window.ipcRenderer?.on(ExposedWinTimer.UPDATED_STATE_TIMER, (_event, status) => {
+    const newVal = status as RecordingStatus
+    if (newVal?.isRecording) {
+        isRecording.value = true
+        isPaused.value = Boolean(newVal?.isPaused) // <-- Синхронизируем паузу
+        duration.value = newVal?.duration
+    } else {
+        resetParams()
+    }
 })
 
 // Очистка при размонтировании компонента

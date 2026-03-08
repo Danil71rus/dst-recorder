@@ -48,4 +48,12 @@ export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
             screenRecorder.resetByStop()
         }
     })
+
+    ipcMain.handle(ExposedWinTimer.PAUSE_FFMPEG_RECORDING, () => {
+        return screenRecorder.pauseRecording()
+    })
+
+    ipcMain.handle(ExposedWinTimer.RESUME_FFMPEG_RECORDING, () => {
+        return screenRecorder.resumeRecording()
+    })
 }

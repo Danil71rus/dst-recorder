@@ -25,9 +25,15 @@ export class ScreenRecorder {
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
 
     public outputPathAndFileName: string = ""
+    // Запись
     public recordingStartTime: number = 0
     public isRecording: boolean = false
     private recordingInterval: NodeJS.Timeout | null = null
+    // Пауза
+    public isPaused: boolean = false
+    public totalPausedTime: number = 0
+    private pauseStartTime: number = 0
+
     public devicesList: FfmpegDeviceLists = {
         video: [],
         audio: [],
@@ -319,21 +325,55 @@ export class ScreenRecorder {
 
     stopRecording() {
         if (!this.isRecording || !this.ffmpegCommand) return { error: "No recording in progress" }
+
+        if (this.isPaused) {
+            this.ffmpegCommand.kill("SIGCONT")
+            this.isPaused = false
+        }
+
         try {
+            // Мягко просим FFmpeg остановиться (посылаем 'q' в консоль)
             // @ts-ignore
             this.ffmpegCommand.ffmpegProc.stdin.write("q\n")
         } catch (e) {
+            // Если стандартный ввод недоступен, шлем сигнал прерывания
             this.ffmpegCommand?.kill("SIGINT")
         }
+
         shell.showItemInFolder(this.outputPathAndFileName)
     }
 
     resetByStop() {
         this.isRecording = false
+        this.isPaused = false
         this.recordingStartTime = 0
+        this.totalPausedTime = 0
+        this.pauseStartTime = 0
         this.ffmpegCommand = null
         this.resetTimer(true)
         this.stopForAria()
+    }
+
+    pauseRecording() {
+        if (!this.isRecording || this.isPaused || !this.ffmpegCommand) return { error: "Cannot pause" }
+
+        // Отправляем сигнал заморозки процесса
+        this.ffmpegCommand.kill("SIGSTOP")
+        this.isPaused = true
+        this.pauseStartTime = Date.now()
+
+        ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
+    }
+    resumeRecording() {
+        if (!this.isRecording || !this.isPaused || !this.ffmpegCommand) return { error: "Cannot resume" }
+
+        // Отправляем сигнал пробуждения процесса
+        this.ffmpegCommand.kill("SIGCONT")
+        this.isPaused = false
+        this.totalPausedTime += Date.now() - this.pauseStartTime
+        this.pauseStartTime = 0
+
+        ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
     }
 
     public getIsRecording(): boolean {
@@ -341,8 +381,14 @@ export class ScreenRecorder {
     }
 
     getRecordingStatus(): RecordingStatus {
-        const duration = this.isRecording ? Math.floor((Date.now() - this.recordingStartTime) / 1000) : 0
-        return { isRecording: this.isRecording, duration }
+        let duration = 0
+        if (this.isRecording) {
+            // Если на паузе, считаем текущее время паузы
+            const currentPause = this.isPaused ? (Date.now() - this.pauseStartTime) : 0
+            // Вычитаем из общего времени все паузы
+            duration = Math.floor((Date.now() - this.recordingStartTime - this.totalPausedTime - currentPause) / 1000)
+        }
+        return { isRecording: this.isRecording, isPaused: this.isPaused, duration }
     }
 
     getSettings() {

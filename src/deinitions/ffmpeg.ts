@@ -63,6 +63,7 @@ export interface StartRecordingResponse {
 
 export interface RecordingStatus {
     isRecording: boolean
+    isPaused?:   boolean
     duration:    number
 }
 

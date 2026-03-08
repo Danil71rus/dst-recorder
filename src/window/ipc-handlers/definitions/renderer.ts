@@ -25,6 +25,9 @@ export enum ExposedWinTimer {
     START_FFMPEG_RECORDING = "timer:start-ffmpeg-recording",
     STOP_FFMPEG_RECORDING = "timer:stop-ffmpeg-recording",
     GET_RECORDING_STATUS = "timer:get-recording-status",
+
+    PAUSE_FFMPEG_RECORDING = "timer:pause-ffmpeg-recording",
+    RESUME_FFMPEG_RECORDING = "timer:resume-ffmpeg-recording",
 }
 
 export enum ExposedWinSelectAria {
