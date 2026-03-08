@@ -54,38 +54,50 @@ export function updateSettingCropByAria(ariaWin: BrowserWindow) {
     logicalCropW = Math.max(logicalCropW, 2)
     logicalCropH = Math.max(logicalCropH, 2)
 
-    // 2. ПЕРЕВОДИМ В ФИЗИЧЕСКИЕ ПИКСЕЛИ (для FFmpeg)
-    let cropW = logicalCropW * scaleFactor
-    let cropH = logicalCropH * scaleFactor
-    let offsetX = logicalX * scaleFactor
-    let offsetY = logicalY * scaleFactor
+    // 2. ПЕРЕВОДИМ В ФИЗИЧЕСКИЕ ПИКСЕЛИ (строго четные значения: & ~1)
+    const offsetX = Math.floor(logicalX * scaleFactor) & ~1
+    const offsetY = Math.floor(logicalY * scaleFactor) & ~1
+    let cropW = Math.floor(logicalCropW * scaleFactor) & ~1
+    let cropH = Math.floor(logicalCropH * scaleFactor) & ~1
 
-    // 3. Строго четные значения (физические)
-    cropW = Math.floor(cropW) & ~1
-    cropH = Math.floor(cropH) & ~1
-    offsetX = Math.floor(offsetX) & ~1
-    offsetY = Math.floor(offsetY) & ~1
+    // 3. АБСОЛЮТНАЯ ЗАЩИТА ОТ ВЫХОДА ЗА ГРАНИЦЫ
+    // Берем точный физический размер из scaleMax, если он есть
+    const physicalW = video?.scaleMax?.width || (Math.floor(boundsW * scaleFactor) & ~1)
+    const physicalH = video?.scaleMax?.height || (Math.floor(boundsH * scaleFactor) & ~1)
 
-    // 4. Применяем логику пресетов (scale)
-    const defSize = Number(currentSettings.defSize) || 1080
+    if (offsetX + cropW > physicalW) {
+        cropW = (physicalW - offsetX) & ~1
+    }
+    if (offsetY + cropH > physicalH) {
+        cropH = (physicalH - offsetY) & ~1
+    }
+
+    cropW = Math.max(cropW, 2)
+    cropH = Math.max(cropH, 2)
+
+    // 4. Применяем логику пресетов (scale) с учетом пропорций 16:9
+    const defSizeH = Number(currentSettings.defSize) || 1080
+    // Вычисляем максимальную ширину для этого пресета
+    const defSizeW = Math.round((defSizeH * 16) / 9)
+
     let scaleW = cropW
     let scaleH = cropH
 
-    if (cropH > defSize) {
-        scaleH = defSize
-        scaleW = Math.round((cropW / cropH) * scaleH)
+    // Если область выходит за рамки целевого качества хотя бы по одной из сторон
+    if (cropW > defSizeW || cropH > defSizeH) {
+        const ratioW = defSizeW / cropW
+        const ratioH = defSizeH / cropH
+
+        // Берем минимальный коэффициент, чтобы гарантированно вписать область в рамки
+        const minRatio = Math.min(ratioW, ratioH)
+
+        scaleW = Math.round(cropW * minRatio)
+        scaleH = Math.round(cropH * minRatio)
     }
 
-    scaleW = scaleW & ~1
-    scaleH = scaleH & ~1
-
-    // === ДОБАВЛЯЕМ ЛОГИ ===
-    // console.log("\n=== AREA SELECT DEBUG ===")
-    // console.log("Scale Factor:", scaleFactor)
-    // console.log("Logical Crop:", { w: logicalCropW, h: logicalCropH, x: logicalX, y: logicalY })
-    // console.log("Physical Crop (to FFmpeg):", { w: cropW, h: cropH, x: offsetX, y: offsetY })
-    // console.log("Target Scale:", { w: scaleW, h: scaleH })
-    // console.log("=========================\n")
+    // 5. ЖЕСТКАЯ ЗАЩИТА: Масштаб также должен быть четным (минимум 2 пикселя)
+    scaleW = Math.max(Math.floor(scaleW) & ~1, 2)
+    scaleH = Math.max(Math.floor(scaleH) & ~1, 2)
 
     screenRecorder.setSettings({
         ...currentSettings,
