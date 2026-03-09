@@ -24,9 +24,8 @@
         left: 0;
         right: 0;
         bottom: 0;
-        border: 6px solid #00ff00;
-        box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.3),
-        inset 0 0 0 2px rgba(0, 255, 0, 0.3);
+        border: 2px solid #27c201;
+        border-radius: 10px;
         pointer-events: none;
         box-sizing: border-box;
     }
