@@ -44,6 +44,9 @@ importers:
       is-absolute:
         specifier: ^1.0.0
         version: 1.0.0
+      is-relative:
+        specifier: ^1.0.0
+        version: 1.0.0
       isexe:
         specifier: ^4.0.0
         version: 4.0.0
