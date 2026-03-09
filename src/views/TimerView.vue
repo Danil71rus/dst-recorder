@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-@import "@/assets/styles/mixins";
+@use "@/assets/styles/mixins" as *;
 
 .timer-window {
     width: 100%;
