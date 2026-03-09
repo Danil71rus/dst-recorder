@@ -4,7 +4,7 @@
             <span class="label-text">{{ label }}</span>
 
             <div
-                class="switch-container"
+                class="switch-container mt-x2"
                 :class="{ active: modelValue }"
                 @click="toggle"
             >
@@ -39,8 +39,8 @@ function toggle() {
 
 .switch-label {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: start;
     cursor: pointer;
     user-select: none;
 }
