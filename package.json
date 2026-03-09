@@ -4,6 +4,7 @@
   "description": "Professional screen recording application for macOS and Windows",
   "main": "dist-electron/main.js",
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "dev": "vite",
     "prebuild": "node scripts/copy-ffmpeg.js",
     "build": "vue-tsc --noEmit && vite build && electron-builder",
