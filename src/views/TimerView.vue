@@ -136,7 +136,7 @@ import DstSvg from "@/components/dst-svg.vue"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import { dragPosition } from "@/composables/drag-position.ts"
-import { useRecordingSettings } from "@/composables/recording-settings"
+import { IpcScope, useRecordingSettings } from "@/composables/recording-settings"
 
 const isShowSettings = ref(false)
 const isAriaActive = ref(false)
@@ -164,7 +164,6 @@ async function startRecording() {
         return
     }
     savePathFile.value = result?.outputPathAndFileName || ""
-    toggleSettings(false)
 }
 
 // Обновление состояния записи в трее
@@ -187,8 +186,8 @@ function openSaveFolder() {
     window.ipcRenderer?.send(ExposedWinTimer.OPEN_SAVE_FOLDER, savePathFile.value)
 }
 
-function toggleSettings(toSettings?: boolean) {
-    isShowSettings.value = toSettings ?? !isShowSettings.value
+function toggleSettings() {
+    isShowSettings.value = !isShowSettings.value
     window.ipcRenderer?.send(ExposedWinTimer.SHOW_SETTINGS, isShowSettings.value)
 }
 
@@ -215,6 +214,7 @@ const {
     updateSettings: updateRecordingSettings,
 } = useRecordingSettings({
     autoSaveOnChange: true,
+    ipcScope:         IpcScope.Timer,
 })
 
 const drag = dragPosition(ExposedWinTimer.MOVE_TIMER_WINDOW)

@@ -13,12 +13,23 @@ import {
 import { ExposedWinMain, ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer"
 import { getResultScale } from "@/window/utils/main.ts"
 
+export enum IpcScope {
+    Main = "main",
+    Timer = "timer",
+}
+
 interface UseRecordingSettingsOptions {
     autoSaveOnChange?: boolean
+    ipcScope?:         IpcScope.Main | IpcScope.Timer
 }
 
 export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) {
-    const { autoSaveOnChange = false } = options
+    const { autoSaveOnChange = false, ipcScope = IpcScope.Main } = options
+    const channels = {
+        save: ipcScope === IpcScope.Timer
+            ? ExposedWinTimer.SAVE_SETTINGS
+            : ExposedWinMain.SAVE_SETTINGS,
+    }
 
     const deviceList = ref<FfmpegDeviceLists>({
         audio: [],
@@ -157,7 +168,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     }
 
     async function save() {
-        await window.ipcRenderer?.invoke(ExposedWinTimer.SAVE_SETTINGS, _.cloneDeep(currentState.value))
+        await window.ipcRenderer?.invoke(channels.save, _.cloneDeep(currentState.value))
     }
 
     async function tryAutoSave() {
