@@ -485,6 +485,10 @@ export class ScreenRecorder {
             // Заставляет окно полностью игнорировать все события мыши, "пропуская" клики насквозь к окнам, находящимся под ним
             ariaWin.setIgnoreMouseEvents(true)
             ariaWin.setMovable(false)
+
+            // Скрываем окно таймера при старте записи в области
+            const timerWin = getWindowByName(WindowName.Timer)
+            if (timerWin && timerWin.isVisible()) timerWin.hide()
         }
     }
 

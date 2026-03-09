@@ -8,11 +8,11 @@ const isDev = !app.isPackaged
 export async function createSelectAriaWindow() {
     const selectAriaWindow = new BrowserWindow({
         // icon: getIconPath(),
-        width:  669,
-        height: 508,
+        width:          669,
+        height:         508,
         // width:  1200,
         // height: 1000,
-
+        roundedCorners: false,
         show:           false,
         frame:          false,
         alwaysOnTop:    true,
