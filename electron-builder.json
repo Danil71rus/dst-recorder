@@ -14,10 +14,7 @@
     "src/assets/camera.ico",
     "src/assets/camera.png"
   ],
-  "asar": true,
-  "asarUnpack": [
-    "node_modules/**/*"
-  ],
+  "asar": false,
   "extraResources": [
     {
       "from": "bin",
