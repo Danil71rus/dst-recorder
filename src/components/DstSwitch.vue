@@ -46,7 +46,7 @@ function toggle() {
 }
 
 .label-text {
-    font-size: 14px;
+    font-size: 16px;
     color: #ffffff;
 }
 

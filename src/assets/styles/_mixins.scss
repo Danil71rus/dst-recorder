@@ -22,3 +22,31 @@
     justify-content: flex-start;
     align-items: center;
 }
+
+// Custom scrollbar mixins
+@mixin custom-scrollbar(
+    $width: 6px,
+    $track-bg: rgba(255, 255, 255, 0.05),
+    $thumb-bg: rgba(102, 126, 234, 0.5),
+    $thumb-bg-hover: rgba(102, 126, 234, 0.8),
+    $border-radius: 3px
+) {
+    &::-webkit-scrollbar {
+        width: $width;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: $track-bg;
+        border-radius: $border-radius;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: $thumb-bg;
+        border-radius: $border-radius;
+        transition: background 0.2s ease;
+
+        &:hover {
+            background: $thumb-bg-hover;
+        }
+    }
+}

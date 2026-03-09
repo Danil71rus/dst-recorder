@@ -111,6 +111,8 @@ async function pickOutputPath() {
 </script>
 
 <style lang="scss" scoped>
+@import "@/assets/styles/mixins";
+
 .main-view {
     display: flex;
     align-items: center;
@@ -119,25 +121,13 @@ async function pickOutputPath() {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     overflow-y: auto;
 
-    /* Кастомный скроллбар */
-    &::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-        transition: background 0.2s ease;
-
-        &:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-    }
+    @include custom-scrollbar(
+        $width: 8px,
+        $track-bg: rgba(0, 0, 0, 0.2),
+        $thumb-bg: rgba(255, 255, 255, 0.3),
+        $thumb-bg-hover: rgba(255, 255, 255, 0.5),
+        $border-radius: 4px
+    );
 }
 
 .container {
@@ -157,25 +147,7 @@ async function pickOutputPath() {
     overflow-y: auto;
     padding: 25px 25px 0 25px;
 
-    /* Кастомный скроллбар для прокручиваемого контента */
-    &::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 3px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background: rgba(102, 126, 234, 0.5);
-        border-radius: 3px;
-        transition: background 0.2s ease;
-
-        &:hover {
-            background: rgba(102, 126, 234, 0.8);
-        }
-    }
+    @include custom-scrollbar();
 
     &>*:not(:first-child) {
         margin-top: 24px;
@@ -190,8 +162,6 @@ async function pickOutputPath() {
 .actions-footer {
     display: flex;
     padding: 24px 25px 25px 25px;
-    background: rgba(1, 12, 12, 0.48);
-    border-radius: 0 0 1rem 1rem;
     position: sticky;
     bottom: 0;
 }

@@ -53,8 +53,7 @@ withDefaults(
 }
 
 .output-path-label {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.85);
+    font-size: 16px;
 }
 
 .output-path-input {
