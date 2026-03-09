@@ -8,6 +8,68 @@
 
 ⚠️ **Важно для macOS**: После скачивания смотрите инструкцию в [INSTALLATION.md](INSTALLATION.md)
 
+## Начало разработки
+
+### Требования
+- Node.js 20+
+- pnpm 8+
+
+### Установка и запуск
+
+```bash
+# Клонировать репозиторий
+git clone <repository-url>
+cd dst-recorder
+
+# Установить зависимости
+pnpm install
+
+# Запустить в режиме разработки
+pnpm dev
+
+# Собрать для macOS
+pnpm build:mac
+
+# Собрать для Windows
+pnpm build:win
+```
+
+### Структура проекта
+- `src/` - исходный код приложения
+  - `main.ts` - главный процесс Electron
+  - `views/` - Vue компоненты окон
+  - `ffmpeg.ts` - логика записи экрана
+- `builder/` - скрипты сборки
+- `scripts/` - вспомогательные скрипты
+- `.github/workflows/` - GitHub Actions для автоматической сборки
+
+### Принцип работы
+
+Приложение работает как мультиоконное Electron приложение с тремя независимыми окнами:
+
+1. **Main Window** (`MainView.vue`) - окно настроек (выбор монитора, качество, аудио)
+2. **Timer Window** (`TimerView.vue`) - плавающий таймер с кнопками управления записью
+3. **Select Area Window** (`SelectAriaView.vue`) - прозрачное окно для выбора области записи
+
+**Запись экрана:**
+- Использует FFmpeg с нативным захватом: AVFoundation (macOS) или GDI (Windows)
+- FFmpeg бинари находятся в `bin/` и копируются через `scripts/copy-ffmpeg.js` перед сборкой
+- Класс `ScreenRecorder` (singleton) управляет всей логикой записи
+- Настройки сохраняются в `userData/dst-settings.json`
+
+**Ключевые моменты:**
+- **IPC коммуникация**: `src/window/ipc-handlers/` - все обработчики между main и renderer процессами
+- **FFmpeg путь**: В production ищется в `Contents/MacOS/ffmpeg` → `Resources/bin/ffmpeg` → unpacked asar
+- **Аудио микс**: Используется audio filter `pan=stereo|c0=2.5*c0|c1=1.0*c2` для смешивания микрофона и системного звука
+- **Права macOS**: Требуются разрешения Screen Recording и Microphone (проверяются через `systemPreferences.getMediaAccessStatus()`)
+- **Pause/Resume**: Работает через SIGSTOP/SIGCONT сигналы FFmpeg процессу (только macOS/Linux)
+- **Выбор области**: SelectAriaView показывается поверх всех окон, затем `setIgnoreMouseEvents(true)` делает его прозрачным для кликов во время записи
+
+**Важно для разработки:**
+- `builder/build.js` генерирует `itl-icons.js` из SVG иконок - запускается перед каждой сборкой
+- `asar: false` в `electron-builder.json` - все файлы распакованы для избежания проблем с зависимостями
+- `node_modules` включены полностью из-за проблем с транзитивными зависимостями `fluent-ffmpeg`
+
 ---
 
 # Настройка аудио для записи экрана на macOS
