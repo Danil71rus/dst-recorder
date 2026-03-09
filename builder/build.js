@@ -77,6 +77,13 @@ function build() {
     fs.mkdirSync(path.resolve(targetDir, "assets"), { recursive: true })
     iconTray(targetDir)
     createIconsJS(targetDir)
+
+    // В production режиме также копируем itl-icons.js в dist-electron для импорта
+    if (!isDevelopment) {
+        const distElectronDir = path.resolve(__dirname, "..", "dist-electron")
+        fs.mkdirSync(path.resolve(distElectronDir, "assets"), { recursive: true })
+        createIconsJS(distElectronDir)
+    }
 }
 
 // Если скрипт запускается напрямую
