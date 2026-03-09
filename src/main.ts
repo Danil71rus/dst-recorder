@@ -3,6 +3,7 @@ import { screenRecorder } from "./ffmpeg.ts"
 import { createMainWindow } from "./window/win-main.ts"
 import { createTimerWindow } from "./window/win-timer.ts"
 import { createSelectAriaWindow } from "./window/win-select-aria.ts"
+import { createBorderWindow } from "./window/win-border.ts"
 import { join } from "path"
 import { existsSync } from "fs"
 import { getIconPath } from "./utils/icon-utils.ts"
@@ -75,7 +76,7 @@ app.whenReady().then(async () => {
         return
     }
 
-    await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow()])
+    await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow(), createBorderWindow()])
     trayManager.createTray()
     await screenRecorder.asyncInit()
 

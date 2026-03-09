@@ -8,6 +8,7 @@ export enum WindowName {
     Main = "mainWindow",
     Timer = "timerWindow",
     SelectAria = "selectAria",
+    Border = "border",
 }
 
 type WindowsState = Record<WindowName, WindowState>
@@ -26,6 +27,7 @@ const _windowsState: WindowsState = {
     [WindowName.Main]:       windowDefaultState(),
     [WindowName.Timer]:      windowDefaultState(),
     [WindowName.SelectAria]: windowDefaultState(),
+    [WindowName.Border]:     windowDefaultState(),
 }
 
 const _handlersRegister = [

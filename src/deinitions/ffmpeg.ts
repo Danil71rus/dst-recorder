@@ -52,6 +52,8 @@ export interface FfmpegSettings {
     crop:        { w: number, h: number }
     // смещение области от начала экрана
     offset:      { x: number, y: number }
+    // показывать зеленую рамку при записи
+    showBorder?: boolean
     audio?:      FfmpegDevice
     video?:      FfmpegDeviceVideo
 }
@@ -75,4 +77,5 @@ export const getDefaultSettings = (): FfmpegSettings => ({
     scale:       { w: 0, h: 0 },
     crop:        { w: 0, h: 0 },
     offset:      { x: 0, y: 0 },
+    showBorder:  false,
 })

@@ -36,6 +36,11 @@
                 @pick="pickOutputPath"
             />
 
+            <dst-switch
+                v-model="showBorder"
+                label="Подсвечивать рамкой экран при записи"
+            />
+
             <hr>
 
             <div class="flex-row">
@@ -57,11 +62,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue"
 import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstOutputPathPicker from "@/components/DstOutputPathPicker.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
+import DstSwitch from "@/components/DstSwitch.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { dragPosition } from "@/composables/drag-position.ts"
 import { useRecordingSettings } from "@/composables/recording-settings"
@@ -79,6 +86,11 @@ const {
 } = useRecordingSettings()
 
 const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
+
+const showBorder = computed({
+    get: () => currentState.value.showBorder ?? false,
+    set: (value: boolean) => currentState.value.showBorder = value,
+})
 
 window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
 window.ipcRenderer?.on(

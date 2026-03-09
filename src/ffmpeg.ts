@@ -404,6 +404,7 @@ export class ScreenRecorder {
         this.ffmpegCommand = null
         this.resetTimer(true)
         this.stopForAria()
+        this.stopBorderHighlight()
     }
 
     pauseRecording() {
@@ -471,6 +472,7 @@ export class ScreenRecorder {
     startTimer() {
         this.resetTimer()
         this.startForAria()
+        this.startBorderHighlight()
         this.recordingInterval = setInterval(() => {
             ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
         }, 1000)
@@ -509,6 +511,33 @@ export class ScreenRecorder {
                 ...fullScreenReset,
                 offset: { x: 0, y: 0 },
             })
+        }
+    }
+
+    // Показать зеленую рамку при записи
+    startBorderHighlight() {
+        if (!this.settings.showBorder) return
+
+        const borderWin = getWindowByName(WindowName.Border)
+        if (borderWin && this.settings.video?.bounds) {
+            const { x, y, width, height } = this.settings.video.bounds
+
+            // Устанавливаем размеры и позицию окна
+            borderWin.setBounds({ x, y, width, height })
+
+            // Дополнительно устанавливаем окно поверх всех окон
+            borderWin.setAlwaysOnTop(true, "screen-saver")
+            borderWin.setVisibleOnAllWorkspaces(true)
+
+            borderWin.show()
+        }
+    }
+
+    // Скрыть зеленую рамку
+    stopBorderHighlight() {
+        const borderWin = getWindowByName(WindowName.Border)
+        if (borderWin) {
+            borderWin.hide()
         }
     }
 
