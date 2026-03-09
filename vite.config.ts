@@ -19,16 +19,14 @@ export default defineConfig({
                 }
             },
         },
-        // Плагин для генерации иконок в dev режиме
+        // Плагин для генерации иконок перед началом сборки
         {
-            name: "build-dev-icons",
+            name: "build-icons-before",
             buildStart() {
-                if (process.env.NODE_ENV === "development") {
-                    try {
-                        build()
-                    } catch (error) {
-                        console.error("[Dev Icons] Failed to build dev icons:", error)
-                    }
+                try {
+                    build()
+                } catch (error) {
+                    console.error("[Icons] Failed to build icons:", error)
                 }
             },
         },

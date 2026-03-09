@@ -65,24 +65,29 @@ function iconTray(targetDir) {
 }
 
 function build() {
-    // Определяем целевую директорию в зависимости от режима
-    const targetDir = isDevelopment
-        ? path.resolve(__dirname, "..", "dist-electron")
-        : path.resolve(__dirname, "..", "dist")
-
     console.log(`[Build] Mode: ${isDevelopment ? "development" : "production"}`)
-    console.log(`[Build] Target directory: ${targetDir}`)
 
-    // Создаём директорию assets если её нет
-    fs.mkdirSync(path.resolve(targetDir, "assets"), { recursive: true })
-    iconTray(targetDir)
-    createIconsJS(targetDir)
-
-    // В production режиме также копируем itl-icons.js в dist-electron для импорта
-    if (!isDevelopment) {
+    if (isDevelopment) {
+        // В dev режиме генерируем только в dist-electron
+        const targetDir = path.resolve(__dirname, "..", "dist-electron")
+        console.log(`[Build] Target directory: ${targetDir}`)
+        fs.mkdirSync(path.resolve(targetDir, "assets"), { recursive: true })
+        iconTray(targetDir)
+        createIconsJS(targetDir)
+    } else {
+        // В production режиме генерируем в обе директории
+        // Сначала в dist-electron (нужно для импорта во время сборки)
         const distElectronDir = path.resolve(__dirname, "..", "dist-electron")
+        console.log(`[Build] Target directory 1: ${distElectronDir}`)
         fs.mkdirSync(path.resolve(distElectronDir, "assets"), { recursive: true })
         createIconsJS(distElectronDir)
+
+        // Затем в dist (для финальной сборки)
+        const distDir = path.resolve(__dirname, "..", "dist")
+        console.log(`[Build] Target directory 2: ${distDir}`)
+        fs.mkdirSync(path.resolve(distDir, "assets"), { recursive: true })
+        iconTray(distDir)
+        createIconsJS(distDir)
     }
 }
 
