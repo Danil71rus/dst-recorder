@@ -528,6 +528,8 @@ export class ScreenRecorder {
             // Дополнительно устанавливаем окно поверх всех окон
             borderWin.setAlwaysOnTop(true, "screen-saver")
             borderWin.setVisibleOnAllWorkspaces(true)
+            // устанавливаем игнорирование событий мыши каждый раз при показе
+            borderWin.setIgnoreMouseEvents(true, { forward: true })
 
             borderWin.show()
         }
