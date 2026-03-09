@@ -25,7 +25,6 @@
         right: 0;
         bottom: 0;
         border: 2px solid #27c201;
-        border-radius: 10px;
         pointer-events: none;
         box-sizing: border-box;
     }

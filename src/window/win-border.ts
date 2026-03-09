@@ -15,6 +15,7 @@ export async function createBorderWindow() {
         height:                 height,
         show:                   false,
         frame:                  false,
+        roundedCorners:         false,
         alwaysOnTop:            true,
         resizable:              false,
         skipTaskbar:            true,
