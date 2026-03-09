@@ -4,46 +4,48 @@
         @mousedown="drag.startDrag"
     >
         <div class="container">
-            <dst-combobox
-                v-model="selectedVideo"
-                :items="screensList"
-                :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Secondary"
-                placeholder="Экран"
-                label="Выбор экрана"
-            />
+            <div class="scrollable-content">
+                <dst-combobox
+                    v-model="selectedVideo"
+                    :items="screensList"
+                    :display-type="ComboboxDisplayType.Right"
+                    :variant="ComboboxStyle.Secondary"
+                    placeholder="Экран"
+                    label="Выбор экрана"
+                />
 
-            <dst-combobox
-                v-model="selectedDefSize"
-                :items="sizesCombobox"
-                :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Secondary"
-                placeholder="Качество"
-                label="Качество"
-            />
+                <dst-combobox
+                    v-model="selectedDefSize"
+                    :items="sizesCombobox"
+                    :display-type="ComboboxDisplayType.Right"
+                    :variant="ComboboxStyle.Secondary"
+                    placeholder="Качество"
+                    label="Качество"
+                />
 
-            <dst-combobox
-                v-model="selectedAudio"
-                :items="audioList"
-                :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Secondary"
-                placeholder="Звук"
-                label="Выбор звука"
-            />
+                <dst-combobox
+                    v-model="selectedAudio"
+                    :items="audioList"
+                    :display-type="ComboboxDisplayType.Right"
+                    :variant="ComboboxStyle.Secondary"
+                    placeholder="Звук"
+                    label="Выбор звука"
+                />
 
-            <dst-output-path-picker
-                :path="currentState.outputPath"
-                @pick="pickOutputPath"
-            />
+                <dst-output-path-picker
+                    :path="currentState.outputPath"
+                    @pick="pickOutputPath"
+                />
 
-            <dst-switch
-                v-model="showBorder"
-                label="Подсвечивать рамкой экран при записи"
-            />
+                <dst-switch
+                    v-model="showBorder"
+                    label="Подсвечивать рамкой экран при записи"
+                />
 
-            <hr>
+                <hr>
+            </div>
 
-            <div class="flex-row">
+            <div class="actions-footer">
                 <dst-button
                     value="Сохранить"
                     :variant="ButtonVariant.Success"
@@ -115,19 +117,83 @@ async function pickOutputPath() {
     justify-content: center;
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    overflow-y: auto;
+
+    /* Кастомный скроллбар */
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        transition: background 0.2s ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    }
 }
 
 .container {
+    display: flex;
+    flex-direction: column;
     background: rgba(1, 12, 12, 0.48);
-    padding: 25px;
     border-radius: 1rem;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.16);
     margin: 8px;
     color: #ffffff;
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+}
+
+.scrollable-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 25px 25px 0 25px;
+
+    /* Кастомный скроллбар для прокручиваемого контента */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(102, 126, 234, 0.5);
+        border-radius: 3px;
+        transition: background 0.2s ease;
+
+        &:hover {
+            background: rgba(102, 126, 234, 0.8);
+        }
+    }
 
     &>*:not(:first-child) {
         margin-top: 24px;
     }
+
+    hr {
+        margin-top: 24px;
+        margin-bottom: 0;
+    }
+}
+
+.actions-footer {
+    display: flex;
+    padding: 24px 25px 25px 25px;
+    background: rgba(1, 12, 12, 0.48);
+    border-radius: 0 0 1rem 1rem;
+    position: sticky;
+    bottom: 0;
 }
 
 </style>
