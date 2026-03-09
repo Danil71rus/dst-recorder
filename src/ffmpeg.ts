@@ -381,13 +381,12 @@ export class ScreenRecorder {
     }
 
     getRecordingStatus(): RecordingStatus {
-        let duration = 0
-        if (this.isRecording) {
-            // Если на паузе, считаем текущее время паузы
-            const currentPause = this.isPaused ? (Date.now() - this.pauseStartTime) : 0
-            // Вычитаем из общего времени все паузы
-            duration = Math.floor((Date.now() - this.recordingStartTime - this.totalPausedTime - currentPause) / 1000)
-        }
+        const duration = (() => {
+            if (!this.isRecording) return 0
+            const dateNow = Date.now()
+            const currentPause = this.isPaused ? (dateNow - this.pauseStartTime) : 0
+            return Math.floor((dateNow - this.recordingStartTime - this.totalPausedTime - currentPause) / 1000)
+        })()
         return { isRecording: this.isRecording, isPaused: this.isPaused, duration }
     }
 
