@@ -164,6 +164,7 @@ async function startRecording() {
         return
     }
     savePathFile.value = result?.outputPathAndFileName || ""
+    toggleSettings(false)
 }
 
 // Обновление состояния записи в трее
@@ -186,8 +187,8 @@ function openSaveFolder() {
     window.ipcRenderer?.send(ExposedWinTimer.OPEN_SAVE_FOLDER, savePathFile.value)
 }
 
-function toggleSettings() {
-    isShowSettings.value = !isShowSettings.value
+function toggleSettings(toSettings?: boolean) {
+    isShowSettings.value = toSettings ?? !isShowSettings.value
     window.ipcRenderer?.send(ExposedWinTimer.SHOW_SETTINGS, isShowSettings.value)
 }
 
