@@ -6,23 +6,24 @@ const isDev = !app.isPackaged
 
 export async function createBorderWindow() {
     const primaryDisplay = screen.getPrimaryDisplay()
-    const { width, height } = primaryDisplay.bounds
+    const { x, y, width, height } = primaryDisplay.bounds
 
     const borderWindow = new BrowserWindow({
-        x:              0,
-        y:              0,
-        width:          width,
-        height:         height,
-        show:           false,
-        frame:          false,
-        alwaysOnTop:    true,
-        resizable:      false,
-        skipTaskbar:    true,
-        transparent:    true,
-        hasShadow:      false,
-        focusable:      false,
-        fullscreenable: false,
-        webPreferences: {
+        x:                      x,
+        y:                      y,
+        width:                  width,
+        height:                 height,
+        show:                   false,
+        frame:                  false,
+        alwaysOnTop:            true,
+        resizable:              false,
+        skipTaskbar:            true,
+        transparent:            true,
+        hasShadow:              false,
+        focusable:              false,
+        fullscreenable:         false,
+        enableLargerThanScreen: true,
+        webPreferences:         {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
             sandbox:          true,

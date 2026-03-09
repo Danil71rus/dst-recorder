@@ -1,5 +1,5 @@
 <template>
-    <div class="border-view"></div>
+    <div class="border-view" />
 </template>
 
 <script setup lang="ts">
@@ -26,7 +26,7 @@
         bottom: 0;
         border: 6px solid #00ff00;
         box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.3),
-                    inset 0 0 0 2px rgba(0, 255, 0, 0.3);
+        inset 0 0 0 2px rgba(0, 255, 0, 0.3);
         pointer-events: none;
         box-sizing: border-box;
     }
