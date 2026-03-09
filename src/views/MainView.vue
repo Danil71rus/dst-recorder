@@ -31,6 +31,26 @@
                 label="Выбор звука"
             />
 
+            <div class="output-path-wrap">
+                <label class="output-path-label">Папка сохранения</label>
+
+                <div class="output-path-row">
+                    <input
+                        :value="currentState.outputPath"
+                        class="output-path-input"
+                        type="text"
+                        readonly
+                    >
+
+                    <dst-button
+                        class="ml-x2"
+                        value="Выбрать"
+                        :variant="ButtonVariant.OutlineSecondary"
+                        @click="pickOutputPath"
+                    />
+                </div>
+            </div>
+
             <hr>
 
             <div class="flex-row">
@@ -61,6 +81,7 @@ import { dragPosition } from "@/composables/drag-position.ts"
 import { useRecordingSettings } from "@/composables/recording-settings"
 
 const {
+    currentState,
     sizesCombobox,
     selectedDefSize,
     selectedVideo,
@@ -81,6 +102,11 @@ window.ipcRenderer?.on(
 
 function onClose() {
     window.ipcRenderer?.send(ExposedWinMain.HIDE)
+}
+
+async function pickOutputPath() {
+    const selectedPath = await window.ipcRenderer?.invoke<string>(ExposedWinMain.PICK_OUTPUT_PATH)
+    if (selectedPath) currentState.value.outputPath = selectedPath
 }
 </script>
 
@@ -103,6 +129,37 @@ function onClose() {
 
     &>*:not(:first-child) {
         margin-top: 24px;
+    }
+}
+
+.output-path-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.output-path-row {
+    display: flex;
+    align-items: center;
+}
+
+.output-path-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.output-path-input {
+    width: 100%;
+    min-width: 320px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    outline: none;
+
+    &:focus {
+        border-color: rgba(255, 255, 255, 0.5);
     }
 }
 </style>

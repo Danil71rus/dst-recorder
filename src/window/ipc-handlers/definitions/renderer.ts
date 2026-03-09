@@ -10,6 +10,7 @@ export enum ExposedWinMain {
     GET_DEVICES = "main:get-devices",
     GET_SETTINGS = "main:get-settings",
     SAVE_SETTINGS = "main:save-settings",
+    PICK_OUTPUT_PATH = "main:pick-output-path",
     MOVE_MAIN_WINDOW = "main:move-main-window",
     HIDE = "main:hide",
 }

@@ -1,7 +1,7 @@
 import ffmpeg from "fluent-ffmpeg"
 import { app, ipcMain, screen, shell, systemPreferences } from "electron"
 import { join, dirname } from "path"
-import { existsSync, mkdirSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { homedir } from "os"
 import { DateTime } from "luxon"
 import { exec } from "child_process"
@@ -44,9 +44,14 @@ export class ScreenRecorder {
         outputPath: join(homedir(), "Desktop", appName),
     }
 
+    // Текущие настройки сохраняем в
+    private readonly settingsFilePath = join(app.getPath("userData"), "dst-settings.json")
+
     public readonly ffmpegBinaryPath: string | null = null
 
     private constructor() {
+        this.settings = this.getInitialSettings()
+
         if (!existsSync(this.settings.outputPath)) {
             mkdirSync(this.settings.outputPath, { recursive: true })
         }
@@ -55,6 +60,47 @@ export class ScreenRecorder {
             ffmpeg.setFfmpegPath(this.ffmpegBinaryPath)
         } else {
             logger.error("CRITICAL: FFmpeg binary not found. Recording will fail.")
+        }
+    }
+
+    private getInitialSettings(): FfmpegSettings {
+        const defaultSettings: FfmpegSettings = {
+            ...getDefaultSettings(),
+            outputPath: join(homedir(), "Desktop", appName),
+        }
+
+        const persisted = this.loadSettingsFromFile()
+        if (!persisted) return defaultSettings
+
+        return {
+            ...defaultSettings,
+            ...persisted,
+            outputPath: persisted.outputPath || defaultSettings.outputPath,
+        }
+    }
+    private loadSettingsFromFile(): Partial<FfmpegSettings> | null {
+        try {
+            if (!existsSync(this.settingsFilePath)) return null
+
+            const raw = readFileSync(this.settingsFilePath, "utf-8")
+            if (!raw.trim()) return null
+
+            const parsed = JSON.parse(raw) as Partial<FfmpegSettings>
+            logger.info("Settings loaded from file:", this.settingsFilePath)
+            return parsed
+        } catch (error) {
+            logger.warn("Failed to load settings from file:", error)
+            return null
+        }
+    }
+    private persistSettingsToFile(settings: FfmpegSettings) {
+        try {
+            const dir = dirname(this.settingsFilePath)
+            if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+
+            writeFileSync(this.settingsFilePath, JSON.stringify(settings, null, 2), "utf-8")
+        } catch (error) {
+            logger.warn("Failed to persist settings to file:", error)
         }
     }
 
@@ -260,6 +306,12 @@ export class ScreenRecorder {
 
 
                 this.outputPathAndFileName = join(this.settings.outputPath, this.generateShortFilename())
+
+                const outputDir = dirname(this.outputPathAndFileName)
+                if (!existsSync(outputDir)) {
+                    mkdirSync(outputDir, { recursive: true })
+                }
+
                 const videoFilterStr = `crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y},scale=${this.settings.scale.w}:${this.settings.scale.h}`
 
                 this.ffmpegCommand = ffmpeg()
@@ -397,6 +449,8 @@ export class ScreenRecorder {
     setSettings(settings?: FfmpegSettings) {
         if (!settings) return
         this.settings = settings
+        this.persistSettingsToFile(this.settings)
+
         getWindowAll()?.forEach(item => {
             item?.webContents.send(ExposedFfmpeg.UPDATED_SETTINGS, settings)
         })
