@@ -131,6 +131,14 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         return deviceList.value.audio.find(item => item.index === Number(selectedAudio.value))?.name || ""
     })
 
+    const showBorder = computed({
+        get: () => currentState.value.showBorder ?? false,
+        set: (value: boolean) => {
+            currentState.value.showBorder = value
+            tryAutoSave()
+        },
+    })
+
     async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
         const settings = (newSettings
             || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
@@ -188,6 +196,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         selectedDefSizeName,
         selectedVideoName,
         selectedAudioName,
+        showBorder,
         setSize,
         save,
         updateSettings,

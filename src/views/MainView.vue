@@ -83,16 +83,12 @@ const {
     selectedAudio,
     screensList,
     audioList,
+    showBorder,
     save,
     updateSettings,
 } = useRecordingSettings()
 
 const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
-
-const showBorder = computed({
-    get: () => currentState.value.showBorder ?? false,
-    set: (value: boolean) => currentState.value.showBorder = value,
-})
 
 window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
 window.ipcRenderer?.on(

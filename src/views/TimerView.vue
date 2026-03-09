@@ -114,6 +114,11 @@
                 placeholder="Звук"
                 label="Выбор звука"
             />
+
+            <dst-switch
+                v-model="showBorder"
+                label="Подсвечивать рамкой экран при записи"
+            />
         </div>
     </div>
 </template>
@@ -135,6 +140,7 @@ import {
 import DstSvg from "@/components/dst-svg.vue"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
+import DstSwitch from "@/components/DstSwitch.vue"
 import { dragPosition } from "@/composables/drag-position.ts"
 import { IpcScope, useRecordingSettings } from "@/composables/recording-settings"
 
@@ -212,6 +218,7 @@ const {
     selectedDefSizeName,
     selectedVideoName,
     selectedAudioName,
+    showBorder,
     updateSettings: updateRecordingSettings,
 } = useRecordingSettings({
     autoSaveOnChange: true,
@@ -255,17 +262,23 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "@/assets/styles/mixins";
+
 .timer-window {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 
     .timer {
         width: 100%;
         padding: 8px;
         display: flex;
         align-items: center;
+        flex-shrink: 0;
 
         .line {
             display: block;
@@ -348,13 +361,23 @@ onBeforeUnmount(() => {
         }
     }
 
-    overflow: hidden;
-
     .settings {
         width: 100%;
         padding: 8px;
         border-top: solid white 1px;
         color: white;
+        flex: 1;
+        overflow-y: auto;
+        max-height: 300px;
+
+        @include custom-scrollbar(
+            $width: 6px,
+            $track-bg: rgba(255, 255, 255, 0.1),
+            $thumb-bg: rgba(255, 255, 255, 0.3),
+            $thumb-bg-hover: rgba(255, 255, 255, 0.5),
+            $border-radius: 3px
+        );
+
         & > * {
             margin-top: 16px;
         }
