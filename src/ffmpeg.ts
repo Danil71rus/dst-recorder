@@ -367,7 +367,10 @@ export class ScreenRecorder {
                         if (!line.includes("frame=")) logger.info(`[FFmpeg] ${line}`)
                     })
 
-                this.ffmpegCommand.run()
+                // Небольшая задержка для обновления UI (скрытие иконки и индикаторов)
+                setTimeout(() => {
+                    this.ffmpegCommand?.run()
+                }, 100)
             } catch (error) {
                 console.error("Start recording error:", error)
                 reject({ error: error instanceof Error ? error.message : "Unknown error" })
@@ -482,6 +485,9 @@ export class ScreenRecorder {
     startForAria() {
         const ariaWin = getWindowByName(WindowName.SelectAria)
         if (ariaWin && ariaWin.isVisible()) {
+            // Сначала уведомляем окно о начале записи (скрывает иконку move-96)
+            ariaWin.webContents.send(ExposedWinSelectAria.UPDATED_STATE_TIMER, { isRecording: true, isPaused: false, duration: 0 })
+
             // Заставляет окно полностью игнорировать все события мыши, "пропуская" клики насквозь к окнам, находящимся под ним
             ariaWin.setIgnoreMouseEvents(true)
             ariaWin.setMovable(false)
