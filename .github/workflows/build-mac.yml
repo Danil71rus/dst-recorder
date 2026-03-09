@@ -10,6 +10,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build-mac:
     runs-on: macos-latest
@@ -49,9 +52,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            release/*.dmg
-            release/latest-mac.yml
+          files: release/*.dmg
           draft: false
           prerelease: false
           generate_release_notes: true
