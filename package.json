@@ -65,13 +65,14 @@
     "pinia": "3.0.3",
     "vue": "3.5.17",
     "vue-i18n": "^9.8.0",
-    "vue-router": "4.5.1"
+    "vue-router": "4.5.1",
+    "which": "^6.0.1"
   },
-    "pnpm": {
-        "allowedBuildScripts": [
-            "electron",
-            "esbuild",
-            "ffmpeg-ffprobe-static"
-        ]
-    }
+  "pnpm": {
+    "allowedBuildScripts": [
+      "electron",
+      "esbuild",
+      "ffmpeg-ffprobe-static"
+    ]
+  }
 }
