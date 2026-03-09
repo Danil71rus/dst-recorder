@@ -64,7 +64,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue"
 import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
