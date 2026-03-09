@@ -136,7 +136,7 @@ import DstSvg from "@/components/dst-svg.vue"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import { dragPosition } from "@/composables/drag-position.ts"
-import { IpcScope, useRecordingSettings } from "@/composables/recording-settings"
+import { useRecordingSettings } from "@/composables/recording-settings"
 
 const isShowSettings = ref(false)
 const isAriaActive = ref(false)
@@ -215,7 +215,6 @@ const {
     updateSettings: updateRecordingSettings,
 } = useRecordingSettings({
     autoSaveOnChange: true,
-    ipcScope:         IpcScope.Timer,
 })
 
 const drag = dragPosition(ExposedWinTimer.MOVE_TIMER_WINDOW)
