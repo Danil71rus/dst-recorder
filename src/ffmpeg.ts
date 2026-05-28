@@ -1,7 +1,7 @@
 import ffmpeg from "fluent-ffmpeg"
 import { app, ipcMain, screen, shell, systemPreferences } from "electron"
-import { join, dirname } from "path"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { join, dirname, basename } from "path"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "fs"
 import { homedir } from "os"
 import { DateTime } from "luxon"
 import { exec } from "child_process"
@@ -33,6 +33,11 @@ export class ScreenRecorder {
     public isPaused: boolean = false
     public totalPausedTime: number = 0
     private pauseStartTime: number = 0
+    // Многосегментная запись
+    private segments: string[] = []
+    private segmentCounter: number = 0
+    private segmentEndCallback: (() => void) | null = null
+    private segmentEndReject: ((err: Error) => void) | null = null
 
     public devicesList: FfmpegDeviceLists = {
         video: [],
@@ -312,34 +317,16 @@ export class ScreenRecorder {
                     mkdirSync(outputDir, { recursive: true })
                 }
 
-                const videoFilterStr = `crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y},scale=${this.settings.scale.w}:${this.settings.scale.h}`
+                // Инициализируем список сегментов
+                this.segments = []
+                this.segmentCounter = 0
+                this.segmentEndCallback = null
+                this.segmentEndReject = null
 
-                this.ffmpegCommand = ffmpeg()
-                    // ---- МАКСИМАЛЬНО ПРОСТАЯ КОМАНДА ----
-                    // Один вход для видео, один для УЖЕ синхронизированного аудио
-                    .input(`${this.settings.video.index}:${this.settings.audio.index}`)
-                    .inputFormat("avfoundation")
-                    .inputFPS(this.settings.fps)
-                    .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
-                    .videoFilter([videoFilterStr])
-                    // Фильтр для смешивания каналов и увеличения громкости микрофона
-                    .audioFilter([
-                        // Смешиваем многоканальный звук в стерео.
-                        // Канал 0 (микрофон) усиливаем в 2.5 раза.
-                        // Канал 2 (системный звук) оставляем как есть.
-                        "pan=stereo|c0=2.5*c0|c1=1.0*c2",
-                    ])
-                    .outputOptions([
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
-                        "-crf", "23",
-                        "-pix_fmt", "yuv420p",
-                        "-r", `${this.settings.fps}`,
-                        "-c:a", "aac",
-                        "-b:a", "192k",
-                        "-y",
-                    ])
-                    .output(this.outputPathAndFileName)
+                const firstSegPath = this.getSegmentPath(0)
+                this.segments.push(firstSegPath)
+
+                this.ffmpegCommand = this.buildFfmpegCommand(firstSegPath)
 
                 this.ffmpegCommand
                     .on("start", (cmd) => {
@@ -351,8 +338,19 @@ export class ScreenRecorder {
                         resolve({ outputPathAndFileName: this.outputPathAndFileName })
                     })
                     .on("end", () => {
-                        logger.info("Recording finished.")
-                        this.resetByStop()
+                        this.ffmpegCommand = null
+                        const cb = this.segmentEndCallback
+                        const cbReject = this.segmentEndReject
+                        this.segmentEndCallback = null
+                        this.segmentEndReject = null
+                        if (cb) {
+                            cb()
+                        } else if (cbReject) {
+                            // no-op: error path handles this
+                        } else {
+                            logger.info("Recording finished unexpectedly.")
+                            this.resetByStop()
+                        }
                     })
                     .on("error", (err) => {
                         const msg = err?.message || ""
@@ -360,7 +358,12 @@ export class ScreenRecorder {
 
                         checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
 
+                        const cbReject = this.segmentEndReject
+                        this.segmentEndCallback = null
+                        this.segmentEndReject = null
+                        this.ffmpegCommand = null
                         this.resetByStop()
+                        if (cbReject) cbReject(err)
                         reject({ error: msg })
                     })
                     .on("stderr", (line) => {
@@ -378,24 +381,33 @@ export class ScreenRecorder {
         })
     }
 
-    stopRecording() {
-        if (!this.isRecording || !this.ffmpegCommand) return { error: "No recording in progress" }
+    async stopRecording(): Promise<{ error: string } | void> {
+        if (!this.isRecording) return { error: "No recording in progress" }
 
-        if (this.isPaused) {
-            this.ffmpegCommand.kill("SIGCONT")
-            this.isPaused = false
+        // Если идёт активная запись — мягко останавливаем текущий сегмент
+        if (!this.isPaused && this.ffmpegCommand) {
+            await new Promise<void>((resolve, reject) => {
+                this.segmentEndCallback = resolve
+                this.segmentEndReject = reject
+                try {
+                    // @ts-ignore
+                    this.ffmpegCommand!.ffmpegProc.stdin.write("q\n")
+                } catch {
+                    this.ffmpegCommand?.kill("SIGINT")
+                }
+            }).catch((err) => {
+                logger.error("Error stopping segment:", err?.message)
+            })
         }
 
         try {
-            // Мягко просим FFmpeg остановиться (посылаем 'q' в консоль)
-            // @ts-ignore
-            this.ffmpegCommand.ffmpegProc.stdin.write("q\n")
-        } catch (e) {
-            // Если стандартный ввод недоступен, шлем сигнал прерывания
-            this.ffmpegCommand?.kill("SIGINT")
+            await this.finalizeRecording()
+        } catch (err) {
+            logger.error("Finalization error:", (err as Error)?.message)
         }
 
         shell.showItemInFolder(this.outputPathAndFileName)
+        this.resetByStop()
     }
 
     resetByStop() {
@@ -404,30 +416,79 @@ export class ScreenRecorder {
         this.recordingStartTime = 0
         this.totalPausedTime = 0
         this.pauseStartTime = 0
+        this.segments = []
+        this.segmentCounter = 0
+        this.segmentEndCallback = null
+        this.segmentEndReject = null
         this.ffmpegCommand = null
         this.resetTimer(true)
         this.stopForAria()
         this.stopBorderHighlight()
     }
 
-    pauseRecording() {
+    pauseRecording(): Promise<void> | { error: string } {
         if (!this.isRecording || this.isPaused || !this.ffmpegCommand) return { error: "Cannot pause" }
 
-        // Отправляем сигнал заморозки процесса
-        this.ffmpegCommand.kill("SIGSTOP")
         this.isPaused = true
         this.pauseStartTime = Date.now()
-
         ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
-    }
-    resumeRecording() {
-        if (!this.isRecording || !this.isPaused || !this.ffmpegCommand) return { error: "Cannot resume" }
 
-        // Отправляем сигнал пробуждения процесса
-        this.ffmpegCommand.kill("SIGCONT")
-        this.isPaused = false
+        // Мягко останавливаем текущий сегмент; ffmpegCommand обнуляется в on("end")
+        return new Promise<void>((resolve, reject) => {
+            this.segmentEndCallback = resolve
+            this.segmentEndReject = reject
+            try {
+                // @ts-ignore
+                this.ffmpegCommand!.ffmpegProc.stdin.write("q\n")
+            } catch {
+                this.ffmpegCommand?.kill("SIGINT")
+            }
+        })
+    }
+
+    resumeRecording(): { error: string } | void {
+        if (!this.isRecording || !this.isPaused) return { error: "Cannot resume" }
+        // ffmpegCommand должен быть null — предыдущий сегмент полностью остановлен
+        if (this.ffmpegCommand) return { error: "Previous segment is still stopping" }
+
         this.totalPausedTime += Date.now() - this.pauseStartTime
         this.pauseStartTime = 0
+        this.isPaused = false
+
+        this.segmentCounter++
+        const segPath = this.getSegmentPath(this.segmentCounter)
+        this.segments.push(segPath)
+
+        this.ffmpegCommand = this.buildFfmpegCommand(segPath)
+
+        this.ffmpegCommand
+            .on("end", () => {
+                this.ffmpegCommand = null
+                const cb = this.segmentEndCallback
+                this.segmentEndCallback = null
+                this.segmentEndReject = null
+                if (cb) {
+                    cb()
+                } else {
+                    logger.info("Resumed segment ended unexpectedly.")
+                    this.resetByStop()
+                }
+            })
+            .on("error", (err) => {
+                const msg = err?.message || ""
+                logger.error("FFmpeg segment error:", msg)
+                checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
+                const cbReject = this.segmentEndReject
+                this.segmentEndCallback = null
+                this.segmentEndReject = null
+                this.ffmpegCommand = null
+                this.resetByStop()
+                if (cbReject) cbReject(err)
+            })
+            .on("stderr", (line) => {
+                if (!line.includes("frame=")) logger.info(`[FFmpeg] ${line}`)
+            })
+            .run()
 
         ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
     }
@@ -522,6 +583,67 @@ export class ScreenRecorder {
                 offset: { x: 0, y: 0 },
             })
         }
+    }
+
+    private buildFfmpegCommand(outputPath: string): ffmpeg.FfmpegCommand {
+        const videoFilterStr = `crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y},scale=${this.settings.scale.w}:${this.settings.scale.h}`
+        return ffmpeg()
+            .input(`${this.settings.video!.index}:${this.settings.audio!.index}`)
+            .inputFormat("avfoundation")
+            .inputFPS(this.settings.fps)
+            .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
+            .videoFilter([videoFilterStr])
+            .audioFilter(["pan=stereo|c0=2.5*c0|c1=1.0*c2"])
+            .outputOptions([
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-r", `${this.settings.fps}`,
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-y",
+            ])
+            .output(outputPath)
+    }
+
+    private getSegmentPath(index: number): string {
+        const dir = dirname(this.outputPathAndFileName)
+        const base = basename(this.outputPathAndFileName, ".mp4")
+        return join(dir, `.${base}_seg_${index}.mp4`)
+    }
+
+    private async finalizeRecording(): Promise<void> {
+        if (this.segments.length === 0) return
+
+        if (this.segments.length === 1) {
+            renameSync(this.segments[0], this.outputPathAndFileName)
+            return
+        }
+
+        // Конкатенируем сегменты без перекодирования
+        const concatListPath = join(dirname(this.outputPathAndFileName), `.concat_${Date.now()}.txt`)
+        const concatContent = this.segments.map(s => `file '${s}'`).join("\n")
+        writeFileSync(concatListPath, concatContent)
+
+        await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+                .input(concatListPath)
+                .inputOptions(["-f", "concat", "-safe", "0"])
+                .outputOptions(["-c", "copy"])
+                .output(this.outputPathAndFileName)
+                .on("end", () => {
+                    this.segments.forEach(s => { try { unlinkSync(s) } catch {} })
+                    try { unlinkSync(concatListPath) } catch {}
+                    resolve()
+                })
+                .on("error", (err) => {
+                    logger.error("Concatenation error:", err.message)
+                    try { unlinkSync(concatListPath) } catch {}
+                    reject(err)
+                })
+                .run()
+        })
     }
 
     // Показать зеленую рамку при записи
