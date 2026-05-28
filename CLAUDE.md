@@ -1,114 +1,192 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Этот файл содержит инструкции для Claude Code (claude.ai/code) при работе с кодом в этом репозитории.
 
-## Project Overview
+**⚠️ ВАЖНО: Все ответы, размышления и общение должны быть на русском языке.**
 
-Dst-Recorder is a professional screen recording Electron application for macOS and Windows, built with Vue 3, TypeScript, and FFmpeg. The app records screen video with system audio and microphone support, using native AVFoundation (macOS) or GDI (Windows) capture.
+## 🔍 Использование Graphify — ОБЯЗАТЕЛЬНО ДЛЯ ВСЕХ ВОПРОСОВ О КОДЕ
 
-## Key Commands
+> **✅ КРИТИЧЕСКОЕ ПРАВИЛО:**
+> 
+> **При ЛЮБОМ вопросе о коде, архитектуре, компонентах или поиске в проекте:**
+> 1. СНАЧАЛА запусти одну из команд Graphify
+> 2. Используй результаты вместо grep/file search
+> 3. Это экономит время и дает полный контекст
+> 
+> **НИКОГДА не начинай с raw grep или file browsing — ВСЕГДА Graphify первым!**
 
-### Development
-- `pnpm dev` - Start development server (Vite + Electron)
-- `pnpm compile` - Type-check with TypeScript and build with Vite
-- `pnpm lint` - Run ESLint on codebase
-- `pnpm lint-ci` - Run ESLint in CI mode (fail on warnings)
+### Команды Graphify, которые ВСЕГДА использовать:
 
-### Building
-- `pnpm build` - Full production build (type-check + Vite build + electron-builder)
-- `pnpm build:mac` - Build for macOS (both x64 and arm64 DMG packages)
-- `pnpm build:win` - Build for Windows (NSIS installer)
+**Понимание компонента:**
+```bash
+graphify explain "ScreenRecorder"
+graphify explain "FfmpegSettings"  
+```
 
-**Important**: All build scripts run `pnpm prebuild` or `pnpm prebuild:mac`/`pnpm prebuild:win` first, which executes `scripts/copy-ffmpeg.js` to copy FFmpeg binaries to the `bin/` directory.
+**Поиск связей между компонентами:**
+```bash
+graphify path "ScreenRecorder" "startRecording"
+graphify path "main.ts" "FFmpeg Binary"
+```
 
-## Architecture
+**Поиск по теме:**
+```bash
+graphify query "запись экрана"
+graphify query "обработчики IPC"
+graphify query "аудио"
+```
 
-### Electron Multi-Window System
+**После изменения кода обновляй граф:**
+```bash
+graphify update .
+```
 
-The app uses three independent BrowserWindow instances managed through `src/window/`:
+## Обзор проекта
 
-1. **Main Window** (`win-main.ts`) - Settings and configuration UI at route `/`
-2. **Timer Window** (`win-timer.ts`) - Recording control overlay at route `/timer`
-3. **Select Area Window** (`win-select-aria.ts`) - Area selection overlay at route `/select-aria`
+Dst-Recorder — профессиональное приложение для записи экрана на Electron для macOS и Windows, созданное с использованием Vue 3, TypeScript и FFmpeg. Приложение записывает видео экрана с поддержкой системного звука и микрофона, используя собственные API AVFoundation (macOS) или GDI (Windows).
 
-All windows share the same Vue router but display different routes. Windows are created in `src/main.ts` and managed via `src/window/utils/ipc-controller.ts`.
+## Ключевые команды
 
-### FFmpeg Integration
+### Разработка
+- `pnpm dev` - Запустить dev-сервер (Vite + Electron)
+- `pnpm compile` - Проверка типов TypeScript и сборка с Vite
+- `pnpm lint` - Запустить ESLint на кодовой базе
+- `pnpm lint-ci` - Запустить ESLint в режиме CI (ошибка на предупреждения)
 
-Core recording logic lives in `src/ffmpeg.ts` (`ScreenRecorder` singleton class):
+### Сборка
+- `pnpm build` - Полная production сборка (проверка типов + Vite build + electron-builder)
+- `pnpm build:mac` - Сборка для macOS (DMG пакеты x64 и arm64)
+- `pnpm build:win` - Сборка для Windows (NSIS инсталлятор)
 
-- **FFmpeg Binary Resolution**: In packaged apps, FFmpeg is located in multiple candidate paths (see `initializeFfmpegPath()`). Priority: `Contents/MacOS/ffmpeg` → `Resources/bin/ffmpeg` → unpacked asar modules.
-- **Platform-Specific Capture**: macOS uses AVFoundation with `-f avfoundation`, Windows uses GDI grab, Linux uses X11 grab.
-- **Recording Flow**: `startRecording()` → configures FFmpeg command with H.264 codec, audio filters, and output path → `stopRecording()` gracefully stops FFmpeg process with 'q' command or SIGINT.
-- **Pause/Resume**: Uses SIGSTOP/SIGCONT signals to freeze/unfreeze FFmpeg process (macOS/Linux only).
+**Важно**: Все скрипты сборки запускают `pnpm prebuild` или `pnpm prebuild:mac`/`pnpm prebuild:win` в первую очередь, что выполняет `scripts/copy-ffmpeg.js` для копирования бинарников FFmpeg в директорию `bin/`.
 
-### IPC Architecture
+## Архитектура
 
-IPC handlers are organized in `src/window/ipc-handlers/`:
+### Система множественных окон Electron
 
-- `ipc-win-main.ts` - Handlers for main settings window
-- `ipc-win-timer.ts` - Handlers for timer/recording controls
-- `ipc-win-select-aria.ts` - Handlers for area selection window
-- `ipc-tray.ts` - Handlers for system tray interactions
-- `definitions/renderer.ts` - TypeScript definitions for exposed IPC channels (e.g., `ExposedFfmpeg`, `ExposedWinSelectAria`)
+Приложение использует три независимых экземпляра BrowserWindow, управляемых через `src/window/`:
 
-All IPC channel names are centralized as constants in the definitions file.
+1. **Основное окно** (`win-main.ts`) - Интерфейс настроек и конфигурации на маршруте `/`
+2. **Окно таймера** (`win-timer.ts`) - Оверлей управления записью на маршруте `/timer`
+3. **Окно выбора области** (`win-select-aria.ts`) - Оверлей выбора области на маршруте `/select-aria`
 
-### State Management
+Все окна используют одинаковый Vue роутер, но отображают разные маршруты. Окна создаются в `src/main.ts` и управляются через `src/window/utils/ipc-controller.ts`.
 
-- **Recording State**: Managed by singleton `ScreenRecorder` instance (`src/ffmpeg.ts`)
-- **Settings Persistence**: Settings saved to `dst-settings.json` in `app.getPath('userData')` directory
-- **Window Communication**: Main process broadcasts state updates to all windows via `ipcMain.emit()` and `webContents.send()`
+### Интеграция FFmpeg
 
-### macOS Audio Setup
+Основная логика записи находится в `src/ffmpeg.ts` (синглтон-класс `ScreenRecorder`):
 
-The app expects an "Aggregate Device" for synchronized audio capture (microphone + system audio). See `README.md` for detailed setup instructions using BlackHole virtual audio driver. The device is typically named "Recorder-Input".
+- **Разрешение бинарников FFmpeg**: В собранных приложениях FFmpeg расположен в нескольких возможных путях (см. `initializeFfmpegPath()`). Приоритет: `Contents/MacOS/ffmpeg` → `Resources/bin/ffmpeg` → распакованные модули asar.
+- **Захват, специфичный для платформы**: macOS использует AVFoundation с `-f avfoundation`, Windows использует GDI grab, Linux использует X11 grab.
+- **Поток записи**: `startRecording()` → настраивает команду FFmpeg с кодеком H.264, аудиофильтрами и путём вывода → `stopRecording()` корректно останавливает процесс FFmpeg с командой 'q' или SIGINT.
+- **Пауза/Возобновление**: Использует сигналы SIGSTOP/SIGCONT для замораживания/размораживания процесса FFmpeg (только macOS/Linux).
 
-## File Structure
+### Архитектура IPC
 
-- `src/main.ts` - Electron main process entry point
-- `src/render.ts` - Vue renderer process entry point
-- `src/preload.ts` - Preload script exposing IPC APIs to renderer
-- `src/ffmpeg.ts` - Core FFmpeg recording logic (ScreenRecorder class)
-- `src/window/` - Window creation and IPC handlers
-- `src/views/` - Vue views for each window (MainView, TimerView, SelectAriaView)
-- `src/components/` - Reusable Vue components
-- `src/utils/` - Utility functions (logging, icon paths, etc.)
-- `src/tray/` - System tray menu management
-- `src/locales/` - i18n translations
-- `builder/build.js` - Asset builder (copies icons, generates icon registry)
-- `scripts/` - Build scripts (FFmpeg copy, testing)
-- `bin/` - FFmpeg/FFprobe binaries (copied by prebuild scripts)
+Обработчики IPC организованы в `src/window/ipc-handlers/`:
 
-## Critical Considerations
+- `ipc-win-main.ts` - Обработчики для окна основных настроек
+- `ipc-win-timer.ts` - Обработчики для таймера и управления записью
+- `ipc-win-select-aria.ts` - Обработчики для окна выбора области
+- `ipc-tray.ts` - Обработчики взаимодействия с системным лотком
+- `definitions/renderer.ts` - TypeScript определения для открытых IPC каналов (например, `ExposedFfmpeg`, `ExposedWinSelectAria`)
 
-### FFmpeg Binary Packaging
+Все имена IPC каналов централизованы как константы в файле определений.
 
-FFmpeg binaries must be accessible in the packaged app. The build process:
+### Управление состоянием
 
-1. `scripts/copy-ffmpeg.js` copies binaries from `node_modules/ffmpeg-ffprobe-static` to `bin/`
-2. `electron-builder.json` defines `extraFiles` to copy `bin/ffmpeg` → `Contents/MacOS/ffmpeg` (macOS)
-3. `electron-builder.json` also includes `extraResources` to copy entire `bin/` folder
-4. At runtime, `initializeFfmpegPath()` checks multiple candidate paths
+- **Состояние записи**: Управляется синглтон-экземпляром `ScreenRecorder` (`src/ffmpeg.ts`)
+- **Сохранение настроек**: Настройки сохраняются в `dst-settings.json` в директории `app.getPath('userData')`
+- **Коммуникация окон**: Основной процесс транслирует обновления состояния всем окнам через `ipcMain.emit()` и `webContents.send()`
 
-### macOS Permissions
+### Настройка аудио на macOS
 
-The app requires **Screen Recording** and **Microphone** permissions:
+Приложение ожидает "Aggregate Device" для синхронизированного захвата звука (микрофон + системный звук). Смотрите `README.md` для детальных инструкций по настройке с использованием виртуального аудиодрайвера BlackHole. Устройство обычно называется "Recorder-Input".
 
-- Microphone: `NSMicrophoneUsageDescription` in `electron-builder.json`
-- Screen Recording: Checked at runtime via `systemPreferences.getMediaAccessStatus('screen')`
-- If permissions are missing, the app shows a dialog and refuses to start recording
+## Структура файлов
 
-### Video Processing
+- `src/main.ts` - Точка входа основного процесса Electron
+- `src/render.ts` - Точка входа процесса рендеринга Vue
+- `src/preload.ts` - Скрипт предварительной загрузки, открывающий API IPC для рендерера
+- `src/ffmpeg.ts` - Основная логика записи FFmpeg (класс ScreenRecorder)
+- `src/window/` - Создание окон и обработчики IPC
+- `src/views/` - Vue представления для каждого окна (MainView, TimerView, SelectAriaView)
+- `src/components/` - Переиспользуемые Vue компоненты
+- `src/utils/` - Утилиты (логирование, пути иконок, и т.д.)
+- `src/tray/` - Управление меню системного лотка
+- `src/locales/` - Переводы i18n
+- `builder/build.js` - Построитель ассетов (копирует иконки, генерирует реестр иконок)
+- `scripts/` - Скрипты сборки (копирование FFmpeg, тестирование)
+- `bin/` - Бинарники FFmpeg/FFprobe (копируются скриптами prebuild)
 
-- **Area Selection**: SelectAriaView allows users to crop recording area. Crop/offset/scale settings are applied via FFmpeg video filters (`crop` + `scale`).
-- **Audio Mixing**: Multi-channel audio is mixed to stereo with mic boost using `pan=stereo|c0=2.5*c0|c1=1.0*c2` audio filter.
-- **Output**: All recordings saved as MP4 (H.264 video + AAC audio) in user-selected output folder (default: `~/Desktop/Dst-Recorder/`).
+## Критические рассмотрения
 
-## Development Notes
+### Упаковка бинарников FFmpeg
 
-- **Vue Router**: Uses hash-based routing (`createWebHashHistory`) for Electron compatibility
-- **Vite Plugin Electron**: Handles Electron main/preload builds with hot-reload during development
-- **Asset Builder**: Custom Vite plugins in `vite.config.ts` run `builder/build.js` to generate icon assets
-- **i18n**: Vue I18n used for localization (Russian locale in `src/locales/`)
-- **Logging**: All logs written to file via `electron-log` (see `src/utils/logger.ts`)
+Бинарники FFmpeg должны быть доступны в собранном приложении. Процесс сборки:
+
+1. `scripts/copy-ffmpeg.js` копирует бинарники из `node_modules/ffmpeg-ffprobe-static` в `bin/`
+2. `electron-builder.json` определяет `extraFiles` для копирования `bin/ffmpeg` → `Contents/MacOS/ffmpeg` (macOS)
+3. `electron-builder.json` также включает `extraResources` для копирования всей папки `bin/`
+4. При запуске `initializeFfmpegPath()` проверяет несколько возможных путей
+
+### Разрешения на macOS
+
+Приложение требует разрешения на **запись экрана** и **доступ к микрофону**:
+
+- Микрофон: `NSMicrophoneUsageDescription` в `electron-builder.json`
+- Запись экрана: Проверяется при запуске через `systemPreferences.getMediaAccessStatus('screen')`
+- Если разрешения отсутствуют, приложение показывает диалог и отказывает в запуске записи
+
+### Обработка видео
+
+- **Выбор области**: SelectAriaView позволяет пользователям обрезать область записи. Параметры обрезки/смещения/масштабирования применяются через видеофильтры FFmpeg (`crop` + `scale`).
+- **Микширование звука**: Многоканальный звук смешивается в стерео с усилением микрофона, используя аудиофильтр `pan=stereo|c0=2.5*c0|c1=1.0*c2`.
+- **Вывод**: Все записи сохраняются как MP4 (видео H.264 + аудио AAC) в папку, выбранную пользователем (по умолчанию: `~/Desktop/Dst-Recorder/`).
+
+## Заметки о разработке
+
+- **Vue Router**: Использует хеш-маршрутизацию (`createWebHashHistory`) для совместимости с Electron
+- **Vite Plugin Electron**: Обрабатывает сборку основного процесса и preload скриптов Electron с горячей перезагрузкой при разработке
+- **Построитель ассетов**: Пользовательские плагины Vite в `vite.config.ts` запускают `builder/build.js` для генерации ассетов иконок
+- **i18n**: Vue I18n используется для локализации (русская локаль в `src/locales/`)
+- **Логирование**: Все логи записываются в файл через `electron-log` (см. `src/utils/logger.ts`)
+
+## graphify — ОБЯЗАТЕЛЬНО ДЛЯ ВСЕХ ВОПРОСОВ О КОДЕ
+
+**✅ ПРАВИЛО: ВСЕГДА используй Graphify перед поиском в коде!**
+
+Этот проект имеет граф знаний в директории `graphify-out/` с центральными узлами, структурой сообществ и кросс-файловыми отношениями.
+
+### Обязательные правила использования:
+
+1. **Вопрос о компоненте?** → `graphify explain "<имя>"`
+   - Пример: `graphify explain "ScreenRecorder"` → сразу получаешь все его методы, зависимости и связи
+
+2. **Нужно найти поток/логику?** → `graphify path "<A>" "<B>"`
+   - Пример: `graphify path "startRecording" "FFmpeg"` → полный путь выполнения
+
+3. **Вопрос по теме?** → `graphify query "<тема>"`
+   - Пример: `graphify query "запись экрана"` → все связанные компоненты за раз
+
+4. **После изменения кода** → `graphify update .`
+   - Мгновенно обновляет граф (только AST анализ, без API)
+
+5. **Архитектурные вопросы** → читай `graphify-out/GRAPH_REPORT.md`
+   - Вместо manual file browsing
+
+### Примеры для этого проекта:
+
+```bash
+graphify query "интеграция FFmpeg"              # Найти поток записи
+graphify explain "ScreenRecorder"               # Основной класс записи (34 связи)
+graphify path "ScreenRecorder" "startRecording" # Поток инициализации записи
+graphify query "IPC"                            # Коммуникация окон
+graphify explain "FfmpegSettings"               # Конфигурация записи
+graphify query "аудио"                          # Настройка звука
+```
+
+### Статистика графа:
+- **416 узлов**, **623 связи**, **28 сообществ**
+- **Центральные узлы**: ScreenRecorder (34), compilerOptions (18), scripts (15), getWindowByName() (14)
+- **Последнее обновление**: 2026-05-28 из коммита 04f9c208
