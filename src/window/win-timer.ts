@@ -9,19 +9,18 @@ export const sizeMax = { width: 650, height: 476 }
 
 export async function createTimerWindow() {
     const timerWindow = new BrowserWindow({
-        // icon: getIconPath(),
-        width:          sizeDef.width,
-        height:         sizeDef.height,
-        // width:  1200,
-        // height: 1000,
-        show:           false,
-        frame:          false,
-        alwaysOnTop:    true,
-        resizable:      false,
-        skipTaskbar:    true,
-        transparent:    true,
-        hasShadow:      false,
-        webPreferences: {
+        width:                  sizeDef.width,
+        height:                 sizeDef.height,
+        show:                   false,
+        frame:                  false,
+        alwaysOnTop:            true,
+        resizable:              false,
+        skipTaskbar:            true,
+        transparent:            true,
+        hasShadow:              false,
+        // macOS: служебное окно — не показываем его в Mission Control
+        hiddenInMissionControl: true,
+        webPreferences:         {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
             sandbox:          true,

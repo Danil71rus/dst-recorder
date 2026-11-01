@@ -7,19 +7,18 @@ const isDev = !app.isPackaged
 
 export async function createSelectAriaWindow() {
     const selectAriaWindow = new BrowserWindow({
-        // icon: getIconPath(),
-        width:          669,
-        height:         508,
-        // width:  1200,
-        // height: 1000,
-        roundedCorners: false,
-        show:           false,
-        frame:          false,
-        alwaysOnTop:    true,
-        skipTaskbar:    true,
-        transparent:    true,
-        hasShadow:      false,
-        webPreferences: {
+        width:                  669,
+        height:                 508,
+        roundedCorners:         false,
+        // macOS: служебное окно — не показываем его в Mission Control
+        hiddenInMissionControl: true,
+        show:                   false,
+        frame:                  false,
+        alwaysOnTop:            true,
+        skipTaskbar:            true,
+        transparent:            true,
+        hasShadow:              false,
+        webPreferences:         {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
             sandbox:          true,
