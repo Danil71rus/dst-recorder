@@ -44,6 +44,28 @@ const STOP_FORCE_RESET_TIMEOUT_MS = 30_000
 
 const isEven = (n: number) => Number.isInteger(n) && n % 2 === 0
 
+// Агрегатное устройство «микрофон + BlackHole» (см. README): канал 0 — микрофон, канал 2 — системный звук
+const AGGREGATE_DEVICE_PREFIX = "Recorder-Input"
+const MIC_GAIN = 2.5
+const LIMITER_CEILING = 0.95
+
+/**
+ * Сводит звук устройства в стерео: голос и системный звук одинаково в обоих каналах.
+ * adeclick убирает щелчки на стыках аудиобуферов AVFoundation (известный баг FFmpeg #11398),
+ * alimiter не даёт усиленному микрофону уйти в клиппинг.
+ */
+function buildAudioFilters(audio: FfmpegDevice): string[] {
+    const isAggregate = audio.name.startsWith(AGGREGATE_DEVICE_PREFIX)
+    const mix = isAggregate ? `${MIC_GAIN}*c0+c2` : `${MIC_GAIN}*c0`
+
+    return [
+        `pan=stereo|c0=${mix}|c1=${mix}`,
+        "adeclick",
+        // level=disabled: без этого alimiter сам поднимает громкость до 0 dB
+        `alimiter=limit=${LIMITER_CEILING}:level=disabled`,
+    ]
+}
+
 function safeUnlink(path: string) {
     try {
         if (existsSync(path)) unlinkSync(path)
@@ -230,7 +252,7 @@ export class ScreenRecorder {
     private pickAudio(input: FfmpegSettings, wantedAudioName?: string): FfmpegDevice | undefined {
         const audios = this.devicesList.audio
         return (wantedAudioName ? audios.find(a => a.name === wantedAudioName) : undefined)
-            || audios.find(a => a.name.startsWith("Recorder-Input"))
+            || audios.find(a => a.name.startsWith(AGGREGATE_DEVICE_PREFIX))
             || audios[0]
             || input.audio
     }
@@ -600,12 +622,7 @@ export class ScreenRecorder {
                 .inputFPS(settings.fps)
                 .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
                 .videoFilter([videoFilterStr])
-                .audioFilter([
-                    // Смешиваем многоканальный звук в стерео.
-                    // Канал 0 (микрофон) усиливаем в 2.5 раза.
-                    // Канал 2 (системный звук) оставляем как есть.
-                    "pan=stereo|c0=2.5*c0|c1=1.0*c2",
-                ])
+                .audioFilter(buildAudioFilters(audio))
                 .outputOptions([
                     "-c:v", "libx264",
                     // veryfast даёт файлы в ~4.5 раза меньше ultrafast при том же CRF (ultrafast отключает
