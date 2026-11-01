@@ -5,10 +5,10 @@
         :title="title"
     >
         <span
-            v-for="(segment, index) in segments"
+            v-for="(cell, index) in cells"
             :key="index"
             class="segment"
-            :class="[segment.zone, { lit: !disabled && index < litCount }]"
+            :class="[cell.zone, { lit: !disabled && index < litCount }]"
         />
     </div>
 </template>
@@ -37,7 +37,8 @@ const props = withDefaults(defineProps<Props>(), {
 const WARNING_FROM = 0.7
 const DANGER_FROM = 0.88
 
-const segments = computed(() => Array.from({ length: props.segments }, (_, index) => {
+// Не «segments»: в шаблоне это имя занято свойством с числом сегментов
+const cells = computed(() => Array.from({ length: props.segments }, (_, index) => {
     const position = (index + 1) / props.segments
     const zone = position > DANGER_FROM ? "danger" : position > WARNING_FROM ? "warning" : "normal"
     return { zone }
