@@ -1,5 +1,5 @@
 import ffmpeg from "fluent-ffmpeg"
-import { app, ipcMain, screen, shell, systemPreferences } from "electron"
+import { app, ipcMain, screen, shell } from "electron"
 import { join, dirname } from "path"
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs"
 import { homedir } from "os"
@@ -19,7 +19,8 @@ import {
 import { ExposedFfmpeg, ExposedWinSelectAria } from "./window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "./window/utils/ipc-controller.ts"
 import { getResultScale } from "./window/utils/main.ts"
-import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utilsForMain.ts"
+import { appName } from "./utils/utilsForMain.ts"
+import { ensurePermissions, handleCaptureError } from "./permissions.ts"
 import { logger } from "./utils/logger.ts"
 
 /**
@@ -572,23 +573,7 @@ export class ScreenRecorder {
         this.revealAfterFinalize = true
 
         try {
-            const micStatus = systemPreferences.getMediaAccessStatus("microphone")
-            logger.info(`[TCC] Microphone access status: ${micStatus}`)
-            if (micStatus !== "granted") {
-                try {
-                    void systemPreferences.askForMediaAccess("microphone")
-                } catch { /* noop */ }
-                logger.warn("[TCC] Microphone permission required (denied/not-determined)")
-                return this.failStart("Microphone permission required.")
-            }
-
-            const screenStatus = systemPreferences.getMediaAccessStatus("screen")
-            logger.info(`[TCC] Screen Recording access status: ${screenStatus}`)
-            if (screenStatus !== "granted") {
-                logger.warn("[TCC] Screen Recording permission required (denied/not-determined). Opening System Settings hint.")
-                showMessageBoxPermission()
-                return this.failStart("Screen Recording permission required.")
-            }
+            if (!(await ensurePermissions())) return this.failStart("Permissions required.")
 
             // Индексы AVFoundation могли сдвинуться (подключили наушники/монитор) — берём свежие
             await this.updateAndGetDevices()
@@ -675,7 +660,7 @@ export class ScreenRecorder {
                         if (!started) {
                             const msg = err?.message || "FFmpeg failed to start"
                             logger.error("FFmpeg failed to start:", msg)
-                            checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
+                            handleCaptureError(msg)
                             this.ffmpegCommand = null
                             resolve(this.failStart(msg))
                             return
@@ -791,7 +776,7 @@ export class ScreenRecorder {
                 logger.info("FFmpeg exited during stop:", msg)
             } else {
                 logger.error("FFmpeg error during recording:", msg)
-                checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
+                handleCaptureError(msg)
             }
         }
 

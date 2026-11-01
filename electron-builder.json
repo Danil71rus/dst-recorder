@@ -15,6 +15,7 @@
     "src/assets/camera.png"
   ],
   "asar": false,
+  "afterPack": "builder/after-pack.js",
   "extraResources": [
     {
       "from": "bin",

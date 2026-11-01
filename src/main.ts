@@ -9,6 +9,7 @@ import { existsSync } from "fs"
 import { getIconPath } from "./utils/icon-utils.ts"
 import { logger } from "./utils/logger.ts"
 import { trayManager } from "./tray/tray-manager.ts"
+import { ensurePermissions } from "./permissions.ts"
 import os from "os"
 
 const isDarwin = os.platform() === "darwin"
@@ -79,6 +80,10 @@ app.whenReady().then(async () => {
     await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow(), createBorderWindow()])
     trayManager.createTray()
     await screenRecorder.asyncInit()
+
+    // Первый запуск: сразу просим микрофон и запись экрана от имени приложения,
+    // чтобы к моменту первой записи всё уже было разрешено
+    void ensurePermissions()
 
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
