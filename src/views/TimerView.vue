@@ -164,25 +164,21 @@ async function startRecording() {
     resetParams()
     isRecording.value = true
 
-    const result = await window.ipcRenderer?.invoke<StartRecordingResponse>(ExposedWinTimer.START_FFMPEG_RECORDING)
+    let result: StartRecordingResponse | undefined
+    try {
+        result = await window.ipcRenderer?.invoke<StartRecordingResponse>(ExposedWinTimer.START_FFMPEG_RECORDING)
+    } catch (error) {
+        result = { error: error instanceof Error ? error.message : String(error) }
+    }
     if (result?.error) {
+        // Запись не началась — возвращаем кнопки в исходное состояние
         console.error(result.error || "Failed to start recording")
+        resetParams()
         return
     }
     savePathFile.value = result?.outputPathAndFileName || ""
     toggleSettings(false)
 }
-
-// Обновление состояния записи в трее
-window.ipcRenderer?.on(ExposedWinTimer.UPDATED_STATE_TIMER, (_event, status) => {
-    const newVal = status as RecordingStatus
-    if (newVal?.isRecording) {
-        isRecording.value = true
-        duration.value = newVal?.duration
-    } else {
-        resetParams()
-    }
-})
 
 // Функция для остановки записи
 async function stopRecording() {
@@ -244,7 +240,7 @@ async function pauseRecording() {
 async function resumeRecording() {
     await window.ipcRenderer?.invoke(ExposedWinTimer.RESUME_FFMPEG_RECORDING)
 }
-// Обнови обработчик UPDATED_STATE_TIMER:
+// Синхронизация состояния записи (в т.ч. паузы) из main-процесса
 window.ipcRenderer?.on(ExposedWinTimer.UPDATED_STATE_TIMER, (_event, status) => {
     const newVal = status as RecordingStatus
     if (newVal?.isRecording) {

@@ -42,9 +42,10 @@ export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
 
     ipcMain.on(ExposedWinTimer.HIDE, () => {
         timerWin.hide()
-        const res = screenRecorder.stopRecording()
-        if (res?.error) {
-            // Сбросим для сброса настроек с областью
+        if (screenRecorder.isBusy()) {
+            void screenRecorder.stopRecording()
+        } else {
+            // Записи нет — просто сбрасываем режим области
             screenRecorder.resetByStop()
         }
     })

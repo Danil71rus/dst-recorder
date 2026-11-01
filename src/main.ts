@@ -94,6 +94,24 @@ app.whenReady().then(async () => {
     })
 })
 
+// Перед выходом (трей, Cmd+Q, выключение Mac) дожидаемся, пока запись остановится и файл сохранится
+let isQuitAfterRecording = false
+const QUIT_WAIT_TIMEOUT_MS = 60_000
+app.on("before-quit", (event) => {
+    if (isQuitAfterRecording || !screenRecorder.isBusy()) return
+    event.preventDefault()
+    isQuitAfterRecording = true
+    logger.info("Quit requested during recording — waiting for the file to be saved")
+
+    const timeout = new Promise(resolve => setTimeout(resolve, QUIT_WAIT_TIMEOUT_MS))
+    Promise.race([screenRecorder.stopRecording({ reveal: false }), timeout])
+        .catch(error => logger.error("Error while stopping recording before quit:", error))
+        .finally(() => app.quit())
+})
+
+// FFmpeg не завершается сам при закрытии stdin — не оставляем процессы-сироты
+app.on("will-quit", () => screenRecorder.forceKill())
+
 app.on("window-all-closed", () => {
     // Для macOS не выходим, чтобы приложение продолжало жить в трее
     if (!isDarwin) app.quit()

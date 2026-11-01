@@ -25,8 +25,11 @@ export function initMainWindowControlsHandlers(mainWin: BrowserWindow) {
         return result.filePaths[0] || ""
     })
 
-    ipcMain.handle(ExposedWinMain.GET_DEVICES, async () => {
-        return await screenRecorder.updateAndGetDevices()
+    // refresh: true — перечитать устройства (открыли настройки), иначе отдаём кэш,
+    // чтобы каждое обновление настроек не запускало новый процесс ffmpeg
+    ipcMain.handle(ExposedWinMain.GET_DEVICES, async (_event, options?: { refresh?: boolean }) => {
+        if (options?.refresh || !screenRecorder.hasDevices()) return await screenRecorder.refreshDevices()
+        return screenRecorder.getDevicesList()
     })
 
     ipcMain.on(ExposedWinMain.MOVE_MAIN_WINDOW, (_event, position) => {

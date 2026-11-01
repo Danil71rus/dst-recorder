@@ -6,6 +6,8 @@ export interface FfmpegDevice {
 
 export interface FfmpegDeviceVideo extends FfmpegDevice {
     isScreen?:    boolean
+    // стабильный id дисплея из Electron (screen.getAllDisplays()), в отличие от index FFmpeg
+    displayId?:   number
     bounds?:      { x: number, y: number, width: number, height: number }
     workArea?:    { x: number, y: number, width: number, height: number }
     scaleFactor?: number
@@ -54,6 +56,10 @@ export interface FfmpegSettings {
     offset:      { x: number, y: number }
     // показывать зеленую рамку при записи
     showBorder?: boolean
+    // Выбор пользователя по стабильным идентификаторам. Индексы FFmpeg меняются при
+    // подключении/отключении устройств, поэтому video/audio всегда пересчитываются из них
+    displayId?:  number
+    audioName?:  string
     audio?:      FfmpegDevice
     video?:      FfmpegDeviceVideo
 }

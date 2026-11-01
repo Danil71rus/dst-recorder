@@ -26,15 +26,13 @@ export function updateSettingCropByAria(ariaWin: BrowserWindow) {
     const position = ariaWin.getPosition() // логические пиксели
 
     const newPosition = { x: position[0] + border, y: position[1] + border }
-    const currentWinName = screen.getDisplayNearestPoint(newPosition).label
+    // Ищем монитор по id: у двух одинаковых мониторов label совпадает
+    const currentDisplayId = screen.getDisplayNearestPoint(newPosition).id
 
-    const video = (() => {
-        if (currentSettings.video?.label === currentWinName) return currentSettings.video
-        return screenRecorder
-            .getDevicesList()
-            .video
-            .find(item => item.label === currentWinName) || currentSettings.video
-    })()
+    const video = screenRecorder
+        .getDevicesList()
+        .video
+        .find(item => item.isScreen && item.displayId === currentDisplayId) || currentSettings.video
 
     // Достаем scaleFactor для правильного маппинга на маках (Retina)
     const scaleFactor = video?.scaleFactor || 1
@@ -101,9 +99,10 @@ export function updateSettingCropByAria(ariaWin: BrowserWindow) {
 
     screenRecorder.setSettings({
         ...currentSettings,
-        offset: { x: offsetX, y: offsetY }, // Передаем физические координаты
-        crop:   { w: cropW, h: cropH },
-        scale:  { w: scaleW, h: scaleH },
+        displayId: video?.displayId ?? currentSettings.displayId,
+        offset:    { x: offsetX, y: offsetY }, // Передаем физические координаты
+        crop:      { w: cropW, h: cropH },
+        scale:     { w: scaleW, h: scaleH },
         video,
     })
 }

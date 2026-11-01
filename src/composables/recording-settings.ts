@@ -67,15 +67,18 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     })
 
 
+    // Экраны и звук выбираются по стабильным идентификаторам (id дисплея и имя устройства):
+    // индексы FFmpeg меняются при подключении/отключении устройств
     const selectedVideo = computed({
         get() {
-            return `${currentState.value.video?.index}`
+            return `${currentState.value.video?.displayId ?? ""}`
         },
-        set(newIndex: string) {
-            const newVideo = deviceList.value.video.find(item => item.index === Number(newIndex))
+        set(newDisplayId: string) {
+            const newVideo = deviceList.value.video.find(item => item.isScreen && `${item.displayId}` === newDisplayId)
 
             if (newVideo?.name) {
                 currentState.value.video = newVideo
+                currentState.value.displayId = newVideo.displayId
                 setSize()
                 tryAutoSave()
             }
@@ -84,13 +87,14 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
 
     const selectedAudio = computed({
         get() {
-            return `${currentState.value.audio?.index}`
+            return currentState.value.audio?.name ?? ""
         },
-        set(newIndex: string) {
-            const newAudio = deviceList.value.audio.find(item => item.index === Number(newIndex))
+        set(newName: string) {
+            const newAudio = deviceList.value.audio.find(item => item.name === newName)
 
             if (newAudio?.name) {
                 currentState.value.audio = newAudio
+                currentState.value.audioName = newAudio.name
                 tryAutoSave()
             }
         },
@@ -98,12 +102,12 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
 
     const screensList = computed((): ComboboxItem[] => {
         return deviceList.value.video
-            .filter(item => item.isScreen)
+            .filter(item => item.isScreen && item.displayId !== undefined)
             .map(item => {
                 const { scale } = getResultScale(item, currentState.value.defSize)
 
                 return {
-                    id:       `${item.index}`,
+                    id:       `${item.displayId}`,
                     title:    `${item.label}`,
                     subtitle: `${scale.w} × ${scale.h}`,
                 }
@@ -113,7 +117,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
 
     const audioList = computed((): ComboboxItem[] => {
         return deviceList.value.audio.map(item => ({
-            id:    `${item.index}`,
+            id:    item.name,
             title: `${item.name} `,
         }))
     })
@@ -123,13 +127,9 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
             || sizeTitleMap[DEFAULT_SIZE]
     })
 
-    const selectedVideoName = computed(() => {
-        return deviceList.value.video.find(item => item.index === Number(selectedVideo.value))?.label || ""
-    })
+    const selectedVideoName = computed(() => currentState.value.video?.label || "")
 
-    const selectedAudioName = computed(() => {
-        return deviceList.value.audio.find(item => item.index === Number(selectedAudio.value))?.name || ""
-    })
+    const selectedAudioName = computed(() => currentState.value.audio?.name || "")
 
     const showBorder = computed({
         get: () => currentState.value.showBorder ?? false,
@@ -147,7 +147,9 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
             currentState.value = { ...settings, defSize }
         }
 
-        const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES) as FfmpegDeviceLists
+        // Пришли готовые настройки из main — список устройств берём из кэша, иначе (открытие окна) перечитываем
+        const refresh = !newSettings
+        const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES, { refresh }) as FfmpegDeviceLists
         if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
 
         console.log(" deviceList.value: ", deviceList.value)

@@ -1,16 +1,18 @@
 import ffmpeg from "fluent-ffmpeg"
 import { app, ipcMain, screen, shell, systemPreferences } from "electron"
 import { join, dirname } from "path"
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs"
 import { homedir } from "os"
 import { DateTime } from "luxon"
-import { exec } from "child_process"
+import { execFile } from "child_process"
 import FfmpegStatic from "ffmpeg-ffprobe-static"
 import {
     FfmpegDevice,
     FfmpegDeviceLists,
+    FfmpegDeviceVideo,
     FfmpegSettings,
     getDefaultSettings,
+    normalizeSize,
     RecordingStatus,
     StartRecordingResponse,
 } from "./deinitions/ffmpeg.ts"
@@ -20,20 +22,88 @@ import { getResultScale } from "./window/utils/main.ts"
 import { appName, showMessageBoxPermission, checkErrorAndShowMessageBox } from "./utils/utilsForMain.ts"
 import { logger } from "./utils/logger.ts"
 
+/**
+ * Жизненный цикл записи:
+ * idle → starting → recording → stopping → finalizing → idle
+ * Любое состояние, кроме idle, считается «занятым»: новая запись не стартует,
+ * пока предыдущая не дописана и не финализирована.
+ */
+type RecorderState = "idle" | "starting" | "recording" | "stopping" | "finalizing"
+
+export interface StopRecordingOptions {
+    // показать файл в Finder после сохранения (по умолчанию да)
+    reveal?: boolean
+}
+
+const DISPLAY_REFRESH_DEBOUNCE_MS = 800
+const LIST_DEVICES_TIMEOUT_MS = 15_000
+// Если FFmpeg не завершился после 'q' — эскалируем
+const STOP_SIGINT_TIMEOUT_MS = 10_000
+const STOP_SIGKILL_TIMEOUT_MS = 20_000
+const STOP_FORCE_RESET_TIMEOUT_MS = 30_000
+
+const isEven = (n: number) => Number.isInteger(n) && n % 2 === 0
+
+function safeUnlink(path: string) {
+    try {
+        if (existsSync(path)) unlinkSync(path)
+    } catch (e) {
+        logger.warn("Failed to remove file:", path, e)
+    }
+}
+
+/** Тот же монитор с тем же физическим разрешением — значит сохранённые crop/offset ещё валидны */
+function isSameScreenGeometry(a?: FfmpegDeviceVideo, b?: FfmpegDeviceVideo) {
+    return !!a && !!b
+        && a.displayId !== undefined
+        && a.displayId === b.displayId
+        && a.scaleMax?.width === b.scaleMax?.width
+        && a.scaleMax?.height === b.scaleMax?.height
+}
+
+/** crop/scale/offset чётные, ненулевые и не выходят за физические границы экрана */
+function isGeometryValid(settings: FfmpegSettings, video: FfmpegDeviceVideo) {
+    const maxW = video.scaleMax?.width || 0
+    const maxH = video.scaleMax?.height || 0
+    const { crop, offset, scale } = settings
+    if (!crop || !offset || !scale) return false
+
+    return crop.w >= 2 && crop.h >= 2 && scale.w >= 2 && scale.h >= 2
+        && [crop.w, crop.h, scale.w, scale.h, offset.x, offset.y].every(isEven)
+        && offset.x >= 0 && offset.y >= 0
+        && offset.x + crop.w <= maxW
+        && offset.y + crop.h <= maxH
+}
+
 export class ScreenRecorder {
     private static instance: ScreenRecorder
     private ffmpegCommand: ffmpeg.FfmpegCommand | null = null
+    private finalizeCommand: ffmpeg.FfmpegCommand | null = null
+    private state: RecorderState = "idle"
 
     public outputPathAndFileName: string = ""
     // Запись
     public recordingStartTime: number = 0
     public isRecording: boolean = false
-    private recordingInterval: NodeJS.Timeout | null = null
+    private recordingInterval: ReturnType<typeof setTimeout> | null = null
+    // Монитор, который сейчас записывается (для реакции на его отключение)
+    private activeDisplayId: number | undefined
     // Пауза
     public isPaused: boolean = false
     public totalPausedTime: number = 0
     private pauseStartTime: number = 0
     private pendingTrimDuration: number | null = null
+    // Остановка
+    private stopRequestedWhileStarting = false
+    private stopWaiters: (() => void)[] = []
+    private stopTimers: ReturnType<typeof setTimeout>[] = []
+    private revealAfterFinalize = true
+
+    // Мониторы
+    private displayEventsSubscribed = false
+    private displayRefreshTimer: ReturnType<typeof setTimeout> | null = null
+    private refreshAfterStop = false
+    private devicesPromise: Promise<FfmpegDeviceLists> | null = null
 
     public devicesList: FfmpegDeviceLists = {
         video: [],
@@ -52,10 +122,8 @@ export class ScreenRecorder {
 
     private constructor() {
         this.settings = this.getInitialSettings()
+        this.ensureOutputDir()
 
-        if (!existsSync(this.settings.outputPath)) {
-            mkdirSync(this.settings.outputPath, { recursive: true })
-        }
         this.ffmpegBinaryPath = this.initializeFfmpegPath()
         if (this.ffmpegBinaryPath) {
             ffmpeg.setFfmpegPath(this.ffmpegBinaryPath)
@@ -64,10 +132,23 @@ export class ScreenRecorder {
         }
     }
 
+    public static getInstance(): ScreenRecorder {
+        if (!ScreenRecorder.instance) ScreenRecorder.instance = new ScreenRecorder()
+        return ScreenRecorder.instance
+    }
+
+    // ---------------------------------------------------------------------
+    // Настройки
+    // ---------------------------------------------------------------------
+
+    private getDefaultOutputPath() {
+        return join(homedir(), "Desktop", appName)
+    }
+
     private getInitialSettings(): FfmpegSettings {
         const defaultSettings: FfmpegSettings = {
             ...getDefaultSettings(),
-            outputPath: join(homedir(), "Desktop", appName),
+            outputPath: this.getDefaultOutputPath(),
         }
 
         const persisted = this.loadSettingsFromFile()
@@ -79,6 +160,23 @@ export class ScreenRecorder {
             outputPath: persisted.outputPath || defaultSettings.outputPath,
         }
     }
+
+    /** Папка из настроек может быть недоступна (отключённый внешний диск) — не падаем, а откатываемся к дефолтной */
+    private ensureOutputDir() {
+        try {
+            mkdirSync(this.settings.outputPath, { recursive: true })
+        } catch (error) {
+            const fallback = this.getDefaultOutputPath()
+            logger.warn(`Output folder is not available: ${this.settings.outputPath}. Fallback: ${fallback}`, error)
+            this.settings = { ...this.settings, outputPath: fallback }
+            try {
+                mkdirSync(fallback, { recursive: true })
+            } catch (e) {
+                logger.error("Failed to create default output folder:", e)
+            }
+        }
+    }
+
     private loadSettingsFromFile(): Partial<FfmpegSettings> | null {
         try {
             if (!existsSync(this.settingsFilePath)) return null
@@ -94,36 +192,173 @@ export class ScreenRecorder {
             return null
         }
     }
+
     private persistSettingsToFile(settings: FfmpegSettings) {
+        const tempPath = `${this.settingsFilePath}.tmp`
         try {
             const dir = dirname(this.settingsFilePath)
             if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 
-            writeFileSync(this.settingsFilePath, JSON.stringify(settings, null, 2), "utf-8")
+            // Атомарная запись: при падении посреди записи не останется битого JSON
+            writeFileSync(tempPath, JSON.stringify(settings, null, 2), "utf-8")
+            renameSync(tempPath, this.settingsFilePath)
         } catch (error) {
             logger.warn("Failed to persist settings to file:", error)
+            safeUnlink(tempPath)
         }
     }
 
-    public async asyncInit() {
-        const device = await this.updateAndGetDevices()
-        console.log("!!!! device: ", device.video)
-        const video = device.video.find(item => item.name.startsWith("Capture screen 0")) || device.video[0]
-        this.setSettings({
-            ...this.settings,
-            audio: device.audio.find(item => item.name.startsWith("Recorder-Input")) || device.audio[0],
-            video,
-            ...getResultScale(video),
-        })
-
-        // отслеживать добавление/удаление мониторов
-        screen.on("display-added", async () => await this.asyncInit())
-        screen.on("display-removed", async () => await this.asyncInit())
+    private pickVideo(
+        input: FfmpegSettings,
+        screens: FfmpegDeviceVideo[],
+        wantedDisplayId?: number,
+    ): FfmpegDeviceVideo | undefined {
+        if (wantedDisplayId !== undefined) {
+            const byId = screens.find(v => v.displayId === wantedDisplayId)
+            if (byId) return byId
+        }
+        // Старые настройки без displayId или монитор сменил id: ищем по имени, только если оно уникально
+        const label = input.video?.label
+        if (label) {
+            const byLabel = screens.filter(v => v.label === label)
+            if (byLabel.length === 1) return byLabel[0]
+        }
+        // Основной экран (в AVFoundation он всегда "Capture screen 0"). Камеры сюда не попадают — только экраны
+        return screens.find(v => v.name.startsWith("Capture screen 0")) || screens[0]
     }
 
-    public static getInstance(): ScreenRecorder {
-        if (!ScreenRecorder.instance) ScreenRecorder.instance = new ScreenRecorder()
-        return ScreenRecorder.instance
+    private pickAudio(input: FfmpegSettings, wantedAudioName?: string): FfmpegDevice | undefined {
+        const audios = this.devicesList.audio
+        return (wantedAudioName ? audios.find(a => a.name === wantedAudioName) : undefined)
+            || audios.find(a => a.name.startsWith("Recorder-Input"))
+            || audios[0]
+            || input.audio
+    }
+
+    /**
+     * Приводит настройки к актуальному списку устройств.
+     * Выбор пользователя хранится в displayId/audioName и не затирается, даже если устройство
+     * временно отключено: video/audio получают ближайшую замену, а при возвращении устройства
+     * запись снова пойдёт на него. Индексы FFmpeg, bounds и scaleMax всегда берутся из свежего списка.
+     */
+    private normalizeSettings(input: FfmpegSettings): FfmpegSettings {
+        const defSize = normalizeSize(Number(input.defSize))
+        const wantedDisplayId = input.displayId ?? input.video?.displayId
+        const wantedAudioName = input.audioName ?? input.audio?.name
+
+        const screens = this.devicesList.video.filter(v => v.isScreen && v.scaleMax?.width && v.scaleMax?.height)
+        // Список устройств ещё не получен — нормализовать не из чего
+        if (!screens.length) return { ...input, defSize, displayId: wantedDisplayId, audioName: wantedAudioName }
+
+        const video = this.pickVideo(input, screens, wantedDisplayId) as FfmpegDeviceVideo
+        const audio = this.pickAudio(input, wantedAudioName)
+
+        const keepGeometry = isSameScreenGeometry(input.video, video) && isGeometryValid(input, video)
+        const geometry = keepGeometry
+            ? { crop: input.crop, offset: input.offset, scale: input.scale, defSizeName: input.defSizeName }
+            : { ...getResultScale(video, defSize), offset: { x: 0, y: 0 } }
+
+        if (!keepGeometry && input.video) {
+            logger.info(`[Settings] Geometry recalculated for "${video.label}" (${video.name})`)
+        }
+
+        return {
+            ...input,
+            ...geometry,
+            defSize,
+            displayId: wantedDisplayId ?? video.displayId,
+            audioName: wantedAudioName ?? audio?.name,
+            video,
+            audio,
+        }
+    }
+
+    getSettings() {
+        return this.settings
+    }
+
+    setSettings(settings?: FfmpegSettings) {
+        if (!settings) return
+        this.settings = this.normalizeSettings(settings)
+        this.persistSettingsToFile(this.settings)
+
+        getWindowAll()?.forEach(item => {
+            if (item && !item.isDestroyed()) item.webContents.send(ExposedFfmpeg.UPDATED_SETTINGS, this.settings)
+        })
+        ipcMain.emit(ExposedFfmpeg.UPDATED_SETTINGS, null, this.settings)
+    }
+
+    // ---------------------------------------------------------------------
+    // Устройства и мониторы
+    // ---------------------------------------------------------------------
+
+    public async asyncInit() {
+        await this.refreshDevices()
+        this.subscribeDisplayEvents()
+    }
+
+    /** Подписка строго один раз. Раньше подписка жила внутри asyncInit и удваивалась на каждое событие */
+    private subscribeDisplayEvents() {
+        if (this.displayEventsSubscribed) return
+        this.displayEventsSubscribed = true
+
+        screen.on("display-added", () => this.scheduleDisplayRefresh("display-added"))
+        screen.on("display-removed", () => this.scheduleDisplayRefresh("display-removed"))
+        screen.on("display-metrics-changed", (_event, _display, changedMetrics: string[]) => {
+            // workArea меняется от Dock/строки меню — это не влияет на захват
+            if (changedMetrics.some(m => m === "bounds" || m === "scaleFactor" || m === "rotation")) {
+                this.scheduleDisplayRefresh(`display-metrics-changed: ${changedMetrics.join(",")}`)
+            }
+        })
+    }
+
+    /** При подключении монитора macOS шлёт пачку событий — схлопываем их в одно обновление */
+    private scheduleDisplayRefresh(reason: string) {
+        logger.info(`[Displays] ${reason}`)
+        if (this.displayRefreshTimer) clearTimeout(this.displayRefreshTimer)
+        this.displayRefreshTimer = setTimeout(() => {
+            this.displayRefreshTimer = null
+            void this.onDisplaysChanged()
+        }, DISPLAY_REFRESH_DEBOUNCE_MS)
+    }
+
+    private async onDisplaysChanged() {
+        if (this.state !== "idle") {
+            // Во время записи настройки не трогаем — применим после остановки
+            this.refreshAfterStop = true
+
+            const recordedDisplayGone = this.state === "recording"
+                && this.activeDisplayId !== undefined
+                && !screen.getAllDisplays().some(d => d.id === this.activeDisplayId)
+            if (recordedDisplayGone) {
+                logger.warn("[Displays] Recorded display was disconnected — stopping recording")
+                void this.stopRecording()
+            }
+            return
+        }
+
+        await this.refreshDevices()
+
+        // Если открыта рамка области — пересчитываем crop под новую геометрию экранов
+        const ariaWin = getWindowByName(WindowName.SelectAria)
+        if (ariaWin && !ariaWin.isDestroyed() && ariaWin.isVisible()) {
+            ipcMain.emit(ExposedWinSelectAria.STOP_MOVE_WINDOW)
+        }
+    }
+
+    /** Обновить список устройств и привести к нему настройки (только когда не идёт запись) */
+    public async refreshDevices(): Promise<FfmpegDeviceLists> {
+        const devices = await this.updateAndGetDevices()
+        if (this.state === "idle") this.setSettings(this.settings)
+        return devices
+    }
+
+    public hasDevices() {
+        return this.devicesList.video.length > 0 || this.devicesList.audio.length > 0
+    }
+
+    public getDevicesList() {
+        return this.devicesList
     }
 
     private initializeFfmpegPath(): string | null {
@@ -168,7 +403,7 @@ export class ScreenRecorder {
                 if (exists) {
                     // На Unix-подобных системах убеждаемся, что бинарь исполняемый
                     try {
-                        require("fs").chmodSync(p, 0o755)
+                        chmodSync(p, 0o755)
                     } catch { /* noop */ }
                     logger.info("FFmpeg path successfully set to:", p)
                     return p
@@ -182,37 +417,46 @@ export class ScreenRecorder {
         return null
     }
 
+    /** Одновременные запросы получают один и тот же результат — без пачки параллельных ffmpeg */
     public updateAndGetDevices(): Promise<FfmpegDeviceLists> {
+        if (!this.devicesPromise) {
+            this.devicesPromise = this.listDevices().finally(() => {
+                this.devicesPromise = null
+            })
+        }
+        return this.devicesPromise
+    }
+
+    private listDevices(): Promise<FfmpegDeviceLists> {
         // Используем сохраненный путь к ffmpeg, который корректно работает в собранной версии
         const ffmpegPath = this.ffmpegBinaryPath || FfmpegStatic.ffmpegPath
         if (!ffmpegPath) {
-            console.error("FFmpeg path not available for getting devices")
-            return Promise.resolve({ video: [], audio: [] })
+            logger.error("FFmpeg path not available for getting devices")
+            return Promise.resolve(this.devicesList)
         }
 
         logger.info("Getting devices with FFmpeg path:", ffmpegPath)
-        const command = `"${ffmpegPath}" -f avfoundation -list_devices true -i ""`
 
         return new Promise((resolve) => {
-            exec(command, (error, _stdout, stderr) => {
-
+            const args = ["-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""]
+            execFile(ffmpegPath, args, { timeout: LIST_DEVICES_TIMEOUT_MS }, (error, _stdout, stderr) => {
                 // Получаем главный экран (он всегда будет Capture screen 0 в FFmpeg)
                 const primaryDisplay = screen.getPrimaryDisplay()
                 // Получаем все остальные экраны, исключая главный
                 const otherDisplays = screen.getAllDisplays().filter(d => d.id !== primaryDisplay.id)
                 // Склеиваем массив: главный экран строго первый (index: 0), остальные за ним
-                const orderedDisplays = [primaryDisplay, ...otherDisplays].map((item, index) => ({ ...item, index }))
-                console.log("orderedDisplays: ", orderedDisplays)
+                const orderedDisplays = [primaryDisplay, ...otherDisplays]
 
+                // -list_devices всегда завершается с ошибкой (пустой вход), поэтому ошибка без stderr — реальный сбой
                 if (error && !stderr) {
-                    logger.error("Error executing FFmpeg command:", error)
-                    resolve({ video: [], audio: [] })
+                    logger.error("Error executing FFmpeg list_devices:", error)
+                    resolve(this.devicesList)
                     return
                 }
                 if (stderr?.trim()) {
                     logger.info(`[FFmpeg:list_devices] stderr:\n${stderr}`)
                 }
-                const lines = stderr.split("\n")
+
                 const result: FfmpegDeviceLists = {
                     video: [],
                     audio: [],
@@ -220,209 +464,430 @@ export class ScreenRecorder {
 
                 let currentSection: "video" | "audio" | null = null
 
-                for (const line of lines) {
+                for (const line of stderr.split("\n")) {
                     // Определяем, в какой секции мы находимся
                     if (line.includes("AVFoundation video devices:")) {
                         currentSection = "video"
-                        continue // Переходим к следующей строке
+                        continue
                     } else if (line.includes("AVFoundation audio devices:")) {
                         currentSection = "audio"
-                        continue // Переходим к следующей строке
+                        continue
                     }
 
                     if (!currentSection) continue
 
                     // Парсим строку с устройством
                     const deviceMatch = line.match(/\[(\d+)\]\s(.*)/)
-                    if (deviceMatch && deviceMatch[1] && deviceMatch[2]) {
-                        const device: FfmpegDevice = {
-                            index: parseInt(deviceMatch[1], 10),
-                            name:  deviceMatch[2].trim(),
-                        }
+                    if (!deviceMatch || !deviceMatch[1] || !deviceMatch[2]) continue
 
-                        if (currentSection === "video") {
-                            const isScreen = device.name.startsWith("Capture screen")
-                            let addParams = {}
-                            if (isScreen) {
-                                const index = Number(device.name.replace(/\D/g, ""))
-                                const displayInfo = orderedDisplays[index]
+                    const device: FfmpegDevice = {
+                        index: parseInt(deviceMatch[1], 10),
+                        name:  deviceMatch[2].trim(),
+                    }
 
-                                if (displayInfo) {
-                                    const { bounds, workArea, scaleFactor, size, label } = displayInfo
-                                    addParams = {
-                                        bounds, workArea, scaleFactor, size, label,
-                                        scaleMax: {
-                                            width:  scaleFactor * size.width,
-                                            height: scaleFactor * size.height,
-                                        },
-                                    }
-                                }
+                    if (currentSection === "audio") {
+                        result.audio.push(device)
+                        continue
+                    }
+
+                    const isScreen = device.name.startsWith("Capture screen")
+                    let addParams = {}
+                    if (isScreen) {
+                        const screenIndex = Number(device.name.replace(/\D/g, ""))
+                        const displayInfo = orderedDisplays[screenIndex]
+
+                        if (displayInfo) {
+                            const { id, bounds, workArea, scaleFactor, size, label } = displayInfo
+                            addParams = {
+                                displayId: id,
+                                bounds, workArea, scaleFactor, size, label,
+                                scaleMax:  {
+                                    width:  scaleFactor * size.width,
+                                    height: scaleFactor * size.height,
+                                },
                             }
-                            result.video.push({ ...addParams, ...device, isScreen })
                         } else {
-                            result.audio.push(device)
+                            logger.warn(`[Devices] No Electron display for "${device.name}"`)
                         }
                     }
+                    result.video.push({ ...addParams, ...device, isScreen })
                 }
 
-                this.devicesList = result
-                resolve(result)
+                // Временный сбой (пустой ответ) не должен стирать рабочий список устройств
+                if (result.video.length || result.audio.length) {
+                    this.devicesList = result
+                } else {
+                    logger.warn("[Devices] Empty device list from FFmpeg, keeping previous list")
+                }
+                resolve(this.devicesList)
             })
         })
     }
 
-    public getDevicesList() {
-        return this.devicesList
+    // ---------------------------------------------------------------------
+    // Запись
+    // ---------------------------------------------------------------------
+
+    public isBusy(): boolean {
+        return this.state !== "idle"
     }
 
-    startRecording(): Promise<StartRecordingResponse> {
-        return new Promise((resolve, reject) => {
-            if (this.isRecording) return reject({ error: "Recording is already in progress" })
-            if (!this.ffmpegBinaryPath) return reject({ error: "FFmpeg is not available." })
+    public getIsRecording(): boolean {
+        return this.isRecording
+    }
 
+    /** Ошибки возвращаются как { error }, а не через reject: иначе через ipcMain.handle они превращаются в исключение в renderer */
+    async startRecording(): Promise<StartRecordingResponse> {
+        if (this.state !== "idle") {
+            return { error: this.state === "finalizing" ? "Previous recording is still being saved" : "Recording is already in progress" }
+        }
+        if (!this.ffmpegBinaryPath) return { error: "FFmpeg is not available." }
+        if (process.platform !== "darwin") return { error: "This recorder is currently configured for macOS only." }
+
+        // Синхронно занимаем состояние — повторный клик не создаст второй процесс FFmpeg
+        this.state = "starting"
+        this.stopRequestedWhileStarting = false
+        this.revealAfterFinalize = true
+
+        try {
+            const micStatus = systemPreferences.getMediaAccessStatus("microphone")
+            logger.info(`[TCC] Microphone access status: ${micStatus}`)
+            if (micStatus !== "granted") {
+                try {
+                    void systemPreferences.askForMediaAccess("microphone")
+                } catch { /* noop */ }
+                logger.warn("[TCC] Microphone permission required (denied/not-determined)")
+                return this.failStart("Microphone permission required.")
+            }
+
+            const screenStatus = systemPreferences.getMediaAccessStatus("screen")
+            logger.info(`[TCC] Screen Recording access status: ${screenStatus}`)
+            if (screenStatus !== "granted") {
+                logger.warn("[TCC] Screen Recording permission required (denied/not-determined). Opening System Settings hint.")
+                showMessageBoxPermission()
+                return this.failStart("Screen Recording permission required.")
+            }
+
+            // Индексы AVFoundation могли сдвинуться (подключили наушники/монитор) — берём свежие
+            await this.updateAndGetDevices()
+            this.setSettings(this.settings)
+
+            if (this.stopRequestedWhileStarting) return this.failStart("Recording was cancelled")
+
+            const settings = this.settings
+            const { video, audio } = settings
+            if (!audio || !video?.scaleMax || !isGeometryValid(settings, video)) {
+                const { crop, scale, offset } = settings
+                logger.error("[Recording] Invalid devices or geometry:", { video, audio, crop, scale, offset })
+                return this.failStart("Display or audio device not found.")
+            }
+
+            const outputPath = join(settings.outputPath, this.generateShortFilename())
             try {
-                if (process.platform !== "darwin") return reject({ error: "This recorder is currently configured for macOS only." })
+                mkdirSync(dirname(outputPath), { recursive: true })
+            } catch (e) {
+                logger.error("Failed to create output folder:", e)
+                return this.failStart(`Cannot create output folder: ${dirname(outputPath)}`)
+            }
+            this.outputPathAndFileName = outputPath
 
-                const micStatus = systemPreferences.getMediaAccessStatus("microphone")
-                const hasMicPermission = micStatus === "granted"
-                logger.info(`[TCC] Microphone access status: ${micStatus}`)
-                if (!hasMicPermission) {
-                    try {
-                        systemPreferences.askForMediaAccess("microphone")
-                    } catch {}
-                    logger.warn("[TCC] Microphone permission required (denied/not-determined)")
-                    return reject({ error: "Microphone permission required." })
-                }
+            const videoFilterStr = `crop=${settings.crop.w}:${settings.crop.h}:${settings.offset.x}:${settings.offset.y},scale=${settings.scale.w}:${settings.scale.h}`
 
-                const screenStatus = systemPreferences.getMediaAccessStatus("screen")
-                const hasScreenPermission = screenStatus === "granted"
-                logger.info(`[TCC] Screen Recording access status: ${screenStatus}`)
-                if (!hasScreenPermission) {
-                    logger.warn("[TCC] Screen Recording permission required (denied/not-determined). Opening System Settings hint.")
-                    showMessageBoxPermission()
-                    return reject({ error: "Screen Recording permission required." })
-                }
+            const command = ffmpeg()
+                // Один вход для видео, один для УЖЕ синхронизированного аудио
+                .input(`${video.index}:${audio.index}`)
+                .inputFormat("avfoundation")
+                .inputFPS(settings.fps)
+                .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
+                .videoFilter([videoFilterStr])
+                .audioFilter([
+                    // Смешиваем многоканальный звук в стерео.
+                    // Канал 0 (микрофон) усиливаем в 2.5 раза.
+                    // Канал 2 (системный звук) оставляем как есть.
+                    "pan=stereo|c0=2.5*c0|c1=1.0*c2",
+                ])
+                .outputOptions([
+                    "-c:v", "libx264",
+                    "-preset", "ultrafast",
+                    "-crf", "23",
+                    "-pix_fmt", "yuv420p",
+                    "-r", `${settings.fps}`,
+                    // Ключевой кадр каждые 2 сек — при аварии теряется не больше ~2 сек
+                    "-g", `${settings.fps * 2}`,
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    // Фрагментированный MP4: файл читается, даже если процесс убит/приложение упало.
+                    // После остановки файл перепаковывается в обычный MP4 (см. finalizeFile)
+                    "-movflags", "+frag_keyframe+empty_moov+default_base_moof",
+                    // Без этого FFmpeg держит фрагменты в памяти и при аварии на диске остаётся пустой файл
+                    "-flush_packets", "1",
+                    "-y",
+                ])
+                .output(outputPath)
 
-                if (!this.settings.audio || !this.settings.video) return reject({ error: "Display with index not found." })
+            this.ffmpegCommand = command
+            this.activeDisplayId = video.displayId
 
+            return await new Promise<StartRecordingResponse>((resolve) => {
+                let started = false
 
-                this.outputPathAndFileName = join(this.settings.outputPath, this.generateShortFilename())
-
-                const outputDir = dirname(this.outputPathAndFileName)
-                if (!existsSync(outputDir)) {
-                    mkdirSync(outputDir, { recursive: true })
-                }
-
-                const videoFilterStr = `crop=${this.settings.crop.w}:${this.settings.crop.h}:${this.settings.offset.x}:${this.settings.offset.y},scale=${this.settings.scale.w}:${this.settings.scale.h}`
-
-                this.ffmpegCommand = ffmpeg()
-                    // ---- МАКСИМАЛЬНО ПРОСТАЯ КОМАНДА ----
-                    // Один вход для видео, один для УЖЕ синхронизированного аудио
-                    .input(`${this.settings.video.index}:${this.settings.audio.index}`)
-                    .inputFormat("avfoundation")
-                    .inputFPS(this.settings.fps)
-                    .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
-                    .videoFilter([videoFilterStr])
-                    // Фильтр для смешивания каналов и увеличения громкости микрофона
-                    .audioFilter([
-                        // Смешиваем многоканальный звук в стерео.
-                        // Канал 0 (микрофон) усиливаем в 2.5 раза.
-                        // Канал 2 (системный звук) оставляем как есть.
-                        "pan=stereo|c0=2.5*c0|c1=1.0*c2",
-                    ])
-                    .outputOptions([
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
-                        "-crf", "23",
-                        "-pix_fmt", "yuv420p",
-                        "-r", `${this.settings.fps}`,
-                        "-c:a", "aac",
-                        "-b:a", "192k",
-                        "-y",
-                    ])
-                    .output(this.outputPathAndFileName)
-
-                this.ffmpegCommand
+                command
                     .on("start", (cmd) => {
+                        if (command !== this.ffmpegCommand) return
+                        started = true
                         logger.info("FFmpeg started:", cmd)
+                        this.state = "recording"
                         this.isRecording = true
                         this.recordingStartTime = Date.now()
                         this.startTimer()
+                        resolve({ outputPathAndFileName: outputPath })
 
-                        resolve({ outputPathAndFileName: this.outputPathAndFileName })
+                        if (this.stopRequestedWhileStarting) this.requestFfmpegStop()
                     })
                     .on("end", () => {
+                        if (command !== this.ffmpegCommand) return
                         logger.info("Recording finished.")
-                        if (this.pendingTrimDuration !== null) {
-                            this.trimRecording(this.pendingTrimDuration).finally(() => this.resetByStop())
-                        } else {
-                            this.resetByStop()
-                        }
+                        void this.onProcessExit(null)
                     })
                     .on("error", (err) => {
-                        const msg = err?.message || ""
-                        logger.error("FFmpeg error:", msg)
-
-                        checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
-
-                        this.resetByStop()
-                        reject({ error: msg })
+                        if (command !== this.ffmpegCommand) return
+                        if (!started) {
+                            const msg = err?.message || "FFmpeg failed to start"
+                            logger.error("FFmpeg failed to start:", msg)
+                            checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
+                            this.ffmpegCommand = null
+                            resolve(this.failStart(msg))
+                            return
+                        }
+                        void this.onProcessExit(err)
                     })
                     .on("stderr", (line) => {
                         if (!line.includes("frame=")) logger.info(`[FFmpeg] ${line}`)
                     })
 
-                // Небольшая задержка для обновления UI (скрытие иконки и индикаторов)
+                // Небольшая задержка, чтобы окна успели скрыться до начала захвата
                 setTimeout(() => {
-                    this.ffmpegCommand?.run()
+                    if (command === this.ffmpegCommand) command.run()
                 }, 100)
-            } catch (error) {
-                console.error("Start recording error:", error)
-                reject({ error: error instanceof Error ? error.message : "Unknown error" })
-            }
-        })
+            })
+        } catch (error) {
+            logger.error("Start recording error:", error)
+            this.ffmpegCommand = null
+            return this.failStart(error instanceof Error ? error.message : "Unknown error")
+        }
     }
 
-    stopRecording() {
-        if (!this.isRecording || !this.ffmpegCommand) return { error: "No recording in progress" }
+    private failStart(error: string): StartRecordingResponse {
+        this.state = "idle"
+        this.activeDisplayId = undefined
+        this.stopRequestedWhileStarting = false
+        this.flushStopWaiters()
+        this.runDeferredRefresh()
+        return { error }
+    }
+
+    /** Возвращает промис, который завершается после того, как файл дописан и финализирован */
+    stopRecording(options: StopRecordingOptions = {}): Promise<{ error?: string }> {
+        if (this.state === "idle") return Promise.resolve({ error: "No recording in progress" })
+        if (options.reveal === false) this.revealAfterFinalize = false
+
+        const done = new Promise<{ error?: string }>(resolve => {
+            this.stopWaiters.push(() => resolve({}))
+        })
+
+        if (this.state === "starting") {
+            // FFmpeg ещё не запущен — остановим сразу после старта (или старт отменится)
+            this.stopRequestedWhileStarting = true
+        } else if (this.state === "recording") {
+            this.requestFfmpegStop()
+        }
+        // stopping / finalizing — просто ждём завершения
+        return done
+    }
+
+    private requestFfmpegStop() {
+        const command = this.ffmpegCommand
+        if (!command || this.state !== "recording") return
+        this.state = "stopping"
+
+        // Реальная длительность без пауз (обрезка нужна только если паузы были)
+        this.pendingTrimDuration = (this.totalPausedTime > 0 || this.isPaused) ? this.getActiveDurationSeconds() : null
 
         if (this.isPaused) {
-            this.ffmpegCommand.kill("SIGCONT")
+            command.kill("SIGCONT")
             this.isPaused = false
-        }
-
-        // Запоминаем реальную длительность до остановки (только если были паузы)
-        if (this.totalPausedTime > 0) {
-            this.pendingTrimDuration = (Date.now() - this.recordingStartTime - this.totalPausedTime) / 1000
         }
 
         try {
             // Мягко просим FFmpeg остановиться (посылаем 'q' в консоль)
-            // @ts-ignore
-            this.ffmpegCommand.ffmpegProc.stdin.write("q\n")
+            // @ts-expect-error: ffmpegProc не описан в типах fluent-ffmpeg
+            command.ffmpegProc.stdin.write("q\n")
         } catch (e) {
             // Если стандартный ввод недоступен, шлем сигнал прерывания
-            this.ffmpegCommand?.kill("SIGINT")
+            logger.warn("Failed to send 'q' to FFmpeg, sending SIGINT", e)
+            command.kill("SIGINT")
         }
 
-        shell.showItemInFolder(this.outputPathAndFileName)
+        this.armStopWatchdog(command)
     }
 
-    resetByStop() {
+    /** FFmpeg может зависнуть на устройстве (отключили монитор/Bluetooth) — эскалируем до SIGKILL и сбрасываем состояние */
+    private armStopWatchdog(command: ffmpeg.FfmpegCommand) {
+        this.clearStopWatchdog()
+        this.stopTimers.push(
+            setTimeout(() => {
+                logger.warn("FFmpeg did not exit after 'q' — sending SIGINT")
+                command.kill("SIGINT")
+            }, STOP_SIGINT_TIMEOUT_MS),
+            setTimeout(() => {
+                logger.error("FFmpeg did not exit after SIGINT — sending SIGKILL")
+                command.kill("SIGKILL")
+            }, STOP_SIGKILL_TIMEOUT_MS),
+            setTimeout(() => {
+                if (command !== this.ffmpegCommand) return
+                logger.error("FFmpeg did not report exit — forcing state reset")
+                void this.onProcessExit(new Error("FFmpeg stop timeout"))
+            }, STOP_FORCE_RESET_TIMEOUT_MS),
+        )
+    }
+
+    private clearStopWatchdog() {
+        this.stopTimers.forEach(t => clearTimeout(t))
+        this.stopTimers = []
+    }
+
+    /** Единая точка завершения процесса записи: штатная остановка, ошибка или убийство по таймауту */
+    private async onProcessExit(err: Error | null) {
+        if (this.state === "idle" || this.state === "finalizing") return
+
+        const wasStopping = this.state === "stopping"
+        this.clearStopWatchdog()
+
+        if (err) {
+            const msg = err.message || ""
+            if (wasStopping) {
+                // Остановка через SIGINT/SIGKILL даёт ненулевой код выхода — это не ошибка записи
+                logger.info("FFmpeg exited during stop:", msg)
+            } else {
+                logger.error("FFmpeg error during recording:", msg)
+                checkErrorAndShowMessageBox(msg, this.ffmpegBinaryPath || "")
+            }
+        }
+
+        const filePath = this.outputPathAndFileName
+        const trimDuration = this.pendingTrimDuration
+            ?? ((this.totalPausedTime > 0 || this.isPaused) ? this.getActiveDurationSeconds() : null)
+
+        // Сразу возвращаем UI в исходное состояние, файл финализируется в фоне
+        this.state = "finalizing"
+        this.ffmpegCommand = null
         this.isRecording = false
         this.isPaused = false
+        this.activeDisplayId = undefined
+        this.resetTimer(true)
+        this.stopForAria()
+        this.stopBorderHighlight()
+
+        await this.finalizeFile(filePath, trimDuration)
+
+        this.state = "idle"
         this.recordingStartTime = 0
         this.totalPausedTime = 0
         this.pauseStartTime = 0
         this.pendingTrimDuration = null
-        this.ffmpegCommand = null
+
+        // Показываем файл только когда он полностью готов
+        if (this.revealAfterFinalize && filePath && existsSync(filePath)) shell.showItemInFolder(filePath)
+
+        this.flushStopWaiters()
+        this.runDeferredRefresh()
+    }
+
+    private flushStopWaiters() {
+        const waiters = this.stopWaiters
+        this.stopWaiters = []
+        waiters.forEach(resolve => resolve())
+    }
+
+    /** Мониторы менялись во время записи — применяем изменения сейчас */
+    private runDeferredRefresh() {
+        if (!this.refreshAfterStop) return
+        this.refreshAfterStop = false
+        void this.onDisplaysChanged()
+    }
+
+    /**
+     * Перепаковка фрагментированного MP4 в обычный (+faststart) без перекодирования.
+     * Если были паузы — заодно обрезаем до реальной длительности.
+     * При любой ошибке оставляем исходный файл: фрагментированный MP4 тоже воспроизводится.
+     */
+    private finalizeFile(filePath: string, trimSeconds: number | null): Promise<void> {
+        return new Promise((resolve) => {
+            try {
+                if (!filePath || !existsSync(filePath) || statSync(filePath).size === 0) {
+                    logger.warn("[Finalize] Nothing to finalize:", filePath)
+                    resolve()
+                    return
+                }
+            } catch (e) {
+                logger.warn("[Finalize] Cannot stat file:", filePath, e)
+                resolve()
+                return
+            }
+
+            const tempPath = `${filePath.replace(/\.mp4$/i, "")}.finalizing.mp4`
+            const options = ["-map", "0", "-c", "copy", "-movflags", "+faststart"]
+            if (trimSeconds !== null && trimSeconds > 0) options.unshift("-t", trimSeconds.toFixed(3))
+
+            const command = ffmpeg()
+                .input(filePath)
+                .outputOptions(options)
+                .output(tempPath)
+
+            this.finalizeCommand = command
+            command
+                .on("end", () => {
+                    this.finalizeCommand = null
+                    try {
+                        // rename перезаписывает файл назначения атомарно — отдельный unlink не нужен
+                        renameSync(tempPath, filePath)
+                        logger.info(`[Finalize] Done${trimSeconds ? ` (trimmed to ${trimSeconds.toFixed(3)}s)` : ""}:`, filePath)
+                    } catch (e) {
+                        logger.error("[Finalize] Replace error, keeping original file:", e)
+                        safeUnlink(tempPath)
+                    }
+                    resolve()
+                })
+                .on("error", (err) => {
+                    this.finalizeCommand = null
+                    logger.error("[Finalize] Error, keeping original (fragmented) file:", err?.message)
+                    safeUnlink(tempPath)
+                    resolve()
+                })
+                .run()
+        })
+    }
+
+    /** Для will-quit: не оставляем процессы FFmpeg сиротами (ffmpeg не завершается сам при закрытии stdin) */
+    public forceKill() {
+        this.clearStopWatchdog()
+        for (const command of [this.ffmpegCommand, this.finalizeCommand]) {
+            try {
+                command?.kill("SIGKILL")
+            } catch { /* noop */ }
+        }
+    }
+
+    /** Сброс UI области/рамки, когда записи нет (например, закрыли таймер) */
+    resetByStop() {
+        if (this.state !== "idle") return
         this.resetTimer(true)
         this.stopForAria()
         this.stopBorderHighlight()
     }
 
     pauseRecording() {
-        if (!this.isRecording || this.isPaused || !this.ffmpegCommand) return { error: "Cannot pause" }
+        if (this.state !== "recording" || this.isPaused || !this.ffmpegCommand) return { error: "Cannot pause" }
 
         // Отправляем сигнал заморозки процесса
         this.ffmpegCommand.kill("SIGSTOP")
@@ -433,7 +898,7 @@ export class ScreenRecorder {
     }
 
     resumeRecording() {
-        if (!this.isRecording || !this.isPaused || !this.ffmpegCommand) return { error: "Cannot resume" }
+        if (this.state !== "recording" || !this.isPaused || !this.ffmpegCommand) return { error: "Cannot resume" }
 
         // Отправляем сигнал пробуждения процесса
         this.ffmpegCommand.kill("SIGCONT")
@@ -444,33 +909,16 @@ export class ScreenRecorder {
         ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
     }
 
-    public getIsRecording(): boolean {
-        return this.isRecording
+    private getActiveDurationSeconds(): number {
+        if (!this.recordingStartTime) return 0
+        const now = Date.now()
+        const currentPause = this.isPaused ? (now - this.pauseStartTime) : 0
+        return Math.max(now - this.recordingStartTime - this.totalPausedTime - currentPause, 0) / 1000
     }
 
     getRecordingStatus(): RecordingStatus {
-        const duration = (() => {
-            if (!this.isRecording) return 0
-            const dateNow = Date.now()
-            const currentPause = this.isPaused ? (dateNow - this.pauseStartTime) : 0
-            return Math.floor((dateNow - this.recordingStartTime - this.totalPausedTime - currentPause) / 1000)
-        })()
+        const duration = this.isRecording ? Math.floor(this.getActiveDurationSeconds()) : 0
         return { isRecording: this.isRecording, isPaused: this.isPaused, duration }
-    }
-
-    getSettings() {
-        return this.settings
-    }
-
-    setSettings(settings?: FfmpegSettings) {
-        if (!settings) return
-        this.settings = settings
-        this.persistSettingsToFile(this.settings)
-
-        getWindowAll()?.forEach(item => {
-            item?.webContents.send(ExposedFfmpeg.UPDATED_SETTINGS, settings)
-        })
-        ipcMain.emit(ExposedFfmpeg.UPDATED_SETTINGS, null, settings)
     }
 
     generateShortFilename(): string {
@@ -484,6 +932,7 @@ export class ScreenRecorder {
         }
         if (sendStatus) ipcMain.emit(ExposedFfmpeg.UPDATED_STATE_TIMER, null, this.getRecordingStatus())
     }
+
     startTimer() {
         this.resetTimer()
         this.startForAria()
@@ -493,12 +942,17 @@ export class ScreenRecorder {
         }, 1000)
     }
 
+    // ---------------------------------------------------------------------
+    // Область и рамка
+    // ---------------------------------------------------------------------
+
     // Если запись области
     startForAria() {
         const ariaWin = getWindowByName(WindowName.SelectAria)
-        if (ariaWin && ariaWin.isVisible()) {
+        if (ariaWin && !ariaWin.isDestroyed() && ariaWin.isVisible()) {
             // Сначала уведомляем окно о начале записи (скрывает иконку move-96)
-            ariaWin.webContents.send(ExposedWinSelectAria.UPDATED_STATE_TIMER, { isRecording: true, isPaused: false, duration: 0 })
+            const status: RecordingStatus = { isRecording: true, isPaused: false, duration: 0 }
+            ariaWin.webContents.send(ExposedWinSelectAria.UPDATED_STATE_TIMER, status)
 
             // Заставляет окно полностью игнорировать все события мыши, "пропуская" клики насквозь к окнам, находящимся под ним
             ariaWin.setIgnoreMouseEvents(true)
@@ -506,7 +960,7 @@ export class ScreenRecorder {
 
             // Скрываем окно таймера при старте записи в области
             const timerWin = getWindowByName(WindowName.Timer)
-            if (timerWin && timerWin.isVisible()) timerWin.hide()
+            if (timerWin && !timerWin.isDestroyed() && timerWin.isVisible()) timerWin.hide()
         }
     }
 
@@ -515,14 +969,15 @@ export class ScreenRecorder {
         const ariaWin = getWindowByName(WindowName.SelectAria)
 
         // 1. Возвращаем окну выделения нормальное состояние и скрываем его
-        if (ariaWin) {
+        if (ariaWin && !ariaWin.isDestroyed()) {
             ariaWin.setIgnoreMouseEvents(false)
             ariaWin.setMovable(true)
             ariaWin.hide()
         }
 
         // Уведомляем таймер, что режим области выключен
-        getWindowByName(WindowName.Timer)?.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, false)
+        const timerWin = getWindowByName(WindowName.Timer)
+        if (timerWin && !timerWin.isDestroyed()) timerWin.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, false)
 
         // 2. Гарантированно сбрасываем настройки до полного экрана
         if (this.settings.video) {
@@ -536,37 +991,12 @@ export class ScreenRecorder {
         }
     }
 
-    private async trimRecording(durationSeconds: number): Promise<void> {
-        const tempPath = this.outputPathAndFileName + ".tmp.mp4"
-        await new Promise<void>((resolve, reject) => {
-            ffmpeg()
-                .input(this.outputPathAndFileName)
-                .outputOptions(["-t", durationSeconds.toFixed(3), "-c", "copy"])
-                .output(tempPath)
-                .on("end", () => {
-                    try {
-                        unlinkSync(this.outputPathAndFileName)
-                        renameSync(tempPath, this.outputPathAndFileName)
-                    } catch (e) {
-                        logger.error("Trim replace error:", e)
-                    }
-                    resolve()
-                })
-                .on("error", (err) => {
-                    logger.error("Trim error:", err.message)
-                    try { unlinkSync(tempPath) } catch {}
-                    reject(err)
-                })
-                .run()
-        })
-    }
-
     // Показать зеленую рамку при записи
     startBorderHighlight() {
         if (!this.settings.showBorder) return
 
         const borderWin = getWindowByName(WindowName.Border)
-        if (borderWin && this.settings.video?.bounds) {
+        if (borderWin && !borderWin.isDestroyed() && this.settings.video?.bounds) {
             const { x, y, width, height } = this.settings.video.bounds
 
             // Устанавливаем размеры и позицию окна
@@ -585,11 +1015,8 @@ export class ScreenRecorder {
     // Скрыть зеленую рамку
     stopBorderHighlight() {
         const borderWin = getWindowByName(WindowName.Border)
-        if (borderWin) {
-            borderWin.hide()
-        }
+        if (borderWin && !borderWin.isDestroyed()) borderWin.hide()
     }
-
 }
 
 export const screenRecorder = ScreenRecorder.getInstance()

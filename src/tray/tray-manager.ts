@@ -10,6 +10,8 @@ export class TrayManager {
     private static instance: TrayManager
     private tray: Tray | null = null
     private isDarwin = process.platform === "darwin"
+    // Ключ текущего меню: пересобираем меню только когда оно реально меняется, а не каждую секунду
+    private menuKey = ""
 
     private constructor() {}
 
@@ -59,14 +61,21 @@ export class TrayManager {
         if (!this.tray) return
 
         if (status?.isRecording) {
-            this.tray.setContextMenu(this.getRecordingMenu())
-            if (this.isDarwin && !this.isTimerVisible()) {
-                this.tray?.setTitle(this.getFormattedDuration(status.duration))
+            this.setMenu("recording", () => this.getRecordingMenu())
+            if (this.isDarwin) {
+                this.tray.setTitle(this.isTimerVisible() ? "" : this.getFormattedDuration(status.duration))
             }
         } else {
-            this.tray.setContextMenu(this.getDefaultMenu())
-            if (this.isDarwin) this.tray?.setTitle("")
+            const { defSizeName, video, audio } = screenRecorder.getSettings()
+            this.setMenu(`default:${video?.displayId}:${video?.label}:${defSizeName}:${audio?.name}`, () => this.getDefaultMenu())
+            if (this.isDarwin) this.tray.setTitle("")
         }
+    }
+
+    private setMenu(key: string, build: () => Menu) {
+        if (!this.tray || this.menuKey === key) return
+        this.menuKey = key
+        this.tray.setContextMenu(build())
     }
 
     private getDefaultMenu(): Menu {
@@ -212,12 +221,8 @@ export class TrayManager {
     }
 
     private quitApp(): void {
-        // Если идет запись, сначала останавливаем её
-        if (screenRecorder.getIsRecording()) {
-            this.stopRecording().then(() => app.quit())
-        } else {
-            app.quit()
-        }
+        // Остановку записи и ожидание сохранения файла делает обработчик before-quit в main.ts
+        app.quit()
     }
 
     private getFormattedDuration(duration: number): string {
