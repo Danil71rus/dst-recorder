@@ -19,6 +19,7 @@ interface LegacySettings {
 type StoredSettings = Partial<RecorderSettings> & LegacySettings
 
 const MAX_FPS = 60
+const clampFps = (fps: number) => Math.min(Math.round(fps), MAX_FPS)
 // Длиннее ни одно разумное сочетание клавиш не бывает: защита от мусора в файле настроек
 const MAX_HOTKEY_LENGTH = 64
 
@@ -50,7 +51,7 @@ export function sanitizeSettings(input: StoredSettings | undefined, defaultOutpu
 
     return {
         outputPath:        isString(value.outputPath) && value.outputPath ? value.outputPath : defaultOutputPath,
-        fps:               isNumber(value.fps) && value.fps > 0 ? Math.min(Math.round(value.fps), MAX_FPS) : defaults.fps,
+        fps:               isNumber(value.fps) && value.fps > 0 ? clampFps(value.fps) : defaults.fps,
         defSize:           normalizeSize(Number(value.defSize)),
         displayId:         isNumber(displayId) ? displayId : undefined,
         micDeviceId:       isString(value.micDeviceId) && value.micDeviceId ? value.micDeviceId : MIC_DEFAULT,

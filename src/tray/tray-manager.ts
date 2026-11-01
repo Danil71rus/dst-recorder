@@ -8,6 +8,8 @@ import { updatePositionByAria } from "@/window/ipc-handlers/ipc-win-select-aria.
 import { appName } from "@/utils/utilsForMain.ts"
 import { logger } from "@/utils/logger.ts"
 import { getClickTarget, getTrayIcon } from "@/tray/tray-controls.ts"
+import { copyFileToClipboard, RecentRecording, recentRecordings } from "@/recorder/recent-recordings.ts"
+import { formatDuration, formatFileSize, formatRecordingTime } from "@/utils/format.ts"
 
 const isDarwin = process.platform === "darwin"
 // Иконка Windows/Linux: размер значка в области уведомлений
@@ -51,6 +53,8 @@ export class TrayManager {
             this.tray = new Tray(this.createIcon())
             this.tray.setToolTip(appName)
             this.updateMenu()
+            // Новая запись сохранилась или файл удалили — пересобираем список последних записей
+            recentRecordings.onChange(() => this.updateMenu())
 
             if (isDarwin) {
                 // Меню по клику macOS открывает сама (setContextMenu). Пока в иконке кнопки — разбираем клик сами
@@ -70,11 +74,11 @@ export class TrayManager {
 
         if (status.isRecording) {
             const isPaused = Boolean(status.isPaused)
-            this.setMenu(`recording:${isPaused}:${this.hotkeysKey()}`, () => this.getRecordingMenu(isPaused))
+            this.setMenu(`recording:${isPaused}:${this.extraKey()}`, () => this.getRecordingMenu(isPaused))
             this.setTitle(status)
         } else {
             const { video, audio } = this.describeSettings()
-            this.setMenu(`default:${video}:${audio}:${this.hotkeysKey()}`, () => this.getDefaultMenu())
+            this.setMenu(`default:${video}:${audio}:${this.extraKey()}`, () => this.getDefaultMenu())
             this.setTitle(null)
             this.isStartedFromTray = false
         }
@@ -217,13 +221,68 @@ export class TrayManager {
         return accelerator ? { accelerator, registerAccelerator: false } : {}
     }
 
-    private hotkeysKey() {
+    /** Сочетания клавиш и последние записи: при их изменении меню пересобирается */
+    private extraKey() {
         const { toggleRecording, togglePause } = screenRecorder.getSettings().hotkeys
-        return `${toggleRecording}|${togglePause}`
+        const recent = recentRecordings.list().map(item => item.path).join("|")
+        return `${toggleRecording}|${togglePause}|${recent}`
+    }
+
+    /** «Последние записи»: подменю на каждую запись с действиями над файлом */
+    private getRecentItems(): MenuItemConstructorOptions[] {
+        const recent = recentRecordings.list()
+        if (!recent.length) return []
+
+        return [{
+            label:   "🕘 Последние записи",
+            submenu: recent.map(item => ({
+                label:   this.describeRecording(item),
+                submenu: this.getRecordingActions(item),
+            })),
+        }]
+    }
+
+    /** «14:17  ·  0:42  ·  12,4 МБ» */
+    private describeRecording(item: RecentRecording) {
+        const time = formatRecordingTime(item.savedAt)
+        return [time, formatDuration(item.durationMs), formatFileSize(item.sizeBytes)].join("  ·  ")
+    }
+
+    private getRecordingActions(item: RecentRecording): MenuItemConstructorOptions[] {
+        return [
+            {
+                label:   item.fileName,
+                enabled: false,
+            },
+            {
+                label: "Открыть",
+                click: () => void shell.openPath(item.path),
+            },
+            {
+                label: "Скопировать файл",
+                click: () => {
+                    copyFileToClipboard(item.path).catch(error => logger.error("[Tray] Copy failed:", error))
+                },
+            },
+            {
+                label: "Показать в Finder",
+                click: () => shell.showItemInFolder(item.path),
+            },
+            { type: "separator" },
+            {
+                label: "Удалить (в Корзину)",
+                click: () => {
+                    shell.trashItem(item.path)
+                        .catch(error => logger.error("[Tray] Move to Trash failed:", error))
+                        .finally(() => recentRecordings.refresh())
+                },
+            },
+        ]
     }
 
     private getCommonItems(): MenuItemConstructorOptions[] {
         return [
+            ...this.getRecentItems(),
             {
                 label: "📂 Открыть папку с записями",
                 click: () => this.openRecordingsFolder(),

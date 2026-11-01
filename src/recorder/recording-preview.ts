@@ -1,21 +1,11 @@
-import {
-    app,
-    BrowserWindow,
-    clipboard,
-    ClipboardItem,
-    ipcMain,
-    nativeImage,
-    NativeImage,
-    screen,
-    shell,
-} from "electron"
+import { app, BrowserWindow, ipcMain, nativeImage, NativeImage, screen, shell } from "electron"
 import { join } from "path"
-import { pathToFileURL } from "url"
 import { RecordingSavedInfo } from "@/deinitions/recorder.ts"
 import { ExposedRecordingPreview } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
 import { findDisplay } from "@/recorder/displays.ts"
 import { logger } from "@/utils/logger.ts"
+import { copyFileToClipboard, recentRecordings } from "@/recorder/recent-recordings.ts"
 
 /**
  * Миниатюра после записи — как у скриншотов macOS: в углу экрана на несколько секунд появляется превью
@@ -55,10 +45,7 @@ class RecordingPreview {
             this.hide()
             await shell.openPath(path)
         }))
-        ipcMain.handle(ExposedRecordingPreview.COPY, onCurrent(async ({ path }) => {
-            // text/uri-list Electron кладёт в буфер как «скопированный файл»: вставляется в Slack, Telegram, Finder
-            await clipboard.write([new ClipboardItem({ "text/uri-list": pathToFileURL(path).href })])
-        }))
+        ipcMain.handle(ExposedRecordingPreview.COPY, onCurrent(({ path }) => copyFileToClipboard(path)))
         ipcMain.on(ExposedRecordingPreview.REVEAL, onCurrent(({ path }) => {
             this.hide()
             shell.showItemInFolder(path)
@@ -68,6 +55,7 @@ class RecordingPreview {
             this.hide()
             await shell.trashItem(path)
             logger.info("[Preview] Moved to Trash:", path)
+            recentRecordings.refresh()
         }))
         ipcMain.on(ExposedRecordingPreview.CLOSE, () => this.hide())
         ipcMain.on(ExposedRecordingPreview.HOVER, (_event, isHovered: boolean) => {

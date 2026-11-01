@@ -97,6 +97,7 @@
 import { computed, ref } from "vue"
 import { RecordingSavedInfo } from "@/deinitions/recorder.ts"
 import { ExposedRecordingPreview } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { formatDuration, formatFileSize } from "@/utils/format.ts"
 
 interface PreviewPayload {
     info:      RecordingSavedInfo
@@ -109,30 +110,8 @@ const info = ref<RecordingSavedInfo | null>(null)
 const thumbnail = ref<string | null>(null)
 const isCopied = ref(false)
 
-const pad = (value: number) => `${value}`.padStart(2, "0")
-
-/** 0:07, 12:34, 1:02:03 */
-const duration = computed(() => {
-    const totalSeconds = Math.round((info.value?.durationMs ?? 0) / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
-    return hours ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`
-})
-
-/** 845 КБ, 12,4 МБ, 1,2 ГБ */
-const size = computed(() => {
-    const bytes = info.value?.sizeBytes ?? 0
-    const units = ["Б", "КБ", "МБ", "ГБ"]
-    let value = bytes
-    let unit = 0
-    while (value >= 1024 && unit < units.length - 1) {
-        value /= 1024
-        unit++
-    }
-    const digits = unit >= 2 && value < 100 ? 1 : 0
-    return `${value.toLocaleString("ru-RU", { maximumFractionDigits: digits })} ${units[unit]}`
-})
+const duration = computed(() => formatDuration(info.value?.durationMs ?? 0))
+const size = computed(() => formatFileSize(info.value?.sizeBytes ?? 0))
 
 function send(channel: ExposedRecordingPreview) {
     window.ipcRenderer?.send(channel)

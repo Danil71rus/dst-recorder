@@ -24,6 +24,7 @@ import { findDisplay, getDisplays, isDisplayConnected, watchDisplays } from "@/r
 import { RecordingFile } from "@/recorder/recording-file.ts"
 import { runCountdown } from "@/recorder/countdown.ts"
 import { recordingPreview } from "@/recorder/recording-preview.ts"
+import { recentRecordings } from "@/recorder/recent-recordings.ts"
 import { SettingsStore, sanitizeSettings } from "@/recorder/settings-store.ts"
 
 /**
@@ -313,20 +314,20 @@ export class ScreenRecorder {
         this.flushStopWaiters()
     }
 
-    /** Что показать после сохранения — по настройке: миниатюру, файл в Finder или ничего */
+    /** Запись сохранена: в список последних записей трея и, по настройке, миниатюра или Finder */
     private onRecordingSaved(path: string, durationMs: number, displayId?: number) {
-        const action = this.settings.afterRecording
-        if (action === AfterRecordingAction.Finder) {
-            shell.showItemInFolder(path)
-        } else if (action === AfterRecordingAction.Preview) {
-            let sizeBytes = 0
-            try {
-                sizeBytes = statSync(path).size
-            } catch (error) {
-                logger.warn("[Recorder] Cannot read file size:", error)
-            }
-            void recordingPreview.show({ path, fileName: basename(path), durationMs, sizeBytes, displayId })
+        let sizeBytes = 0
+        try {
+            sizeBytes = statSync(path).size
+        } catch (error) {
+            logger.warn("[Recorder] Cannot read file size:", error)
         }
+        const info = { path, fileName: basename(path), durationMs, sizeBytes, displayId }
+        recentRecordings.add(info)
+
+        const action = this.settings.afterRecording
+        if (action === AfterRecordingAction.Finder) shell.showItemInFolder(path)
+        else if (action === AfterRecordingAction.Preview) void recordingPreview.show(info)
     }
 
     /** Захват оборвался сам (экран отключён, доступ отозван, сбой окна записи) — сохраняем то, что записано */
