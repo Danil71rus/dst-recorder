@@ -8,7 +8,6 @@
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
-    "node_modules/**/*",
     "package.json",
     "src/assets/camera.icns",
     "src/assets/camera.ico",
@@ -21,7 +20,6 @@
     "icon": "src/assets/camera.icns",
     "category": "public.app-category.productivity",
     "hardenedRuntime": false,
-    "gatekeeperAssess": false,
     "target": [
       {
         "target": "dmg",

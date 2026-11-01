@@ -155,17 +155,21 @@ scripts/                    postinstall, очистка release/
 
 **Разрешения и подпись.** Разрешения запрашиваются от имени приложения в `src/permissions.ts` (`desktopCapturer.getSources` для записи экрана, `askForMediaAccess` для микрофона). `builder/after-pack.js` подписывает пакет ad-hoc, чтобы macOS надёжно узнавала приложение и не сбрасывала разрешения.
 
-**Особенности упаковки.** `asar: false`. Приложение скрывает Dock (`activationPolicy: accessory`) и не завершается при закрытии окон.
+**Особенности упаковки.** `asar: false`. В пакет попадают только `dist/`, `dist-electron/`, иконки и production-зависимости. Значка в Dock нет (`LSUIElement` в Info.plist, в dev — `activationPolicy: accessory`) и не завершается при закрытии окон.
 
 ### CI и релизы
 
-`.github/workflows/build-mac.yml` собирает DMG на каждый push/PR в `main` и выкладывает артефакты. На тег `v*` автоматически создаётся GitHub Release с DMG:
+`.github/workflows/build-mac.yml` собирает DMG на каждый push/PR в `main` и выкладывает артефакты (вкладка Actions → запуск → Artifacts). На тег `v*` автоматически создаётся GitHub Release с DMG:
 
 ```bash
 git tag v1.0.1 && git push origin v1.0.1
 ```
 
 Не забудьте поднять `version` в `package.json`.
+
+CI ставит зависимости строго по `pnpm-lock.yaml` (`--frozen-lockfile`) той версией pnpm, что указана в `packageManager` в `package.json`. Поэтому после любого изменения зависимостей запустите `pnpm install` и закоммитьте `pnpm-lock.yaml` вместе с `package.json` — иначе сборка в CI упадёт на установке.
+
+Все библиотеки интерфейса (Vue, Bootstrap) Vite встраивает в сборку, поэтому они в `devDependencies` и в приложение не попадают; в `dependencies` только то, что нужно main-процессу во время работы (`electron-log`).
 
 ## Решение проблем
 
