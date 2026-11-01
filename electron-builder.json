@@ -33,7 +33,8 @@
       "LSUIElement": true,
       "NSMicrophoneUsageDescription": "Dst-Recorder записывает ваш голос вместе с экраном.",
       "NSAudioCaptureUsageDescription": "Dst-Recorder записывает звук компьютера вместе с экраном: собеседников, видео, уведомления."
-    }
+    },
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "win": {
     "icon": "src/assets/camera.ico",

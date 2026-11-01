@@ -165,7 +165,7 @@ scripts/                    postinstall, очистка release/
 git tag v1.0.1 && git push origin v1.0.1
 ```
 
-Не забудьте поднять `version` в `package.json`.
+Версию приложения и имена файлов CI берёт из тега (`v1.1.3` → `Dst-Recorder-1.1.3-arm64.dmg` и `-x64.dmg`), поднимать `version` в `package.json` вручную не нужно.
 
 CI ставит зависимости строго по `pnpm-lock.yaml` (`--frozen-lockfile`) той версией pnpm, что указана в `packageManager` в `package.json`. Поэтому после любого изменения зависимостей запустите `pnpm install` и закоммитьте `pnpm-lock.yaml` вместе с `package.json` — иначе сборка в CI упадёт на установке.
 
