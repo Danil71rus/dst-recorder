@@ -1,7 +1,9 @@
 import { app, ipcMain, powerSaveBlocker, shell } from "electron"
-import { join } from "path"
+import { basename, join } from "path"
+import { statSync } from "fs"
 import { homedir } from "os"
 import {
+    AfterRecordingAction,
     CaptureOptions,
     DisplayInfo,
     MIC_NONE,
@@ -20,6 +22,8 @@ import { planCapture } from "@/recorder/capture-plan.ts"
 import { captureBridge } from "@/recorder/capture-bridge.ts"
 import { findDisplay, getDisplays, isDisplayConnected, watchDisplays } from "@/recorder/displays.ts"
 import { RecordingFile } from "@/recorder/recording-file.ts"
+import { runCountdown } from "@/recorder/countdown.ts"
+import { recordingPreview } from "@/recorder/recording-preview.ts"
 import { SettingsStore, sanitizeSettings } from "@/recorder/settings-store.ts"
 
 /**
@@ -188,6 +192,8 @@ export class ScreenRecorder {
         this.state = "starting"
         this.stopRequestedWhileStarting = false
         this.revealAfterStop = true
+        // Миниатюра прошлой записи не должна попасть в новую
+        recordingPreview.hide()
 
         try {
             const settings = this.settings
@@ -197,6 +203,14 @@ export class ScreenRecorder {
             if (this.stopRequestedWhileStarting) return this.failStart("Recording was cancelled")
 
             const { display, area } = this.resolveTarget()
+            // Отсчёт — до открытия файла и захвата: отмена (Esc, повторное нажатие, «Стоп») не оставляет файла
+            const isCountdownDone = await runCountdown(
+                settings.countdownSeconds,
+                display,
+                () => this.stopRequestedWhileStarting,
+            )
+            if (!isCountdownDone) return this.failStart("Recording was cancelled")
+
             const plan = planCapture(display, settings.defSize, settings.fps, area)
             const options: CaptureOptions = {
                 width:              plan.width,
@@ -277,6 +291,9 @@ export class ScreenRecorder {
     }
 
     private async finishRecording() {
+        // Длительность и экран — до сброса состояния: они нужны миниатюре после записи
+        const durationMs = this.getActiveDurationMs()
+        const displayId = this.activeDisplayId
         this.state = "stopping"
         this.stopStatusTimer()
         try {
@@ -292,8 +309,24 @@ export class ScreenRecorder {
         if (file?.error) logger.error("[Recorder] File was not written completely:", file.error)
 
         this.resetAfterRecording()
-        if (this.revealAfterStop && file && result?.saved) shell.showItemInFolder(file.path)
+        if (this.revealAfterStop && file && result?.saved) this.onRecordingSaved(file.path, durationMs, displayId)
         this.flushStopWaiters()
+    }
+
+    /** Что показать после сохранения — по настройке: миниатюру, файл в Finder или ничего */
+    private onRecordingSaved(path: string, durationMs: number, displayId?: number) {
+        const action = this.settings.afterRecording
+        if (action === AfterRecordingAction.Finder) {
+            shell.showItemInFolder(path)
+        } else if (action === AfterRecordingAction.Preview) {
+            let sizeBytes = 0
+            try {
+                sizeBytes = statSync(path).size
+            } catch (error) {
+                logger.warn("[Recorder] Cannot read file size:", error)
+            }
+            void recordingPreview.show({ path, fileName: basename(path), durationMs, sizeBytes, displayId })
+        }
     }
 
     /** Захват оборвался сам (экран отключён, доступ отозван, сбой окна записи) — сохраняем то, что записано */

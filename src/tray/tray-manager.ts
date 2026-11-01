@@ -3,7 +3,7 @@ import { join } from "path"
 import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { ExposedWinMain, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
-import { describeAudio, RecordingStatus, sizeTitleMap } from "@/deinitions/recorder.ts"
+import { describeAudio, HotkeyAction, RecordingStatus, sizeTitleMap } from "@/deinitions/recorder.ts"
 import { updatePositionByAria } from "@/window/ipc-handlers/ipc-win-select-aria.ts"
 import { appName } from "@/utils/utilsForMain.ts"
 import { logger } from "@/utils/logger.ts"
@@ -70,11 +70,11 @@ export class TrayManager {
 
         if (status.isRecording) {
             const isPaused = Boolean(status.isPaused)
-            this.setMenu(`recording:${isPaused}`, () => this.getRecordingMenu(isPaused))
+            this.setMenu(`recording:${isPaused}:${this.hotkeysKey()}`, () => this.getRecordingMenu(isPaused))
             this.setTitle(status)
         } else {
             const { video, audio } = this.describeSettings()
-            this.setMenu(`default:${video}:${audio}`, () => this.getDefaultMenu())
+            this.setMenu(`default:${video}:${audio}:${this.hotkeysKey()}`, () => this.getDefaultMenu())
             this.setTitle(null)
             this.isStartedFromTray = false
         }
@@ -149,6 +149,7 @@ export class TrayManager {
         return Menu.buildFromTemplate([
             {
                 label: "▶️ Начать запись",
+                ...this.accelerator("toggleRecording"),
                 click: () => void this.startRecording(),
             },
             {
@@ -185,14 +186,17 @@ export class TrayManager {
             isPaused
                 ? {
                     label: "▶️ Продолжить",
+                    ...this.accelerator("togglePause"),
                     click: () => screenRecorder.resumeRecording(),
                 }
                 : {
                     label: "⏸️ Пауза",
+                    ...this.accelerator("togglePause"),
                     click: () => screenRecorder.pauseRecording(),
                 },
             {
                 label: "⏹️ Остановить запись",
+                ...this.accelerator("toggleRecording"),
                 click: () => void screenRecorder.stopRecording(),
             },
             { type: "separator" },
@@ -202,6 +206,20 @@ export class TrayManager {
             },
             ...this.getCommonItems(),
         ])
+    }
+
+    /**
+     * Сочетание клавиш справа от пункта меню — только подпись: срабатывает глобальное сочетание (hotkeys.ts),
+     * поэтому меню его не регистрирует
+     */
+    private accelerator(action: HotkeyAction): Partial<MenuItemConstructorOptions> {
+        const accelerator = screenRecorder.getSettings().hotkeys[action]
+        return accelerator ? { accelerator, registerAccelerator: false } : {}
+    }
+
+    private hotkeysKey() {
+        const { toggleRecording, togglePause } = screenRecorder.getSettings().hotkeys
+        return `${toggleRecording}|${togglePause}`
     }
 
     private getCommonItems(): MenuItemConstructorOptions[] {
@@ -219,7 +237,8 @@ export class TrayManager {
         ]
     }
 
-    private async startRecording(): Promise<void> {
+    /** Старт из трея или по горячей клавише: в иконке появляются кнопки паузы и остановки */
+    public async startRecording(): Promise<void> {
         // Окна настроек и таймера не должны попасть в запись
         getWindowByName(WindowName.Main)?.hide()
         getWindowByName(WindowName.Timer)?.hide()

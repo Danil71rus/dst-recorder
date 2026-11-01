@@ -1,14 +1,17 @@
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, ipcMain } from "electron"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { createMainWindow } from "@/window/win-main.ts"
 import { createTimerWindow } from "@/window/win-timer.ts"
 import { createSelectAriaWindow } from "@/window/win-select-aria.ts"
 import { createBorderWindow } from "@/window/win-border.ts"
 import { createCaptureWindow } from "@/window/win-capture.ts"
+import { createCountdownWindow, createRecordingPreviewWindow } from "@/window/win-overlay.ts"
 import { logger } from "@/utils/logger.ts"
 import { trayManager } from "@/tray/tray-manager.ts"
 import { ensurePermissions } from "@/permissions.ts"
-import { MIC_NONE } from "@/deinitions/recorder.ts"
+import { MIC_NONE, RecorderSettings } from "@/deinitions/recorder.ts"
+import { hotkeyManager } from "@/recorder/hotkeys.ts"
+import { ExposedRecorder } from "@/window/ipc-handlers/definitions/renderer.ts"
 import os from "os"
 
 const isDarwin = os.platform() === "darwin"
@@ -33,8 +36,11 @@ app.whenReady().then(async () => {
         createSelectAriaWindow(),
         createBorderWindow(),
         createCaptureWindow(),
+        createCountdownWindow(),
+        createRecordingPreviewWindow(),
     ])
     trayManager.createTray()
+    initHotkeys()
 
     // Первый запуск: сразу просим разрешения от имени приложения,
     // чтобы к моменту первой записи всё уже было разрешено
@@ -53,6 +59,24 @@ app.whenReady().then(async () => {
     })
 })
 
+/** Глобальные сочетания: старт/стоп и пауза из любого приложения. Перерегистрируются при смене настроек */
+function initHotkeys() {
+    hotkeyManager.init({
+        toggleRecording: () => {
+            if (screenRecorder.isBusy()) void screenRecorder.stopRecording()
+            else void trayManager.startRecording()
+        },
+        togglePause: () => {
+            if (screenRecorder.getRecordingStatus().isPaused) screenRecorder.resumeRecording()
+            else screenRecorder.pauseRecording()
+        },
+    })
+    hotkeyManager.apply(screenRecorder.getSettings().hotkeys)
+    ipcMain.on(ExposedRecorder.UPDATED_SETTINGS, (_event, settings: RecorderSettings) => {
+        hotkeyManager.apply(settings.hotkeys)
+    })
+}
+
 // Перед выходом (трей, Cmd+Q, выключение Mac) дожидаемся, пока запись остановится и файл сохранится
 let isQuitAfterRecording = false
 const QUIT_WAIT_TIMEOUT_MS = 30_000
@@ -69,7 +93,10 @@ app.on("before-quit", (event) => {
 })
 
 // Страховка: если запись так и не остановилась, закрываем файл с тем, что успело записаться
-app.on("will-quit", () => screenRecorder.abort())
+app.on("will-quit", () => {
+    hotkeyManager.unregisterAll()
+    screenRecorder.abort()
+})
 
 app.on("window-all-closed", () => {
     // Для macOS не выходим, чтобы приложение продолжало жить в трее

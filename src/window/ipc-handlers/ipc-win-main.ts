@@ -3,6 +3,7 @@ import { ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { RecorderSettings } from "@/deinitions/recorder.ts"
 import { getDisplayPreview } from "@/recorder/displays.ts"
+import { hotkeyManager } from "@/recorder/hotkeys.ts"
 
 
 export function initMainWindowControlsHandlers(mainWin: BrowserWindow) {
@@ -18,9 +19,17 @@ export function initMainWindowControlsHandlers(mainWin: BrowserWindow) {
         return getDisplayPreview(Number(displayId))
     })
 
+    // Настройки сохраняются сразу при изменении — окно при этом остаётся открытым
     ipcMain.handle(ExposedWinMain.SAVE_SETTINGS, async (_event, settings?: RecorderSettings) => {
         screenRecorder.setSettings(settings)
-        mainWin.hide()
+    })
+
+    ipcMain.handle(ExposedWinMain.GET_HOTKEY_STATUS, () => {
+        return hotkeyManager.getStatus()
+    })
+
+    ipcMain.on(ExposedWinMain.SUSPEND_HOTKEYS, (_event, isSuspended: boolean) => {
+        hotkeyManager.suspend(Boolean(isSuspended))
     })
 
     ipcMain.handle(ExposedWinMain.PICK_OUTPUT_PATH, async () => {

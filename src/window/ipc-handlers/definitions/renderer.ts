@@ -10,6 +10,9 @@ export enum ExposedWinMain {
     SHOW = "main:show",
     GET_DISPLAYS = "main:get-displays",
     GET_DISPLAY_PREVIEW = "main:get-display-preview",
+    GET_HOTKEY_STATUS = "main:get-hotkey-status",
+    // пока пользователь вводит новое сочетание, глобальные сочетания не должны срабатывать
+    SUSPEND_HOTKEYS = "main:suspend-hotkeys",
     GET_SETTINGS = "main:get-settings",
     SAVE_SETTINGS = "main:save-settings",
     PICK_OUTPUT_PATH = "main:pick-output-path",
@@ -45,8 +48,27 @@ export enum ExposedCapture {
     ENDED = "capture:ended",
 }
 
+// Обратный отсчёт перед записью (src/recorder/countdown.ts ↔ CountdownView.vue)
+export enum ExposedCountdown {
+    TICK = "countdown:tick",
+}
+
+// Миниатюра после записи (src/recorder/recording-preview.ts ↔ RecordingPreviewView.vue)
+export enum ExposedRecordingPreview {
+    SHOW = "preview:show",
+    OPEN = "preview:open",
+    COPY = "preview:copy",
+    REVEAL = "preview:reveal",
+    DELETE = "preview:delete",
+    CLOSE = "preview:close",
+    // перетаскивание файла из миниатюры в другое приложение
+    START_DRAG = "preview:start-drag",
+    // курсор над миниатюрой — не прятать её
+    HOVER = "preview:hover",
+}
+
 export type ExposedChannel = ExposedRecorder | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | ExposedCapture
-    | string
+    | ExposedCountdown | ExposedRecordingPreview | string
 
 export interface ExposedIpcRenderer {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => void

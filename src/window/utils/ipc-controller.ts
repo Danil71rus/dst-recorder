@@ -3,6 +3,7 @@ import { initMainWindowControlsHandlers } from "@/window/ipc-handlers/ipc-win-ma
 import { initTimerWindowControlsHandlers } from "@/window/ipc-handlers/ipc-win-timer.ts"
 import { initSelectAriaWindowControlsHandlers } from "@/window/ipc-handlers/ipc-win-select-aria.ts"
 import { initTrayHandlers } from "@/window/ipc-handlers/ipc-tray.ts"
+import { recordingPreview } from "@/recorder/recording-preview.ts"
 
 export enum WindowName {
     Main = "mainWindow",
@@ -10,6 +11,8 @@ export enum WindowName {
     SelectAria = "selectAria",
     Border = "border",
     Capture = "capture",
+    Countdown = "countdown",
+    RecordingPreview = "recordingPreview",
 }
 
 type WindowsState = Record<WindowName, WindowState>
@@ -25,11 +28,13 @@ const windowDefaultState = () => ({
 })
 
 const _windowsState: WindowsState = {
-    [WindowName.Main]:         windowDefaultState(),
-    [WindowName.Timer]:        windowDefaultState(),
-    [WindowName.SelectAria]:   windowDefaultState(),
-    [WindowName.Border]:       windowDefaultState(),
-    [WindowName.Capture]:      windowDefaultState(),
+    [WindowName.Main]:             windowDefaultState(),
+    [WindowName.Timer]:            windowDefaultState(),
+    [WindowName.SelectAria]:       windowDefaultState(),
+    [WindowName.Border]:           windowDefaultState(),
+    [WindowName.Capture]:          windowDefaultState(),
+    [WindowName.Countdown]:        windowDefaultState(),
+    [WindowName.RecordingPreview]: windowDefaultState(),
 }
 
 const _handlersRegister = [
@@ -70,6 +75,15 @@ const _handlersRegister = [
                 return
             }
             initSelectAriaWindowControlsHandlers(ariaWindow)
+        },
+    },
+    {
+        type:        "recordingPreview",
+        isRegister:  false,
+        isAvailable: () => _windowsState[WindowName.RecordingPreview].isReady,
+        register:    () => {
+            const previewWindow = _windowsState[WindowName.RecordingPreview].windowLink
+            if (previewWindow) recordingPreview.init(previewWindow)
         },
     },
     {

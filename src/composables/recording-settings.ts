@@ -1,8 +1,12 @@
 import { computed, ref } from "vue"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import {
+    AfterRecordingAction,
+    COUNTDOWN_OPTIONS,
     describeAudio,
     DisplayInfo,
+    HotkeyAction,
+    HotkeyStatus,
     getDefaultSettings,
     normalizeSize,
     RecorderSettings,
@@ -99,6 +103,59 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         },
     })
 
+    // Сочетание, которое не удалось зарегистрировать (занято другим приложением), подсвечивается в настройках
+    const hotkeyStatus = ref<HotkeyStatus>({ toggleRecording: true, togglePause: true })
+
+    const hotkeyModel = (action: HotkeyAction) => computed({
+        get: () => currentState.value.hotkeys[action],
+        set: (accelerator: string) => {
+            currentState.value.hotkeys = { ...currentState.value.hotkeys, [action]: accelerator }
+            tryAutoSave()
+        },
+    })
+    const hotkeyToggleRecording = hotkeyModel("toggleRecording")
+    const hotkeyTogglePause = hotkeyModel("togglePause")
+
+    const countdownList: ComboboxItem[] = COUNTDOWN_OPTIONS.map(seconds => ({
+        id:    `${seconds}`,
+        title: seconds ? `${seconds} сек` : "Без отсчёта",
+    }))
+    const selectedCountdown = computed({
+        get: () => `${currentState.value.countdownSeconds}`,
+        set: (seconds: string) => {
+            currentState.value.countdownSeconds = Number(seconds)
+            tryAutoSave()
+        },
+    })
+
+    const afterRecordingList: ComboboxItem[] = [
+        {
+            id:       AfterRecordingAction.Preview,
+            title:    "Показать миниатюру",
+            subtitle: "Длительность, размер и кнопки «Открыть», «Копировать», «Удалить»",
+        },
+        {
+            id:    AfterRecordingAction.Finder,
+            title: "Показать файл в Finder",
+        },
+        {
+            id:    AfterRecordingAction.Nothing,
+            title: "Ничего не делать",
+        },
+    ]
+    const selectedAfterRecording = computed({
+        get: () => currentState.value.afterRecording,
+        set: (action: string) => {
+            currentState.value.afterRecording = action as AfterRecordingAction
+            tryAutoSave()
+        },
+    })
+
+    function setOutputPath(path: string) {
+        currentState.value.outputPath = path
+        tryAutoSave()
+    }
+
     const selectedDefSizeName = computed(() => sizeTitleMap[normalizeSize(currentState.value.defSize)])
     const selectedVideoName = computed(() => currentDisplay.value?.label || "")
     const selectedAudioName = computed(() => describeAudio(currentState.value))
@@ -118,7 +175,10 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
             window.ipcRenderer?.invoke<DisplayInfo[]>(ExposedWinMain.GET_DISPLAYS),
         ])
         if (displayList?.length) displays.value = displayList
-        if (settings) currentState.value = { ...settings }
+        if (settings) currentState.value = { ...settings, hotkeys: { ...settings.hotkeys } }
+
+        const status = await window.ipcRenderer?.invoke<HotkeyStatus>(ExposedWinMain.GET_HOTKEY_STATUS)
+        if (status) hotkeyStatus.value = status
     }
 
     async function save() {
@@ -144,6 +204,14 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         selectedDefSizeName,
         selectedVideoName,
         selectedAudioName,
+        hotkeyStatus,
+        hotkeyToggleRecording,
+        hotkeyTogglePause,
+        countdownList,
+        selectedCountdown,
+        afterRecordingList,
+        selectedAfterRecording,
+        setOutputPath,
         save,
         updateSettings,
     }

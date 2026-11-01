@@ -57,7 +57,37 @@ export interface RecorderSettings {
     recordSystemAudio: boolean
     // подсвечивать записываемый экран рамкой
     showBorder:        boolean
+    // глобальные сочетания клавиш (формат Electron Accelerator: "Alt+Shift+R"); пустая строка — выключено
+    hotkeys:           HotkeySettings
+    // обратный отсчёт перед стартом, секунд; 0 — без отсчёта
+    countdownSeconds:  number
+    // что показать, когда файл сохранён
+    afterRecording:    AfterRecordingAction
 }
+
+export interface HotkeySettings {
+    // начать запись / остановить
+    toggleRecording: string
+    // пауза / продолжить
+    togglePause:     string
+}
+
+export type HotkeyAction = keyof HotkeySettings
+
+export enum AfterRecordingAction {
+    // миниатюра в углу экрана с информацией о файле и кнопками
+    Preview = "preview",
+    // показать файл в Finder
+    Finder = "finder",
+    Nothing = "nothing",
+}
+
+export const COUNTDOWN_OPTIONS = [0, 3, 5, 10]
+
+export const getDefaultHotkeys = (): HotkeySettings => ({
+    toggleRecording: "Alt+Shift+R",
+    togglePause:     "Alt+Shift+P",
+})
 
 export const getDefaultSettings = (): RecorderSettings => ({
     outputPath:        "",
@@ -67,6 +97,9 @@ export const getDefaultSettings = (): RecorderSettings => ({
     micLabel:          "",
     recordSystemAudio: true,
     showBorder:        false,
+    hotkeys:           getDefaultHotkeys(),
+    countdownSeconds:  3,
+    afterRecording:    AfterRecordingAction.Preview,
 })
 
 export interface StartRecordingResponse {
@@ -140,3 +173,16 @@ export function describeAudio(settings: Pick<RecorderSettings, "micDeviceId" | "
     const text = parts.join(" + ")
     return text.charAt(0).toUpperCase() + text.slice(1)
 }
+
+/** Сохранённая запись — для миниатюры после записи */
+export interface RecordingSavedInfo {
+    path:       string
+    fileName:   string
+    durationMs: number
+    sizeBytes:  number
+    // экран, который записывался: миниатюра появляется в его углу
+    displayId?: number
+}
+
+/** Состояние глобальных сочетаний клавиш: false — занято другим приложением или некорректно */
+export type HotkeyStatus = Record<HotkeyAction, boolean>

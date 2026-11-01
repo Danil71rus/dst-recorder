@@ -12,40 +12,60 @@
 
             <div class="scrollable-content">
                 <div class="sections">
-                    <dst-settings-section
-                        class="section-screen"
-                        title="Экран"
-                        description="Что будет записано и в каком качестве"
-                    >
-                        <dst-combobox
-                            v-model="selectedVideo"
-                            :items="screensList"
-                            :display-type="ComboboxDisplayType.Right"
-                            :variant="ComboboxStyle.Secondary"
-                            placeholder="Экран"
-                            label="Монитор"
-                        />
+                    <div class="column">
+                        <dst-settings-section
+                            title="Экран"
+                            description="Что будет записано и в каком качестве"
+                        >
+                            <dst-combobox
+                                v-model="selectedVideo"
+                                :items="screensList"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                placeholder="Экран"
+                                label="Монитор"
+                            />
 
-                        <dst-screen-preview
-                            :src="screenPreview"
-                            :is-loading="isPreviewLoading"
-                            :ratio="screenRatio"
-                        />
+                            <dst-screen-preview
+                                :src="screenPreview"
+                                :is-loading="isPreviewLoading"
+                                :ratio="screenRatio"
+                            />
 
-                        <dst-combobox
-                            v-model="selectedDefSize"
-                            :items="sizesCombobox"
-                            :display-type="ComboboxDisplayType.Right"
-                            :variant="ComboboxStyle.Secondary"
-                            placeholder="Качество"
-                            label="Качество"
-                        />
+                            <dst-combobox
+                                v-model="selectedDefSize"
+                                :items="sizesCombobox"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                placeholder="Качество"
+                                label="Качество"
+                            />
 
-                        <dst-switch
-                            v-model="showBorder"
-                            label="Подсвечивать экран рамкой во время записи"
-                        />
-                    </dst-settings-section>
+                            <dst-switch
+                                v-model="showBorder"
+                                label="Подсвечивать экран рамкой во время записи"
+                            />
+                        </dst-settings-section>
+
+                        <dst-settings-section
+                            title="Сохранение"
+                            description="Куда складывать записи и что показать после"
+                        >
+                            <dst-output-path-picker
+                                :path="currentState.outputPath"
+                                label="Папка"
+                                @pick="pickOutputPath"
+                            />
+
+                            <dst-combobox
+                                v-model="selectedAfterRecording"
+                                :items="afterRecordingList"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                label="После записи"
+                            />
+                        </dst-settings-section>
+                    </div>
 
                     <div class="column">
                         <dst-settings-section
@@ -66,13 +86,27 @@
                         </dst-settings-section>
 
                         <dst-settings-section
-                            title="Сохранение"
-                            description="Куда складывать записи"
+                            title="Управление"
+                            description="Сочетания работают из любого приложения"
                         >
-                            <dst-output-path-picker
-                                :path="currentState.outputPath"
-                                label="Папка"
-                                @pick="pickOutputPath"
+                            <dst-hotkey-input
+                                v-model="hotkeyToggleRecording"
+                                label="Начать / остановить запись"
+                                :is-conflict="!hotkeyStatus.toggleRecording"
+                            />
+
+                            <dst-hotkey-input
+                                v-model="hotkeyTogglePause"
+                                label="Пауза / продолжить"
+                                :is-conflict="!hotkeyStatus.togglePause"
+                            />
+
+                            <dst-combobox
+                                v-model="selectedCountdown"
+                                :items="countdownList"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                label="Отсчёт перед записью"
                             />
                         </dst-settings-section>
                     </div>
@@ -80,17 +114,12 @@
             </div>
 
             <footer class="actions-footer">
-                <dst-button
-                    value="Закрыть"
-                    :variant="ButtonVariant.OutlineSecondary"
-                    @click="onClose"
-                />
+                <span class="autosave-hint">Изменения сохраняются сразу</span>
 
                 <dst-button
-                    class="ml-x4"
-                    value="Сохранить"
+                    value="Готово"
                     :variant="ButtonVariant.Success"
-                    @click="save"
+                    @click="onClose"
                 />
             </footer>
         </div>
@@ -108,6 +137,7 @@ import DstSwitch from "@/components/DstSwitch.vue"
 import DstMicrophonePicker from "@/components/DstMicrophonePicker.vue"
 import DstScreenPreview from "@/components/DstScreenPreview.vue"
 import DstSettingsSection from "@/components/DstSettingsSection.vue"
+import DstHotkeyInput from "@/components/DstHotkeyInput.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { dragPosition } from "@/composables/drag-position.ts"
 import { useRecordingSettings } from "@/composables/recording-settings"
@@ -125,9 +155,16 @@ const {
     showBorder,
     screensList,
     micList,
-    save,
+    hotkeyStatus,
+    hotkeyToggleRecording,
+    hotkeyTogglePause,
+    countdownList,
+    selectedCountdown,
+    afterRecordingList,
+    selectedAfterRecording,
+    setOutputPath,
     updateSettings,
-} = useRecordingSettings()
+} = useRecordingSettings({ autoSaveOnChange: true })
 
 const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
 // Индикатор микрофона и превью экрана работают, только пока окно настроек открыто
@@ -155,7 +192,7 @@ function onClose() {
 
 async function pickOutputPath() {
     const selectedPath = await window.ipcRenderer?.invoke<string>(ExposedWinMain.PICK_OUTPUT_PATH)
-    if (selectedPath) currentState.value.outputPath = selectedPath
+    if (selectedPath) setOutputPath(selectedPath)
 }
 </script>
 
@@ -210,7 +247,7 @@ async function pickOutputPath() {
     @include custom-scrollbar();
 }
 
-// Две колонки: слева экран с превью, справа звук и сохранение
+// Две колонки: слева экран с превью и сохранение, справа звук и управление
 .sections {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
@@ -226,9 +263,16 @@ async function pickOutputPath() {
 
 .actions-footer {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: 16px;
     padding: 16px 24px 20px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     margin-top: 16px;
+
+    .autosave-hint {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+    }
 }
 </style>

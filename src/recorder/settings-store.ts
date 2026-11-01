@@ -1,6 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs"
 import { dirname } from "path"
-import { getDefaultSettings, MIC_DEFAULT, normalizeSize, RecorderSettings } from "@/deinitions/recorder.ts"
+import {
+    AfterRecordingAction,
+    COUNTDOWN_OPTIONS,
+    getDefaultSettings,
+    HotkeySettings,
+    MIC_DEFAULT,
+    normalizeSize,
+    RecorderSettings,
+} from "@/deinitions/recorder.ts"
 import { logger } from "@/utils/logger.ts"
 
 // Поля старого формата (версия с FFmpeg): из них переносится выбранный монитор
@@ -11,10 +19,25 @@ interface LegacySettings {
 type StoredSettings = Partial<RecorderSettings> & LegacySettings
 
 const MAX_FPS = 60
+// Длиннее ни одно разумное сочетание клавиш не бывает: защита от мусора в файле настроек
+const MAX_HOTKEY_LENGTH = 64
 
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value)
 const isString = (value: unknown): value is string => typeof value === "string"
 const isBoolean = (value: unknown): value is boolean => typeof value === "boolean"
+
+function sanitizeHotkeys(value: Partial<HotkeySettings> | undefined, defaults: HotkeySettings): HotkeySettings {
+    const pick = (hotkey: unknown, fallback: string) => {
+        return isString(hotkey) && hotkey.length <= MAX_HOTKEY_LENGTH ? hotkey : fallback
+    }
+    return {
+        toggleRecording: pick(value?.toggleRecording, defaults.toggleRecording),
+        togglePause:     pick(value?.togglePause, defaults.togglePause),
+    }
+}
+
+const AFTER_RECORDING_ACTIONS = Object.values(AfterRecordingAction) as string[]
+const isAfterRecordingAction = (value: unknown) => isString(value) && AFTER_RECORDING_ACTIONS.includes(value)
 
 /**
  * Приводит настройки к актуальному формату: только известные поля и корректные значения.
@@ -34,6 +57,13 @@ export function sanitizeSettings(input: StoredSettings | undefined, defaultOutpu
         micLabel:          isString(value.micLabel) ? value.micLabel : "",
         recordSystemAudio: isBoolean(value.recordSystemAudio) ? value.recordSystemAudio : defaults.recordSystemAudio,
         showBorder:        isBoolean(value.showBorder) ? value.showBorder : defaults.showBorder,
+        hotkeys:           sanitizeHotkeys(value.hotkeys, defaults.hotkeys),
+        countdownSeconds:  COUNTDOWN_OPTIONS.includes(Number(value.countdownSeconds))
+            ? Number(value.countdownSeconds)
+            : defaults.countdownSeconds,
+        afterRecording:    isAfterRecordingAction(value.afterRecording)
+            ? value.afterRecording as AfterRecordingAction
+            : defaults.afterRecording,
     }
 }
 

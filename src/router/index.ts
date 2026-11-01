@@ -4,6 +4,8 @@ import TimerView from "@/views/TimerView.vue"
 import SelectAriaView from "@/views/SelectAriaView.vue"
 import BorderView from "@/views/BorderView.vue"
 import CaptureView from "@/views/CaptureView.vue"
+import CountdownView from "@/views/CountdownView.vue"
+import RecordingPreviewView from "@/views/RecordingPreviewView.vue"
 
 const routes = [
     {
@@ -30,6 +32,16 @@ const routes = [
         path: "/capture",
         name: "Capture",
         component: CaptureView,
+    },
+    {
+        path: "/countdown",
+        name: "Countdown",
+        component: CountdownView,
+    },
+    {
+        path: "/recording-preview",
+        name: "RecordingPreview",
+        component: RecordingPreviewView,
     },
 ]
 
