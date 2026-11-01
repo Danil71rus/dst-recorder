@@ -1,6 +1,7 @@
 import { app, nativeImage, NativeImage, Tray } from "electron"
 import { join } from "path"
 import { RecordingStatus } from "@/deinitions/recorder.ts"
+import { logger } from "@/utils/logger.ts"
 
 type ControlIcon = "pause" | "play" | "stop"
 
@@ -41,6 +42,9 @@ export class RecordingControls {
         this.pauseTray = new Tray(this.icon("pause"))
         this.pauseTray.setToolTip("Пауза")
         this.pauseTray.on("click", () => (this.isPaused ? this.actions.resume() : this.actions.pause()))
+
+        // Если места в строке меню не хватает, macOS прячет новые значки за вырезом камеры — по координатам это видно
+        logger.info("[Tray] Recording controls shown at", this.pauseTray.getBounds(), this.stopTray.getBounds())
     }
 
     /** Кнопка паузы превращается в «продолжить» и обратно — по состоянию записи, откуда бы ни поставили паузу */
@@ -63,7 +67,9 @@ export class RecordingControls {
     private icon(name: ControlIcon): NativeImage {
         let icon = this.icons.get(name)
         if (!icon) {
-            icon = nativeImage.createFromPath(join(app.getAppPath(), "src/assets/tray", `${name}Template.png`))
+            const path = join(app.getAppPath(), "src/assets/tray", `${name}Template.png`)
+            icon = nativeImage.createFromPath(path)
+            if (icon.isEmpty()) logger.error(`[Tray] Control icon not found: ${path}`)
             icon.setTemplateImage(true)
             this.icons.set(name, icon)
         }

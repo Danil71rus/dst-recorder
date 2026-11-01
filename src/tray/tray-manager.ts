@@ -82,7 +82,7 @@ export class TrayManager {
     }
 
     private updateControls(status: RecordingStatus) {
-        if (!isDarwin || !this.isStartedFromTray) return
+        if (!isDarwin || !this.isStartedFromTray || !status.isRecording) return
         this.controls.show()
         this.controls.update(status)
     }
@@ -198,7 +198,10 @@ export class TrayManager {
         if (result.error) {
             this.isStartedFromTray = false
             logger.warn("[Tray] Recording did not start:", result.error)
+            return
         }
+        // Не ждём следующего тика статуса: кнопки появляются сразу, как запись началась
+        this.updateControls(screenRecorder.getRecordingStatus())
     }
 
     private openSettings(): void {
