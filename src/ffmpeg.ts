@@ -1,5 +1,5 @@
 import ffmpeg from "fluent-ffmpeg"
-import { app, ipcMain, screen, shell } from "electron"
+import { app, ipcMain, powerSaveBlocker, screen, shell } from "electron"
 import { join, dirname } from "path"
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs"
 import { homedir } from "os"
@@ -141,6 +141,8 @@ export class ScreenRecorder {
     // Время старта входов FFmpeg (видео — #0, звук — #1) по часам системы: из них считается
     // сдвиг звука относительно видео, который применяется при финализации
     private inputStartTimes: (number | null)[] = []
+    // Запрет App Nap на время записи (см. keepAwake)
+    private powerSaveBlockerId: number | null = null
 
     // Мониторы
     private displayEventsSubscribed = false
@@ -673,6 +675,7 @@ export class ScreenRecorder {
                         this.isRecording = true
                         this.recordingStartTime = Date.now()
                         this.startTimer()
+                        this.keepAwake()
                         resolve({ outputPathAndFileName: outputPath })
 
                         if (this.stopRequestedWhileStarting) this.requestFfmpegStop()
@@ -714,7 +717,23 @@ export class ScreenRecorder {
         }
     }
 
+    /**
+     * Приложение живёт в фоне без окон, и macOS усыпляет его (App Nap): таймеры растягиваются,
+     * поток чтения звука FFmpeg вместо 10 мс спит ~100 мс, и AVFoundation успевает затереть
+     * аудиобуферы — в записи появляются провалы звука. На время записи запрещаем это.
+     */
+    private keepAwake() {
+        if (this.powerSaveBlockerId === null) this.powerSaveBlockerId = powerSaveBlocker.start("prevent-app-suspension")
+    }
+
+    private releaseAwake() {
+        if (this.powerSaveBlockerId === null) return
+        powerSaveBlocker.stop(this.powerSaveBlockerId)
+        this.powerSaveBlockerId = null
+    }
+
     private failStart(error: string): StartRecordingResponse {
+        this.releaseAwake()
         this.state = "idle"
         this.activeDisplayId = undefined
         this.stopRequestedWhileStarting = false
@@ -817,6 +836,7 @@ export class ScreenRecorder {
 
         // Сразу возвращаем UI в исходное состояние, файл финализируется в фоне
         this.state = "finalizing"
+        this.releaseAwake()
         this.ffmpegCommand = null
         this.isRecording = false
         this.isPaused = false
