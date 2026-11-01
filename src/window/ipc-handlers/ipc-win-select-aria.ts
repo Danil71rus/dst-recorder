@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, screen } from "electron"
-import { ExposedRecorder, ExposedWinSelectAria } from "./definitions/renderer.ts"
-import { getWindowByName, WindowName } from "../utils/ipc-controller.ts"
-import { ARIA_BORDER } from "../utils/aria-geometry.ts"
+import { ExposedRecorder, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
+import { ARIA_BORDER } from "@/window/utils/aria-geometry.ts"
 import { RecordingStatus } from "@/deinitions/recorder.ts"
 
 export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {

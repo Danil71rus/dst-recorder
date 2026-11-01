@@ -1,6 +1,6 @@
 import { Display, screen } from "electron"
 import { DisplayInfo, Rect } from "@/deinitions/recorder.ts"
-import { logger } from "../utils/logger.ts"
+import { logger } from "@/utils/logger.ts"
 
 // При подключении монитора macOS шлёт пачку событий — схлопываем их в одно
 const DISPLAY_CHANGE_DEBOUNCE_MS = 800

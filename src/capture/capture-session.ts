@@ -1,7 +1,7 @@
 import { CaptureInfo, CaptureOptions, CaptureResult, CaptureSource, MIC_NONE } from "@/deinitions/recorder.ts"
-import { AudioMixer } from "./audio-mixer.ts"
-import { openMicrophone, RAW_AUDIO } from "./media-devices.ts"
-import { VideoCrop } from "./video-crop.ts"
+import { AudioMixer } from "@/capture/audio-mixer.ts"
+import { openMicrophone, RAW_AUDIO } from "@/capture/media-devices.ts"
+import { VideoCrop } from "@/capture/video-crop.ts"
 
 /**
  * Одна запись: экран (+ звук компьютера) из getDisplayMedia, микрофон из getUserMedia,

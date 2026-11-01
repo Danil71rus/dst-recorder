@@ -1,8 +1,8 @@
 import { BrowserWindow, ipcMain, shell } from "electron"
-import { ExposedRecorder, ExposedWinTimer } from "./definitions/renderer.ts"
-import { screenRecorder } from "../../recorder/screen-recorder.ts"
+import { ExposedRecorder, ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { RecorderSettings, RecordingStatus } from "@/deinitions/recorder.ts"
-import { sizeDef, sizeMax } from "../win-timer.ts"
+import { sizeDef, sizeMax } from "@/window/win-timer.ts"
 
 
 export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {

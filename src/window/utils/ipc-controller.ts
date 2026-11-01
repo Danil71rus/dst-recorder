@@ -1,8 +1,8 @@
 import { BrowserWindow } from "electron"
-import { initMainWindowControlsHandlers } from "../ipc-handlers/ipc-win-main.ts"
-import { initTimerWindowControlsHandlers } from "../ipc-handlers/ipc-win-timer.ts"
-import { initSelectAriaWindowControlsHandlers } from "../ipc-handlers/ipc-win-select-aria.ts"
-import { initTrayHandlers } from "../ipc-handlers/ipc-tray.ts"
+import { initMainWindowControlsHandlers } from "@/window/ipc-handlers/ipc-win-main.ts"
+import { initTimerWindowControlsHandlers } from "@/window/ipc-handlers/ipc-win-timer.ts"
+import { initSelectAriaWindowControlsHandlers } from "@/window/ipc-handlers/ipc-win-select-aria.ts"
+import { initTrayHandlers } from "@/window/ipc-handlers/ipc-tray.ts"
 
 export enum WindowName {
     Main = "mainWindow",

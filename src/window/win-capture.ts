@@ -1,8 +1,8 @@
 import { app, BrowserWindow } from "electron"
 import { join } from "path"
-import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
-import { captureBridge } from "../recorder/capture-bridge.ts"
-import { logger } from "../utils/logger.ts"
+import { setWindowReady, WindowName } from "@/window/utils/ipc-controller.ts"
+import { captureBridge } from "@/recorder/capture-bridge.ts"
+import { logger } from "@/utils/logger.ts"
 
 const isDev = !app.isPackaged
 

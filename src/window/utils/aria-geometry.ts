@@ -1,6 +1,6 @@
 import { BrowserWindow } from "electron"
 import { DisplayInfo, Rect } from "@/deinitions/recorder.ts"
-import { findDisplayByRect } from "../../recorder/displays.ts"
+import { findDisplayByRect } from "@/recorder/displays.ts"
 
 // Толщина рамки окна выбора области: сама рамка в запись не попадает
 export const ARIA_BORDER = 4

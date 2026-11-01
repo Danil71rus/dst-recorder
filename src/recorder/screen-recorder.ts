@@ -10,17 +10,17 @@ import {
     RecordingStatus,
     StartRecordingResponse,
 } from "@/deinitions/recorder.ts"
-import { ExposedRecorder, ExposedWinSelectAria } from "../window/ipc-handlers/definitions/renderer.ts"
-import { getWindowAll, getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
-import { getAriaArea } from "../window/utils/aria-geometry.ts"
-import { appName } from "../utils/utilsForMain.ts"
-import { ensurePermissions, handleCaptureError } from "../permissions.ts"
-import { logger } from "../utils/logger.ts"
-import { planCapture } from "./capture-plan.ts"
-import { captureBridge } from "./capture-bridge.ts"
-import { findDisplay, getDisplays, isDisplayConnected, watchDisplays } from "./displays.ts"
-import { RecordingFile } from "./recording-file.ts"
-import { SettingsStore, sanitizeSettings } from "./settings-store.ts"
+import { ExposedRecorder, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { getWindowAll, getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
+import { getAriaArea } from "@/window/utils/aria-geometry.ts"
+import { appName } from "@/utils/utilsForMain.ts"
+import { ensurePermissions, handleCaptureError } from "@/permissions.ts"
+import { logger } from "@/utils/logger.ts"
+import { planCapture } from "@/recorder/capture-plan.ts"
+import { captureBridge } from "@/recorder/capture-bridge.ts"
+import { findDisplay, getDisplays, isDisplayConnected, watchDisplays } from "@/recorder/displays.ts"
+import { RecordingFile } from "@/recorder/recording-file.ts"
+import { SettingsStore, sanitizeSettings } from "@/recorder/settings-store.ts"
 
 /**
  * Жизненный цикл записи: idle → starting → recording ⇄ paused → stopping → idle.

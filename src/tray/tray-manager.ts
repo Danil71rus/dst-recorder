@@ -1,10 +1,10 @@
 import { app, Tray, Menu, nativeImage, shell } from "electron"
 import { join } from "path"
-import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
-import { screenRecorder } from "../recorder/screen-recorder.ts"
-import { ExposedWinMain, ExposedWinSelectAria } from "../window/ipc-handlers/definitions/renderer.ts"
+import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
+import { screenRecorder } from "@/recorder/screen-recorder.ts"
+import { ExposedWinMain, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { describeAudio, RecordingStatus, sizeTitleMap } from "@/deinitions/recorder.ts"
-import { updatePositionByAria } from "../window/ipc-handlers/ipc-win-select-aria.ts"
+import { updatePositionByAria } from "@/window/ipc-handlers/ipc-win-select-aria.ts"
 
 export class TrayManager {
     private static instance: TrayManager

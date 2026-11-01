@@ -1,6 +1,6 @@
 import { CaptureApi, CaptureReply, CaptureResult } from "@/deinitions/recorder.ts"
 import { ExposedCapture } from "@/window/ipc-handlers/definitions/renderer.ts"
-import { CaptureSession, CaptureSink } from "./capture-session.ts"
+import { CaptureSession, CaptureSink } from "@/capture/capture-session.ts"
 
 const sink: CaptureSink = {
     chunk: data => window.ipcRenderer?.send(ExposedCapture.CHUNK, data),

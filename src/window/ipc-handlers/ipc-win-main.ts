@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from "electron"
-import { ExposedWinMain } from "./definitions/renderer.ts"
-import { screenRecorder } from "../../recorder/screen-recorder.ts"
+import { ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { RecorderSettings } from "@/deinitions/recorder.ts"
 
 

@@ -1,9 +1,9 @@
 import { desktopCapturer, ipcMain, IpcMainEvent, session } from "electron"
 import { CaptureInfo, CaptureOptions, CaptureReply, CaptureResult } from "@/deinitions/recorder.ts"
-import { ExposedCapture } from "../window/ipc-handlers/definitions/renderer.ts"
-import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
-import { RecordingFile } from "./recording-file.ts"
-import { logger } from "../utils/logger.ts"
+import { ExposedCapture } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
+import { RecordingFile } from "@/recorder/recording-file.ts"
+import { logger } from "@/utils/logger.ts"
 
 /**
  * Связь main с окном записи (src/capture/). Сам захват и кодирование делает Chromium:

@@ -1,8 +1,8 @@
 import { app, desktopCapturer, dialog, shell, systemPreferences } from "electron"
 import { existsSync, writeFileSync } from "fs"
 import { join } from "path"
-import { logger } from "./utils/logger.ts"
-import { appName } from "./utils/utilsForMain.ts"
+import { logger } from "@/utils/logger.ts"
+import { appName } from "@/utils/utilsForMain.ts"
 import { CaptureSource } from "@/deinitions/recorder.ts"
 
 /**

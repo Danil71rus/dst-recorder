@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs"
 import { dirname } from "path"
 import { getDefaultSettings, MIC_DEFAULT, normalizeSize, RecorderSettings } from "@/deinitions/recorder.ts"
-import { logger } from "../utils/logger.ts"
+import { logger } from "@/utils/logger.ts"
 
 // Поля старого формата (версия с FFmpeg): из них переносится выбранный монитор
 interface LegacySettings {

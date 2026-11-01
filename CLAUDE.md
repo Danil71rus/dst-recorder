@@ -4,43 +4,6 @@
 
 **⚠️ ВАЖНО: Все ответы, размышления и общение должны быть на русском языке.**
 
-## 🔍 Использование Graphify — ОБЯЗАТЕЛЬНО ДЛЯ ВСЕХ ВОПРОСОВ О КОДЕ
-
-> **✅ КРИТИЧЕСКОЕ ПРАВИЛО:**
-> 
-> **При ЛЮБОМ вопросе о коде, архитектуре, компонентах или поиске в проекте:**
-> 1. СНАЧАЛА запусти одну из команд Graphify
-> 2. Используй результаты вместо grep/file search
-> 3. Это экономит время и дает полный контекст
-> 
-> **НИКОГДА не начинай с raw grep или file browsing — ВСЕГДА Graphify первым!**
-
-### Команды Graphify, которые ВСЕГДА использовать:
-
-**Понимание компонента:**
-```bash
-graphify explain "ScreenRecorder"
-graphify explain "RecorderSettings"  
-```
-
-**Поиск связей между компонентами:**
-```bash
-graphify path "ScreenRecorder" "startRecording"
-graphify path "main.ts" "CaptureSession"
-```
-
-**Поиск по теме:**
-```bash
-graphify query "запись экрана"
-graphify query "обработчики IPC"
-graphify query "аудио"
-```
-
-**После изменения кода обновляй граф:**
-```bash
-graphify update .
-```
-
 ## Обзор проекта
 
 Dst-Recorder — приложение для записи экрана на Electron 45 (macOS 14.2+, Windows не проверялась): Vue 3, TypeScript. Записывает экран или область, звук компьютера и микрофон в MP4. Всё записывает Chromium (getDisplayMedia: экран через ScreenCaptureKit, звук компьютера через Core Audio Tap; getUserMedia, WebAudio, MediaRecorder с аппаратным H.264) — FFmpeg, BlackHole и агрегатные аудиоустройства **не используются**.
@@ -129,44 +92,6 @@ Main-процесс, `src/recorder/`:
 - **Vue Router**: Использует хеш-маршрутизацию (`createWebHashHistory`) для совместимости с Electron
 - **Vite Plugin Electron**: Обрабатывает сборку основного процесса и preload скриптов Electron с горячей перезагрузкой при разработке
 - **Построитель ассетов**: Пользовательские плагины Vite в `vite.config.ts` запускают `builder/build.js` для генерации ассетов иконок
-- **i18n**: Vue I18n используется для локализации (русская локаль в `src/locales/`)
+- **Импорты**: только через алиас `@/…` (настроен в `tsconfig.json` и для всех сборок в `vite.config.ts`), без `./` и `../`
+- **Интерфейс**: только на русском, без i18n
 - **Логирование**: Все логи записываются в файл через `electron-log` (см. `src/utils/logger.ts`)
-
-## graphify — ОБЯЗАТЕЛЬНО ДЛЯ ВСЕХ ВОПРОСОВ О КОДЕ
-
-**✅ ПРАВИЛО: ВСЕГДА используй Graphify перед поиском в коде!**
-
-Этот проект имеет граф знаний в директории `graphify-out/` с центральными узлами, структурой сообществ и кросс-файловыми отношениями.
-
-### Обязательные правила использования:
-
-1. **Вопрос о компоненте?** → `graphify explain "<имя>"`
-   - Пример: `graphify explain "ScreenRecorder"` → сразу получаешь все его методы, зависимости и связи
-
-2. **Нужно найти поток/логику?** → `graphify path "<A>" "<B>"`
-   - Пример: `graphify path "startRecording" "MediaRecorder"` → полный путь выполнения
-
-3. **Вопрос по теме?** → `graphify query "<тема>"`
-   - Пример: `graphify query "запись экрана"` → все связанные компоненты за раз
-
-4. **После изменения кода** → `graphify update .`
-   - Мгновенно обновляет граф (только AST анализ, без API)
-
-5. **Архитектурные вопросы** → читай `graphify-out/GRAPH_REPORT.md`
-   - Вместо manual file browsing
-
-### Примеры для этого проекта:
-
-```bash
-graphify query "захват экрана"                  # Найти поток записи
-graphify explain "ScreenRecorder"               # Основной класс записи (34 связи)
-graphify path "ScreenRecorder" "startRecording" # Поток инициализации записи
-graphify query "IPC"                            # Коммуникация окон
-graphify explain "RecorderSettings"               # Конфигурация записи
-graphify query "аудио"                          # Настройка звука
-```
-
-### Статистика графа:
-- **416 узлов**, **623 связи**, **28 сообществ**
-- **Центральные узлы**: ScreenRecorder (34), compilerOptions (18), scripts (15), getWindowByName() (14)
-- **Последнее обновление**: 2026-05-28 из коммита 04f9c208

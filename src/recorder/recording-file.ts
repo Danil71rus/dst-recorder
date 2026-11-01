@@ -1,5 +1,5 @@
 import { createWriteStream, existsSync, statSync, unlinkSync, WriteStream } from "fs"
-import { logger } from "../utils/logger.ts"
+import { logger } from "@/utils/logger.ts"
 
 /**
  * Файл записи. MediaRecorder отдаёт фрагментированный MP4 кусочками раз в секунду, они дописываются

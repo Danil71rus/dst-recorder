@@ -1,5 +1,5 @@
-import { ExposedIpcRenderer } from "../../window/ipc-handlers/definitions/renderer.ts"
-import { CaptureApi } from "../recorder.ts"
+import { ExposedIpcRenderer } from "@/window/ipc-handlers/definitions/renderer.ts"
+import { CaptureApi } from "@/deinitions/recorder.ts"
 
 declare global {
     interface Window {

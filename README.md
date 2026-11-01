@@ -167,10 +167,6 @@ git tag v1.0.1 && git push origin v1.0.1
 
 Не забудьте поднять `version` в `package.json`.
 
-### Graphify
-
-В `graphify-out/` лежит граф знаний по кодовой базе (используется Claude Code). После заметных изменений обновляйте его: `graphify update .`. Подробнее — [GRAPHIFY.md](GRAPHIFY.md).
-
 ## Решение проблем
 
 | Симптом | Что проверить |

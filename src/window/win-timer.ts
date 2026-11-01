@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron"
 import { join } from "path"
-import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
+import { setWindowReady, WindowName } from "@/window/utils/ipc-controller.ts"
 
 const isDev = !app.isPackaged
 
