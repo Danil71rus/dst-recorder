@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain } from "electron"
 import { ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { RecorderSettings } from "@/deinitions/recorder.ts"
+import { getDisplayPreview } from "@/recorder/displays.ts"
 
 
 export function initMainWindowControlsHandlers(mainWin: BrowserWindow) {
@@ -11,6 +12,10 @@ export function initMainWindowControlsHandlers(mainWin: BrowserWindow) {
 
     ipcMain.handle(ExposedWinMain.GET_DISPLAYS, () => {
         return screenRecorder.getDisplays()
+    })
+
+    ipcMain.handle(ExposedWinMain.GET_DISPLAY_PREVIEW, (_event, displayId: number) => {
+        return getDisplayPreview(Number(displayId))
     })
 
     ipcMain.handle(ExposedWinMain.SAVE_SETTINGS, async (_event, settings?: RecorderSettings) => {

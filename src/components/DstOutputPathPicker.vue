@@ -57,8 +57,8 @@ withDefaults(
 }
 
 .output-path-input {
-    width: 100%;
-    min-width: 320px;
+    flex: 1;
+    min-width: 0;
     padding: 10px 12px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.2);

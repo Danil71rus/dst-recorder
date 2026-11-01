@@ -1,7 +1,6 @@
 <template>
     <div class="dst-microphone-picker">
         <dst-combobox
-            class="picker"
             :model-value="modelValue"
             :items="items"
             :display-type="ComboboxDisplayType.Right"
@@ -11,8 +10,27 @@
             @update:model-value="value => emit('update:modelValue', value)"
         />
 
-        <div class="meter">
+        <div
+            class="meter-row"
+            :class="{ muted: !isMonitoring }"
+        >
+            <svg
+                class="mic-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+            >
+                <rect
+                    x="9"
+                    y="3"
+                    width="6"
+                    height="11"
+                    rx="3"
+                />
+                <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
+            </svg>
+
             <dst-level-meter
+                class="meter"
                 :level="level"
                 :disabled="!isMonitoring"
                 :title="meterTitle"
@@ -70,21 +88,42 @@ const meterTitle = computed(() => {
 <style lang="scss" scoped>
 .dst-microphone-picker {
     display: flex;
-    align-items: flex-end;
-    gap: 12px;
+    flex-direction: column;
+    gap: 10px;
 
-    .picker {
-        flex: 1;
-        min-width: 0;
-    }
-
-    // Высота кнопки выпадающего списка: индикатор стоит напротив неё, а не напротив подписи
-    .meter {
-        width: 96px;
-        height: 38px;
+    // Шкала под списком, на всю ширину: не тесним выпадающий список длинными названиями микрофонов
+    .meter-row {
         display: flex;
         align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.2);
+
+        &.muted .mic-icon {
+            opacity: 0.4;
+        }
+    }
+
+    .mic-icon {
+        width: 16px;
+        height: 16px;
         flex-shrink: 0;
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.8);
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+
+    .meter {
+        flex: 1;
+    }
+
+    // Длинное название микрофона обрезается многоточием, а не растягивает кнопку списка
+    :deep(.dropdown-toggle) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 </style>

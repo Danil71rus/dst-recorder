@@ -1,4 +1,4 @@
-import { Display, screen } from "electron"
+import { desktopCapturer, Display, screen, systemPreferences } from "electron"
 import { DisplayInfo, Rect } from "@/deinitions/recorder.ts"
 import { logger } from "@/utils/logger.ts"
 
@@ -69,4 +69,31 @@ export function watchDisplays(onChange: () => void) {
             schedule(`display-metrics-changed: ${changedMetrics.join(",")}`)
         }
     })
+}
+
+// Ширина превью экрана в окне настроек (в пикселях картинки; окно настроек — около 500 точек, Retina — ×2)
+const PREVIEW_WIDTH = 960
+const PREVIEW_JPEG_QUALITY = 80
+
+/**
+ * Снимок экрана для превью в настройках (JPEG data URL). null — снимка нет: например, нет разрешения
+ * на запись экрана. Без разрешения не вызываем desktopCapturer, чтобы не показывать системный запрос ради превью
+ */
+export async function getDisplayPreview(id: number): Promise<string | null> {
+    if (process.platform === "darwin" && systemPreferences.getMediaAccessStatus("screen") !== "granted") return null
+
+    const display = findDisplay(id)
+    const height = Math.round(PREVIEW_WIDTH * display.bounds.height / display.bounds.width)
+    try {
+        const sources = await desktopCapturer.getSources({
+            types:         ["screen"],
+            thumbnailSize: { width: PREVIEW_WIDTH, height },
+        })
+        const thumbnail = sources.find(source => source.display_id === String(display.id))?.thumbnail
+        if (!thumbnail || thumbnail.isEmpty()) return null
+        return `data:image/jpeg;base64,${thumbnail.toJPEG(PREVIEW_JPEG_QUALITY).toString("base64")}`
+    } catch (error) {
+        logger.warn("[Displays] Failed to get preview:", error)
+        return null
+    }
 }

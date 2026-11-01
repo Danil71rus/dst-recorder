@@ -4,69 +4,101 @@
         @mousedown="drag.startDrag"
     >
         <div class="container">
+            <header class="window-header">
+                <h1 class="window-title">
+                    Настройки записи
+                </h1>
+            </header>
+
             <div class="scrollable-content">
-                <dst-combobox
-                    v-model="selectedVideo"
-                    :items="screensList"
-                    :display-type="ComboboxDisplayType.Right"
-                    :variant="ComboboxStyle.Secondary"
-                    placeholder="Экран"
-                    label="Выбор экрана"
-                />
+                <div class="sections">
+                    <dst-settings-section
+                        class="section-screen"
+                        title="Экран"
+                        description="Что будет записано и в каком качестве"
+                    >
+                        <dst-combobox
+                            v-model="selectedVideo"
+                            :items="screensList"
+                            :display-type="ComboboxDisplayType.Right"
+                            :variant="ComboboxStyle.Secondary"
+                            placeholder="Экран"
+                            label="Монитор"
+                        />
 
-                <dst-combobox
-                    v-model="selectedDefSize"
-                    :items="sizesCombobox"
-                    :display-type="ComboboxDisplayType.Right"
-                    :variant="ComboboxStyle.Secondary"
-                    placeholder="Качество"
-                    label="Качество"
-                />
+                        <dst-screen-preview
+                            :src="screenPreview"
+                            :is-loading="isPreviewLoading"
+                            :ratio="screenRatio"
+                        />
 
-                <dst-microphone-picker
-                    v-model="selectedMic"
-                    :mic-label="currentState.micLabel"
-                    :items="micList"
-                    :monitoring="isPageVisible"
-                />
+                        <dst-combobox
+                            v-model="selectedDefSize"
+                            :items="sizesCombobox"
+                            :display-type="ComboboxDisplayType.Right"
+                            :variant="ComboboxStyle.Secondary"
+                            placeholder="Качество"
+                            label="Качество"
+                        />
 
-                <dst-switch
-                    v-model="recordSystemAudio"
-                    label="Записывать звук компьютера"
-                />
+                        <dst-switch
+                            v-model="showBorder"
+                            label="Подсвечивать экран рамкой во время записи"
+                        />
+                    </dst-settings-section>
 
-                <dst-output-path-picker
-                    :path="currentState.outputPath"
-                    @pick="pickOutputPath"
-                />
+                    <div class="column">
+                        <dst-settings-section
+                            title="Звук"
+                            description="Ваш голос и звук компьютера — одной дорожкой"
+                        >
+                            <dst-microphone-picker
+                                v-model="selectedMic"
+                                :mic-label="currentState.micLabel"
+                                :items="micList"
+                                :monitoring="isPageVisible"
+                            />
 
-                <dst-switch
-                    v-model="showBorder"
-                    label="Подсвечивать рамкой экран при записи"
-                />
+                            <dst-switch
+                                v-model="recordSystemAudio"
+                                label="Записывать звук компьютера"
+                            />
+                        </dst-settings-section>
 
-                <hr>
+                        <dst-settings-section
+                            title="Сохранение"
+                            description="Куда складывать записи"
+                        >
+                            <dst-output-path-picker
+                                :path="currentState.outputPath"
+                                label="Папка"
+                                @pick="pickOutputPath"
+                            />
+                        </dst-settings-section>
+                    </div>
+                </div>
             </div>
 
-            <div class="actions-footer">
+            <footer class="actions-footer">
                 <dst-button
-                    value="Сохранить"
-                    :variant="ButtonVariant.Success"
-                    @click="save"
-                />
-
-                <dst-button
-                    class="ml-x4"
                     value="Закрыть"
                     :variant="ButtonVariant.OutlineSecondary"
                     @click="onClose"
                 />
-            </div>
+
+                <dst-button
+                    class="ml-x4"
+                    value="Сохранить"
+                    :variant="ButtonVariant.Success"
+                    @click="save"
+                />
+            </footer>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue"
 import { ExposedRecorder, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
@@ -74,13 +106,17 @@ import DstOutputPathPicker from "@/components/DstOutputPathPicker.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import DstSwitch from "@/components/DstSwitch.vue"
 import DstMicrophonePicker from "@/components/DstMicrophonePicker.vue"
+import DstScreenPreview from "@/components/DstScreenPreview.vue"
+import DstSettingsSection from "@/components/DstSettingsSection.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { dragPosition } from "@/composables/drag-position.ts"
 import { useRecordingSettings } from "@/composables/recording-settings"
 import { usePageVisible } from "@/composables/page-visible.ts"
+import { useDisplayPreview } from "@/composables/display-preview.ts"
 
 const {
     currentState,
+    currentDisplay,
     sizesCombobox,
     selectedDefSize,
     selectedVideo,
@@ -94,8 +130,17 @@ const {
 } = useRecordingSettings()
 
 const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
-// Индикатор микрофона работает, только пока окно настроек открыто
+// Индикатор микрофона и превью экрана работают, только пока окно настроек открыто
 const isPageVisible = usePageVisible()
+
+const { preview: screenPreview, isLoading: isPreviewLoading } = useDisplayPreview({
+    displayId: computed(() => currentDisplay.value?.id),
+    enabled:   isPageVisible,
+})
+const screenRatio = computed(() => {
+    const bounds = currentDisplay.value?.bounds
+    return bounds ? bounds.width / bounds.height : 16 / 10
+})
 
 void updateSettings()
 window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
@@ -137,37 +182,53 @@ async function pickOutputPath() {
 .container {
     display: flex;
     flex-direction: column;
-    background: rgba(1, 12, 12, 0.48);
-    border-radius: 1rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.16);
-    margin: 8px;
-    color: #ffffff;
+    width: calc(100% - 16px);
     max-height: calc(100vh - 16px);
+    margin: 8px;
+    border-radius: 1rem;
+    background: rgba(1, 12, 12, 0.48);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.16);
+    color: #ffffff;
     overflow: hidden;
+}
+
+.window-header {
+    padding: 20px 24px 0;
+
+    .window-title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+    }
 }
 
 .scrollable-content {
     flex: 1;
     overflow-y: auto;
-    padding: 25px 25px 0 25px;
+    padding: 16px 24px 0;
 
     @include custom-scrollbar();
+}
 
-    &>*:not(:first-child) {
-        margin-top: 24px;
-    }
+// Две колонки: слева экран с превью, справа звук и сохранение
+.sections {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
 
-    hr {
-        margin-top: 24px;
-        margin-bottom: 0;
+    .column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
     }
 }
 
 .actions-footer {
     display: flex;
-    padding: 24px 25px 25px 25px;
-    position: sticky;
-    bottom: 0;
+    justify-content: flex-end;
+    padding: 16px 24px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 16px;
 }
-
 </style>

@@ -4,43 +4,75 @@
         :class="{ disabled }"
         :title="title"
     >
-        <div
-            class="fill"
-            :style="{ '--level': `${Math.round(level * 100)}%` }"
+        <span
+            v-for="(segment, index) in segments"
+            :key="index"
+            class="segment"
+            :class="[segment.zone, { lit: !disabled && index < litCount }]"
         />
     </div>
 </template>
 
 <script setup lang="ts">
+/**
+ * Индикатор уровня в виде светодиодной шкалы: зелёный — нормальная громкость, жёлтый — громко, красный — перегруз
+ */
+import { computed } from "vue"
+
 interface Props {
     // уровень сигнала 0..1
     level:     number
     disabled?: boolean
     title?:    string
+    segments?: number
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
     disabled: false,
     title:    "",
+    segments: 24,
 })
+
+// Границы зон в долях шкалы
+const WARNING_FROM = 0.7
+const DANGER_FROM = 0.88
+
+const segments = computed(() => Array.from({ length: props.segments }, (_, index) => {
+    const position = (index + 1) / props.segments
+    const zone = position > DANGER_FROM ? "danger" : position > WARNING_FROM ? "warning" : "normal"
+    return { zone }
+}))
+
+const litCount = computed(() => Math.round(Math.min(Math.max(props.level, 0), 1) * props.segments))
 </script>
 
 <style lang="scss" scoped>
 .dst-level-meter {
-    position: relative;
+    display: flex;
+    gap: 3px;
     width: 100%;
-    height: 8px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.2);
-    overflow: hidden;
+    height: 10px;
 
-    // Градиент неподвижен, уровень только открывает его: громкий сигнал уходит в жёлтое и красное
-    .fill {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(90deg, #38c172 0%, #38c172 65%, #ffc107 85%, #e3342f 100%);
-        clip-path: inset(0 calc(100% - var(--level)) 0 0);
-        transition: clip-path 50ms linear;
+    .segment {
+        flex: 1;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+        transition: background-color 80ms linear, box-shadow 80ms linear;
+
+        &.lit.normal {
+            background: #34d399;
+            box-shadow: 0 0 4px rgba(52, 211, 153, 0.6);
+        }
+
+        &.lit.warning {
+            background: #fbbf24;
+            box-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+        }
+
+        &.lit.danger {
+            background: #f87171;
+            box-shadow: 0 0 4px rgba(248, 113, 113, 0.6);
+        }
     }
 
     &.disabled {

@@ -9,6 +9,7 @@ export enum ExposedRecorder {
 export enum ExposedWinMain {
     SHOW = "main:show",
     GET_DISPLAYS = "main:get-displays",
+    GET_DISPLAY_PREVIEW = "main:get-display-preview",
     GET_SETTINGS = "main:get-settings",
     SAVE_SETTINGS = "main:save-settings",
     PICK_OUTPUT_PATH = "main:pick-output-path",

@@ -132,6 +132,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
 
     return {
         currentState,
+        currentDisplay,
         sizesCombobox,
         selectedDefSize,
         selectedVideo,

@@ -8,8 +8,8 @@ const isDev = !app.isPackaged
 export async function createMainWindow() {
     const mainWindow = new BrowserWindow({
         icon:           getIconPath(),
-        width:          550,
-        height:         600,
+        width:          800,
+        height:         760,
         show:           false,
         frame:          false,
         alwaysOnTop:    true,
