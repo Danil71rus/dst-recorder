@@ -49,22 +49,39 @@ const isEven = (n: number) => Number.isInteger(n) && n % 2 === 0
 const AGGREGATE_DEVICE_PREFIX = "Recorder-Input"
 const MIC_GAIN = 2.5
 const LIMITER_CEILING = 0.95
+// Во время записи звук пишется с запасом качества: при финализации он всё равно перекодируется
+const AUDIO_BITRATE_LIVE = "256k"
+const AUDIO_BITRATE_FINAL = "128k"
+// Сдвиг между стартом звука и видео больше этого считаем ошибкой разбора лога и не применяем
+const MAX_AV_OFFSET_SECONDS = 5
 
 /**
- * Сводит звук устройства в стерео: голос и системный звук одинаково в обоих каналах.
- * adeclick убирает щелчки на стыках аудиобуферов AVFoundation (известный баг FFmpeg #11398),
- * alimiter не даёт усиленному микрофону уйти в клиппинг.
+ * Живая цепочка: сводит звук в стерео (голос и системный звук одинаково в обоих каналах),
+ * aresample=async=1 заполняет пропущенные AVFoundation куски по меткам времени, чтобы звук
+ * не отставал от видео (FFmpeg #11398), alimiter не даёт усиленному микрофону уйти в клиппинг.
  */
 function buildAudioFilters(audio: FfmpegDevice): string[] {
     const isAggregate = audio.name.startsWith(AGGREGATE_DEVICE_PREFIX)
     const mix = isAggregate ? `${MIC_GAIN}*c0+c2` : `${MIC_GAIN}*c0`
 
     return [
+        "aresample=async=1",
         `pan=stereo|c0=${mix}|c1=${mix}`,
-        "adeclick",
         // level=disabled: без этого alimiter сам поднимает громкость до 0 dB
         `alimiter=limit=${LIMITER_CEILING}:level=disabled`,
     ]
+}
+
+/**
+ * Финализация: adeclick сглаживает щелчки на стыках аудиобуферов. Он тяжёлый, поэтому работает
+ * не во время записи, а после неё, и на одном канале — левый и правый всегда одинаковые (см. выше).
+ */
+const FINALIZE_AUDIO_FILTER = "pan=mono|c0=c0,adeclick,pan=stereo|c0=c0|c1=c0"
+
+/** "  Duration: N/A, start: 51234.567833, bitrate: N/A" → 51234.567833 */
+function parseInputStart(line: string): number | null {
+    const match = line.match(/Duration:.*\bstart: (-?\d+(?:\.\d+)?)/)
+    return match?.[1] ? Number(match[1]) : null
 }
 
 function safeUnlink(path: string) {
@@ -121,6 +138,9 @@ export class ScreenRecorder {
     private stopWaiters: (() => void)[] = []
     private stopTimers: ReturnType<typeof setTimeout>[] = []
     private revealAfterFinalize = true
+    // Время старта входов FFmpeg (видео — #0, звук — #1) по часам системы: из них считается
+    // сдвиг звука относительно видео, который применяется при финализации
+    private inputStartTimes: (number | null)[] = []
 
     // Мониторы
     private displayEventsSubscribed = false
@@ -600,15 +620,23 @@ export class ScreenRecorder {
 
             const videoFilterStr = `crop=${settings.crop.w}:${settings.crop.h}:${settings.offset.x}:${settings.offset.y},scale=${settings.scale.w}:${settings.scale.h}`
 
+            this.inputStartTimes = []
             const command = ffmpeg()
-                // Один вход для видео, один для УЖЕ синхронизированного аудио
-                .input(`${video.index}:${audio.index}`)
+                // Видео и звук — отдельные входы: у каждого свой поток чтения, и захват кадров экрана
+                // (~11 МБ каждый) не задерживает чтение звука. В общем входе AVFoundation из-за этого
+                // затирал аудиобуферы, и терялось до 13% звука
+                .input(`${video.index}:none`)
                 .inputFormat("avfoundation")
                 .inputFPS(settings.fps)
                 .inputOptions(["-thread_queue_size", "2048", "-capture_cursor", "1"])
+                .input(`none:${audio.index}`)
+                .inputFormat("avfoundation")
+                .inputOptions(["-thread_queue_size", "4096"])
                 .videoFilter([videoFilterStr])
                 .audioFilter(buildAudioFilters(audio))
                 .outputOptions([
+                    "-map", "0:v:0",
+                    "-map", "1:a:0",
                     "-c:v", "libx264",
                     // veryfast даёт файлы в ~4.5 раза меньше ultrafast при том же CRF (ultrafast отключает
                     // CABAC, поиск движения, 8x8 DCT). Для 4K берём superfast, чтобы кодер успевал в реальном времени
@@ -619,8 +647,7 @@ export class ScreenRecorder {
                     // Ключевой кадр раз в 10 сек: на экранном контенте короткий GOP заметно раздувает файл
                     "-g", `${settings.fps * 10}`,
                     "-c:a", "aac",
-                    // Для голоса и системного звука 128k достаточно
-                    "-b:a", "128k",
+                    "-b:a", AUDIO_BITRATE_LIVE,
                     // Фрагментированный MP4 (фрагмент каждую секунду): файл читается, даже если процесс убит
                     // или приложение упало. После остановки файл перепаковывается в обычный MP4 (см. finalizeFile)
                     "-movflags", "+empty_moov+default_base_moof",
@@ -668,7 +695,11 @@ export class ScreenRecorder {
                         void this.onProcessExit(err)
                     })
                     .on("stderr", (line) => {
-                        if (!line.includes("frame=")) logger.info(`[FFmpeg] ${line}`)
+                        if (line.includes("frame=")) return
+                        logger.info(`[FFmpeg] ${line}`)
+                        // Входы описываются в логе по порядку: «Input #0 …», затем «Duration: …, start: X»
+                        const start = parseInputStart(line)
+                        if (start !== null) this.inputStartTimes.push(start)
                     })
 
                 // Небольшая задержка, чтобы окна успели скрыться до начала захвата
@@ -794,7 +825,7 @@ export class ScreenRecorder {
         this.stopForAria()
         this.stopBorderHighlight()
 
-        await this.finalizeFile(filePath, trimDuration)
+        await this.finalizeFile(filePath, trimDuration, this.getAudioOffsetSeconds())
 
         this.state = "idle"
         this.recordingStartTime = 0
@@ -823,11 +854,30 @@ export class ScreenRecorder {
     }
 
     /**
-     * Перепаковка фрагментированного MP4 в обычный (+faststart) без перекодирования.
+     * На сколько секунд звук начался позже видео. FFmpeg сдвигает каждый вход к нулю отдельно,
+     * поэтому реальный сдвиг восстанавливаем по времени старта входов из лога
+     */
+    private getAudioOffsetSeconds(): number {
+        const [videoStart, audioStart] = this.inputStartTimes
+        if (videoStart == null || audioStart == null) {
+            logger.warn("[Finalize] Input start times not found in FFmpeg log — A/V offset not applied")
+            return 0
+        }
+        const offset = audioStart - videoStart
+        if (Math.abs(offset) > MAX_AV_OFFSET_SECONDS) {
+            logger.warn(`[Finalize] Suspicious A/V offset ${offset.toFixed(3)}s — not applied`)
+            return 0
+        }
+        return offset
+    }
+
+    /**
+     * Видео перепаковывается из фрагментированного MP4 в обычный (+faststart) без перекодирования,
+     * звук перекодируется: сдвигается на audioOffset (синхронизация с видео) и чистится от щелчков.
      * Если были паузы — заодно обрезаем до реальной длительности.
      * При любой ошибке оставляем исходный файл: фрагментированный MP4 тоже воспроизводится.
      */
-    private finalizeFile(filePath: string, trimSeconds: number | null): Promise<void> {
+    private finalizeFile(filePath: string, trimSeconds: number | null, audioOffset: number): Promise<void> {
         return new Promise((resolve) => {
             try {
                 if (!filePath || !existsSync(filePath) || statSync(filePath).size === 0) {
@@ -842,11 +892,23 @@ export class ScreenRecorder {
             }
 
             const tempPath = `${filePath.replace(/\.mp4$/i, "")}.finalizing.mp4`
-            const options = ["-map", "0", "-c", "copy", "-movflags", "+faststart"]
+            const options = [
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-c:v", "copy",
+                "-af", FINALIZE_AUDIO_FILTER,
+                "-c:a", "aac",
+                "-b:a", AUDIO_BITRATE_FINAL,
+                "-movflags", "+faststart",
+            ]
             if (trimSeconds !== null && trimSeconds > 0) options.unshift("-t", trimSeconds.toFixed(3))
+            logger.info(`[Finalize] A/V offset: ${audioOffset.toFixed(3)}s`)
 
+            // Один и тот же файл открываем дважды: вход #0 — видео как есть, вход #1 — звук со сдвигом
             const command = ffmpeg()
                 .input(filePath)
+                .input(filePath)
+                .inputOptions(["-itsoffset", audioOffset.toFixed(3)])
                 .outputOptions(options)
                 .output(tempPath)
 

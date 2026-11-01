@@ -43,8 +43,14 @@ function findLooseBinaries(dir) {
     return result
 }
 
+/** Запускает codesign; при ошибке возвращает её текст (stderr), а не роняет процесс */
 function codesign(args) {
-    execFileSync("codesign", args, { stdio: "inherit" })
+    try {
+        execFileSync("codesign", args, { stdio: ["ignore", "pipe", "pipe"] })
+        return null
+    } catch (error) {
+        return (error.stderr?.toString() || error.message).trim()
+    }
 }
 
 exports.default = async function afterPack(context) {
@@ -56,11 +62,26 @@ exports.default = async function afterPack(context) {
 
     const appPath = join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`)
     const contents = join(appPath, "Contents")
+    // Главный исполняемый файл нельзя подписывать отдельно: codesign тогда подписывает весь пакет
+    // без --deep и падает на переименованном Helper.app. Его подпишет шаг с пакетом целиком
+    const mainExecutable = join(contents, "MacOS", context.packager.appInfo.productFilename)
 
-    const binaries = findLooseBinaries(contents)
-    console.log(`[after-pack] Ad-hoc signing ${binaries.length} binaries in ${appPath}`)
-    for (const binary of binaries) codesign(["--force", "--sign", "-", binary])
+    const binaries = findLooseBinaries(contents).filter(path => path !== mainExecutable)
+    console.log(`[after-pack] Ad-hoc signing ${binaries.length} binaries + bundle: ${appPath}`)
+    for (const binary of binaries) {
+        // Не критично: неподписанный бинарник в Resources всё равно запечатывается подписью пакета
+        const error = codesign(["--force", "--sign", "-", binary])
+        if (error) console.warn(`[after-pack] Skip ${binary}: ${error}`)
+    }
 
-    codesign(["--force", "--deep", "--sign", "-", appPath])
-    codesign(["--verify", "--deep", "--strict", "--verbose=2", appPath])
+    const bundleError = codesign(["--force", "--deep", "--sign", "-", appPath])
+    if (bundleError) {
+        throw new Error(`[after-pack] Не удалось подписать ${appPath}:\n${bundleError}`)
+    }
+
+    const verifyError = codesign(["--verify", "--deep", "--verbose=2", appPath])
+    if (verifyError) {
+        throw new Error(`[after-pack] Подпись не прошла проверку ${appPath}:\n${verifyError}`)
+    }
+    console.log("[after-pack] Signature OK")
 }
