@@ -1,11 +1,10 @@
-import { app, BrowserWindow, nativeImage } from "electron"
+import { app, BrowserWindow } from "electron"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { createMainWindow } from "@/window/win-main.ts"
 import { createTimerWindow } from "@/window/win-timer.ts"
 import { createSelectAriaWindow } from "@/window/win-select-aria.ts"
 import { createBorderWindow } from "@/window/win-border.ts"
 import { createCaptureWindow } from "@/window/win-capture.ts"
-import { getIconPath } from "@/utils/icon-utils.ts"
 import { logger } from "@/utils/logger.ts"
 import { trayManager } from "@/tray/tray-manager.ts"
 import { ensurePermissions } from "@/permissions.ts"
@@ -14,32 +13,13 @@ import os from "os"
 
 const isDarwin = os.platform() === "darwin"
 
-// Скрываем иконку из Dock (только для macOS)
-if (isDarwin) app.dock?.hide()
-
 app.whenReady().then(async () => {
-    // Устанавливаем иконку приложения
-    if (isDarwin) {
-        try {
-            const iconPath = getIconPath()
-            app.dock?.setIcon(nativeImage.createFromPath(iconPath))
-        } catch (error) {
-            logger.error("Failed to set dock icon:", error)
-        }
-    }
+    // macOS: приложение живёт только в строке меню, без значка в Dock. В собранном приложении это задаёт
+    // LSUIElement в Info.plist (electron-builder.json) — значок не мелькает даже при запуске; здесь — для dev
+    if (isDarwin) app.setActivationPolicy("accessory")
 
     logger.info(`Start: Electron ${process.versions.electron}, Chrome ${process.versions.chrome}, `
         + `${process.platform} ${process.getSystemVersion()}, packaged=${app.isPackaged}`)
-
-    // macOS: скрываем Dock и делаем приложение "меню-барным", чтобы иконка в трее гарантированно была видна
-    if (isDarwin) {
-        try {
-            app.dock?.hide()
-            app.setActivationPolicy("accessory")
-        } catch (e) {
-            logger.warn("Failed to adjust activation policy for tray mode:", e)
-        }
-    }
 
     if (!app.requestSingleInstanceLock()) {
         app.quit()

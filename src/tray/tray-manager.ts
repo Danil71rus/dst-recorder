@@ -1,81 +1,106 @@
-import { app, Tray, Menu, nativeImage, shell } from "electron"
+import { app, Tray, Menu, MenuItemConstructorOptions, nativeImage, shell } from "electron"
 import { join } from "path"
 import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
 import { ExposedWinMain, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { describeAudio, RecordingStatus, sizeTitleMap } from "@/deinitions/recorder.ts"
 import { updatePositionByAria } from "@/window/ipc-handlers/ipc-win-select-aria.ts"
+import { appName } from "@/utils/utilsForMain.ts"
+import { logger } from "@/utils/logger.ts"
+import { RecordingControls } from "@/tray/tray-controls.ts"
+
+const isDarwin = process.platform === "darwin"
+// Иконка Windows/Linux: размер значка в области уведомлений
+const TRAY_ICON_SIZE = 16
 
 export class TrayManager {
     private static instance: TrayManager
     private tray: Tray | null = null
-    private isDarwin = process.platform === "darwin"
-    // Ключ текущего меню: пересобираем меню только когда оно реально меняется, а не каждую секунду
+    // Ключ текущего меню: пересобираем меню только когда оно реально меняется, а не каждую секунду.
+    // Иначе открытое меню закрывалось бы само раз в секунду
     private menuKey = ""
+    // Запись начата из трея: показываем кнопки паузы и остановки в строке меню (только macOS)
+    private isStartedFromTray = false
+    private readonly controls = new RecordingControls({
+        pause:  () => screenRecorder.pauseRecording(),
+        resume: () => screenRecorder.resumeRecording(),
+        stop:   () => void screenRecorder.stopRecording(),
+    })
 
     private constructor() {}
 
     public static getInstance(): TrayManager {
-        if (!TrayManager.instance) {
-            TrayManager.instance = new TrayManager()
-        }
+        if (!TrayManager.instance) TrayManager.instance = new TrayManager()
         return TrayManager.instance
     }
 
+    /**
+     * macOS: монохромная template-иконка (имя оканчивается на Template, рядом лежит @2x для Retina) —
+     * система сама красит её под светлую и тёмную строку меню, как у системных значков.
+     * Остальные ОС: цветная иконка приложения.
+     */
     private createIcon() {
-        const isDev = !app.isPackaged
-        const iconFileName = "camera.png"
-        const iconPath = isDev
-            ? join(process.cwd(), "src/assets", iconFileName)
-            : join(app.getAppPath(), "dist/assets", iconFileName)
+        const assets = join(app.getAppPath(), "src/assets")
+        const size = { width: TRAY_ICON_SIZE, height: TRAY_ICON_SIZE }
+        const icon = isDarwin
+            ? nativeImage.createFromPath(join(assets, "tray", "trayTemplate.png"))
+            : nativeImage.createFromPath(join(assets, "camera.png")).resize(size)
 
-        const icon = nativeImage.createFromPath(iconPath)
-        if (icon.isEmpty()) {
-            console.error("Failed to create tray icon from path:", iconPath)
-            return nativeImage.createEmpty()
-        }
-        return this.isDarwin
-            ? icon.resize({ width: 22, height: 22 })
-            : icon.resize({ width: 16, height: 16 })
+        if (icon.isEmpty()) logger.error(`[Tray] Icon not found in ${assets}`)
+        if (isDarwin) icon.setTemplateImage(true)
+        return icon
     }
 
     public createTray(): void {
         try {
             this.tray = new Tray(this.createIcon())
-            this.tray.setToolTip("DST Recorder")
-
+            this.tray.setToolTip(appName)
             this.updateMenu()
 
-            // На macOS клик по трею обычно показывает меню
-            // На других платформах - правый клик
-            if (this.isDarwin) {
-                this.tray.on("click", () => this.tray?.popUpContextMenu())
-                this.tray.on("right-click", () => this.tray?.popUpContextMenu())
-            }
+            // macOS открывает меню по клику сам (setContextMenu). Windows — только по правому клику, добавляем левый
+            if (!isDarwin) this.tray.on("click", () => this.tray?.popUpContextMenu())
         } catch (error) {
-            console.error("Error creating tray:", error)
+            logger.error("[Tray] Error creating tray:", error)
         }
     }
 
-    public updateMenu(status?: RecordingStatus): void {
+    public updateMenu(status: RecordingStatus = screenRecorder.getRecordingStatus()): void {
         if (!this.tray) return
 
-        if (status?.isRecording) {
-            this.setMenu("recording", () => this.getRecordingMenu())
-            if (this.isDarwin) {
-                this.tray.setTitle(this.isTimerVisible() ? "" : this.getFormattedDuration(status.duration))
-            }
+        if (status.isRecording) {
+            const isPaused = Boolean(status.isPaused)
+            this.setMenu(`recording:${isPaused}`, () => this.getRecordingMenu(isPaused))
+            this.setTitle(status)
+            this.updateControls(status)
         } else {
             const { video, audio } = this.describeSettings()
             this.setMenu(`default:${video}:${audio}`, () => this.getDefaultMenu())
-            if (this.isDarwin) this.tray.setTitle("")
+            this.setTitle(null)
+            this.isStartedFromTray = false
+            this.controls.hide()
         }
+    }
+
+    private updateControls(status: RecordingStatus) {
+        if (!isDarwin || !this.isStartedFromTray) return
+        this.controls.show()
+        this.controls.update(status)
     }
 
     private setMenu(key: string, build: () => Menu) {
         if (!this.tray || this.menuKey === key) return
         this.menuKey = key
         this.tray.setContextMenu(build())
+    }
+
+    /** Время записи рядом с иконкой (macOS), когда таймер скрыт. На паузе — значок паузы вместо точки */
+    private setTitle(status: RecordingStatus | null) {
+        if (!this.tray || !isDarwin) return
+        const title = status && !this.isTimerVisible()
+            ? `${status.isPaused ? "❚❚" : "●"} ${this.getFormattedDuration(status.duration)}`
+            : ""
+        // monospacedDigit: цифры одной ширины, чтобы значки в строке меню не дёргались каждую секунду
+        this.tray.setTitle(title, { fontType: "monospacedDigit" })
     }
 
     /** Подписи выбранного экрана и звука для меню */
@@ -93,19 +118,17 @@ export class TrayManager {
         return Menu.buildFromTemplate([
             {
                 label: "▶️ Начать запись",
-                click: () => this.startRecording(),
+                click: () => void this.startRecording(),
             },
             {
-                label:   `-Видео: ${video}`,
+                label:   `Экран: ${video}`,
                 enabled: false,
             },
             {
-                label:   `-Звук:    ${audio}`,
+                label:   `Звук: ${audio}`,
                 enabled: false,
             },
-            {
-                type: "separator",
-            },
+            { type: "separator" },
             {
                 label: "⚙️ Настройки",
                 click: () => this.openSettings(),
@@ -115,124 +138,103 @@ export class TrayManager {
                 click: () => this.openTimer(),
             },
             {
-                label: "📐Область",
+                label: "📐 Область",
                 click: () => this.openAria(),
             },
-            {
-                label: "📂 Открыть папку с записями",
-                click: () => this.openRecordingsFolder(),
-            },
-            {
-                type: "separator",
-            },
-            {
-                label: "Выход",
-                click: () => this.quitApp(),
-            },
+            ...this.getCommonItems(),
         ])
     }
 
-    private getRecordingMenu(): Menu {
+    private getRecordingMenu(isPaused: boolean): Menu {
         return Menu.buildFromTemplate([
             {
+                label:   isPaused ? "Запись на паузе" : "Идёт запись",
+                enabled: false,
+            },
+            isPaused
+                ? {
+                    label: "▶️ Продолжить",
+                    click: () => screenRecorder.resumeRecording(),
+                }
+                : {
+                    label: "⏸️ Пауза",
+                    click: () => screenRecorder.pauseRecording(),
+                },
+            {
                 label: "⏹️ Остановить запись",
-                click: () => this.stopRecording(),
+                click: () => void screenRecorder.stopRecording(),
             },
-            {
-                type: "separator",
-            },
-            {
-                label: "⚙️ Настройки",
-                click: () => this.openSettings(),
-            },
+            { type: "separator" },
             {
                 label: "⏱️ Таймер",
                 click: () => this.openTimer(),
             },
+            ...this.getCommonItems(),
+        ])
+    }
+
+    private getCommonItems(): MenuItemConstructorOptions[] {
+        return [
             {
                 label: "📂 Открыть папку с записями",
                 click: () => this.openRecordingsFolder(),
             },
-            {
-                type: "separator",
-            },
+            { type: "separator" },
             {
                 label: "Выход",
-                click: () => this.quitApp(),
+                // Остановку записи и ожидание сохранения файла делает обработчик before-quit в main.ts
+                click: () => app.quit(),
             },
-        ])
+        ]
     }
 
     private async startRecording(): Promise<void> {
-        try {
-            // Скрываем все окна перед началом записи
-            const mainWindow = getWindowByName(WindowName.Main)
-            const timerWindow = getWindowByName(WindowName.Timer)
+        // Окна настроек и таймера не должны попасть в запись
+        getWindowByName(WindowName.Main)?.hide()
+        getWindowByName(WindowName.Timer)?.hide()
 
-            if (mainWindow?.isVisible()) mainWindow.hide()
-            if (timerWindow?.isVisible()) timerWindow.hide()
-
-            // Начинаем запись
-            const result = await screenRecorder.startRecording()
-            if (result?.error) {
-                console.error("Failed to start recording:", result.error)
-                return
-            }
-
-            // Показываем окно таймера
-            // if (timerWindow) timerWindow.show()
-        } catch (error) {
-            console.error("Error starting recording:", error)
+        this.isStartedFromTray = true
+        const result = await screenRecorder.startRecording()
+        if (result.error) {
+            this.isStartedFromTray = false
+            logger.warn("[Tray] Recording did not start:", result.error)
         }
-    }
-
-    private async stopRecording(): Promise<void> {
-        await screenRecorder.stopRecording()
-
-        // Скрываем окно таймера
-        // const timerWindow = getWindowByName(WindowName.Timer)
-        // if (timerWindow) timerWindow.hide()
     }
 
     private openSettings(): void {
         const mainWindow = getWindowByName(WindowName.Main)
-        if (mainWindow) {
-            mainWindow.show()
-            mainWindow.webContents.send(ExposedWinMain.SHOW)
-        }
+        if (!mainWindow) return
+        mainWindow.show()
+        mainWindow.webContents.send(ExposedWinMain.SHOW)
     }
 
     private openTimer(): void {
-        const timerWindow = getWindowByName(WindowName.Timer)
-        if (timerWindow) timerWindow.show()
+        getWindowByName(WindowName.Timer)?.show()
+        // Время у иконки нужно, только пока таймер скрыт
+        this.updateMenu()
     }
 
     private isTimerVisible() {
-        return !!getWindowByName(WindowName.Timer)?.isVisible()
+        return Boolean(getWindowByName(WindowName.Timer)?.isVisible())
     }
 
     private openAria(): void {
         const ariaWindow = getWindowByName(WindowName.SelectAria)
-        if (ariaWindow) {
-            // для переотрытия на нужном экране
-            ariaWindow.hide()
-            getWindowByName(WindowName.Timer)?.hide()
+        if (!ariaWindow) return
 
-            ariaWindow.show()
-            updatePositionByAria(ariaWindow)
+        // Скрываем и показываем заново, чтобы рамка открылась на текущем экране
+        ariaWindow.hide()
+        getWindowByName(WindowName.Timer)?.hide()
 
-            getWindowByName(WindowName.Timer)?.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, true)
-        }
+        ariaWindow.show()
+        updatePositionByAria(ariaWindow)
+
+        getWindowByName(WindowName.Timer)?.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, true)
     }
 
     private openRecordingsFolder(): void {
-        const recordingsPath = screenRecorder.getSettings()?.outputPath
-        if (recordingsPath) shell.openPath(recordingsPath)
-    }
-
-    private quitApp(): void {
-        // Остановку записи и ожидание сохранения файла делает обработчик before-quit в main.ts
-        app.quit()
+        const recordingsPath = screenRecorder.getSettings().outputPath
+        if (recordingsPath) void shell.openPath(recordingsPath)
     }
 
     private getFormattedDuration(duration: number): string {

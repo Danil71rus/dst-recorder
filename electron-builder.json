@@ -12,7 +12,8 @@
     "package.json",
     "src/assets/camera.icns",
     "src/assets/camera.ico",
-    "src/assets/camera.png"
+    "src/assets/camera.png",
+    "src/assets/tray/**/*"
   ],
   "asar": false,
   "afterPack": "builder/after-pack.js",
@@ -31,6 +32,7 @@
       }
     ],
     "extendInfo": {
+      "LSUIElement": true,
       "NSMicrophoneUsageDescription": "Dst-Recorder записывает ваш голос вместе с экраном.",
       "NSAudioCaptureUsageDescription": "Dst-Recorder записывает звук компьютера вместе с экраном: собеседников, видео, уведомления."
     }
