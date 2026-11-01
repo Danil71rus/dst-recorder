@@ -1,92 +1,58 @@
-import { app, nativeImage, NativeImage, Tray } from "electron"
+import { app, nativeImage, NativeImage, Point, Rectangle } from "electron"
 import { join } from "path"
-import { RecordingStatus } from "@/deinitions/recorder.ts"
 import { logger } from "@/utils/logger.ts"
 
-type ControlIcon = "pause" | "play" | "stop"
+/**
+ * Кнопки паузы и остановки прямо в иконке приложения в строке меню — для записи, начатой из трея.
+ *
+ * Отдельными значками их не сделать: macOS ставит каждый новый значок левее всех существующих
+ * (в том числе чужих), а если места не хватает — прячет. Поэтому кнопки нарисованы в самой иконке:
+ * [⏸] [⏹] [камера] ● 00:15 — и по месту клика понятно, что нажато.
+ */
 
-interface RecordingControlsActions {
-    pause:  () => void
-    resume: () => void
-    stop:   () => void
+export type TrayClickTarget = "pause" | "stop" | "menu"
+
+// Раскладка картинки trayRecording*Template.png в точках (см. src/assets/tray)
+const BUTTON = 18
+const GAP = 6
+// Отступ картинки от левого края значка в строке меню
+const ICON_INSET = 4
+// Кнопки ловят клик и по половине промежутка рядом с собой — по маленьким значкам легко промахнуться
+const PAUSE_END = ICON_INSET + BUTTON + GAP / 2
+const STOP_END = PAUSE_END + GAP + BUTTON
+
+const icons = new Map<string, NativeImage>()
+
+function loadIcon(file: string): NativeImage {
+    let icon = icons.get(file)
+    if (!icon) {
+        const path = join(app.getAppPath(), "src/assets/tray", file)
+        icon = nativeImage.createFromPath(path)
+        if (icon.isEmpty()) logger.error(`[Tray] Icon not found: ${path}`)
+        // Монохромная template-иконка: macOS сама красит её под светлую и тёмную строку меню
+        icon.setTemplateImage(true)
+        icons.set(file, icon)
+    }
+    return icon
 }
 
-/**
- * Кнопки паузы и остановки прямо в строке меню — отдельные значки рядом с иконкой приложения,
- * срабатывают по одному клику, без меню. Показываются только для записи, начатой из трея:
- * при записи из таймера управление остаётся в таймере.
- *
- * macOS ставит каждый новый значок левее всех уже существующих, а если места нет — прячет его.
- * Поэтому значки создаются один раз при запуске, сразу после иконки приложения, и занимают места рядом с ней:
- * [пауза] [стоп] [иконка приложения]. Пока записи нет, они пустые — без картинки значок не занимает места.
- */
-export class RecordingControls {
-    private stopTray: Tray | null = null
-    private pauseTray: Tray | null = null
-    private isVisible = false
-    private isPaused = false
-    private readonly icons = new Map<ControlIcon, NativeImage>()
+/** Обычная иконка приложения или иконка с кнопками паузы/продолжения и остановки */
+export function getTrayIcon(controls: "none" | "pause" | "play"): NativeImage {
+    const file = {
+        none:  "trayTemplate.png",
+        pause: "trayRecordingPauseTemplate.png",
+        play:  "trayRecordingPlayTemplate.png",
+    }[controls]
+    return loadIcon(file)
+}
 
-    constructor(private readonly actions: RecordingControlsActions) {}
+/** Что нажали в иконке с кнопками */
+export function getClickTarget(bounds: Rectangle, position: Point): TrayClickTarget {
+    // position — в координатах экрана; на случай, если macOS отдаст координаты внутри значка, — берём их как есть
+    const isScreenPoint = position.x >= bounds.x && position.x <= bounds.x + bounds.width
+    const x = isScreenPoint ? position.x - bounds.x : position.x
 
-    /** Вызывать сразу после создания иконки приложения */
-    create() {
-        if (this.pauseTray) return
-
-        // Сначала «стоп», потом «пауза»: каждый следующий значок встаёт левее
-        this.stopTray = new Tray(nativeImage.createEmpty())
-        this.stopTray.on("click", () => {
-            if (this.isVisible) this.actions.stop()
-        })
-
-        this.pauseTray = new Tray(nativeImage.createEmpty())
-        this.pauseTray.on("click", () => {
-            if (!this.isVisible) return
-            if (this.isPaused) this.actions.resume()
-            else this.actions.pause()
-        })
-    }
-
-    show() {
-        if (this.isVisible || !this.pauseTray || !this.stopTray) return
-        this.isVisible = true
-        this.isPaused = false
-
-        this.stopTray.setImage(this.icon("stop"))
-        this.stopTray.setToolTip("Остановить запись")
-        this.pauseTray.setImage(this.icon("pause"))
-        this.pauseTray.setToolTip("Пауза")
-        logger.info("[Tray] Recording controls shown at", this.pauseTray.getBounds(), this.stopTray.getBounds())
-    }
-
-    /** Кнопка паузы превращается в «продолжить» и обратно — по состоянию записи, откуда бы ни поставили паузу */
-    update(status: RecordingStatus) {
-        const isPaused = Boolean(status.isPaused)
-        if (!this.isVisible || !this.pauseTray || isPaused === this.isPaused) return
-        this.isPaused = isPaused
-        this.pauseTray.setImage(this.icon(isPaused ? "play" : "pause"))
-        this.pauseTray.setToolTip(isPaused ? "Продолжить запись" : "Пауза")
-    }
-
-    hide() {
-        if (!this.isVisible) return
-        this.isVisible = false
-        for (const tray of [this.pauseTray, this.stopTray]) {
-            tray?.setImage(nativeImage.createEmpty())
-            tray?.setToolTip("")
-        }
-    }
-
-    /** Монохромные template-иконки: macOS красит их под светлую и тёмную строку меню */
-    private icon(name: ControlIcon): NativeImage {
-        let icon = this.icons.get(name)
-        if (!icon) {
-            const path = join(app.getAppPath(), "src/assets/tray", `${name}Template.png`)
-            icon = nativeImage.createFromPath(path)
-            if (icon.isEmpty()) logger.error(`[Tray] Control icon not found: ${path}`)
-            icon.setTemplateImage(true)
-            this.icons.set(name, icon)
-        }
-        return icon
-    }
+    const target: TrayClickTarget = x < PAUSE_END ? "pause" : x < STOP_END ? "stop" : "menu"
+    logger.info(`[Tray] Click at ${x.toFixed(1)}pt of ${bounds.width}pt → ${target}`)
+    return target
 }

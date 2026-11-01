@@ -1,4 +1,4 @@
-import { app, Tray, Menu, MenuItemConstructorOptions, nativeImage, shell } from "electron"
+import { app, Tray, Menu, MenuItemConstructorOptions, nativeImage, Point, Rectangle, shell } from "electron"
 import { join } from "path"
 import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
 import { screenRecorder } from "@/recorder/screen-recorder.ts"
@@ -7,11 +7,13 @@ import { describeAudio, RecordingStatus, sizeTitleMap } from "@/deinitions/recor
 import { updatePositionByAria } from "@/window/ipc-handlers/ipc-win-select-aria.ts"
 import { appName } from "@/utils/utilsForMain.ts"
 import { logger } from "@/utils/logger.ts"
-import { RecordingControls } from "@/tray/tray-controls.ts"
+import { getClickTarget, getTrayIcon } from "@/tray/tray-controls.ts"
 
 const isDarwin = process.platform === "darwin"
 // Иконка Windows/Linux: размер значка в области уведомлений
 const TRAY_ICON_SIZE = 16
+
+type TrayControls = "none" | "pause" | "play"
 
 export class TrayManager {
     private static instance: TrayManager
@@ -19,13 +21,10 @@ export class TrayManager {
     // Ключ текущего меню: пересобираем меню только когда оно реально меняется, а не каждую секунду.
     // Иначе открытое меню закрывалось бы само раз в секунду
     private menuKey = ""
-    // Запись начата из трея: показываем кнопки паузы и остановки в строке меню (только macOS)
+    private menu: Menu | null = null
+    // Запись начата из трея: в иконке появляются кнопки паузы и остановки (только macOS)
     private isStartedFromTray = false
-    private readonly controls = new RecordingControls({
-        pause:  () => screenRecorder.pauseRecording(),
-        resume: () => screenRecorder.resumeRecording(),
-        stop:   () => void screenRecorder.stopRecording(),
-    })
+    private controls: TrayControls = "none"
 
     private constructor() {}
 
@@ -35,32 +34,32 @@ export class TrayManager {
     }
 
     /**
-     * macOS: монохромная template-иконка (имя оканчивается на Template, рядом лежит @2x для Retina) —
-     * система сама красит её под светлую и тёмную строку меню, как у системных значков.
-     * Остальные ОС: цветная иконка приложения.
+     * macOS: монохромная template-иконка (с @2x для Retina) — система сама красит её под светлую и тёмную
+     * строку меню, как у системных значков. Остальные ОС: цветная иконка приложения.
      */
     private createIcon() {
-        const assets = join(app.getAppPath(), "src/assets")
-        const size = { width: TRAY_ICON_SIZE, height: TRAY_ICON_SIZE }
-        const icon = isDarwin
-            ? nativeImage.createFromPath(join(assets, "tray", "trayTemplate.png"))
-            : nativeImage.createFromPath(join(assets, "camera.png")).resize(size)
+        if (isDarwin) return getTrayIcon("none")
 
-        if (icon.isEmpty()) logger.error(`[Tray] Icon not found in ${assets}`)
-        if (isDarwin) icon.setTemplateImage(true)
-        return icon
+        const path = join(app.getAppPath(), "src/assets/camera.png")
+        const icon = nativeImage.createFromPath(path)
+        if (icon.isEmpty()) logger.error(`[Tray] Icon not found: ${path}`)
+        return icon.resize({ width: TRAY_ICON_SIZE, height: TRAY_ICON_SIZE })
     }
 
     public createTray(): void {
         try {
             this.tray = new Tray(this.createIcon())
             this.tray.setToolTip(appName)
-            // Места для кнопок паузы и остановки — сразу рядом с иконкой, пока в строке меню есть место
-            if (isDarwin) this.controls.create()
             this.updateMenu()
 
-            // macOS открывает меню по клику сам (setContextMenu). Windows — только по правому клику, добавляем левый
-            if (!isDarwin) this.tray.on("click", () => this.tray?.popUpContextMenu())
+            if (isDarwin) {
+                // Меню по клику macOS открывает сама (setContextMenu). Пока в иконке кнопки — разбираем клик сами
+                this.tray.on("click", (_event, bounds, position) => this.onControlsClick(bounds, position))
+                this.tray.on("right-click", () => this.popUpMenuInControlsMode())
+            } else {
+                // Windows открывает меню только по правому клику — добавляем левый
+                this.tray.on("click", () => this.tray?.popUpContextMenu())
+            }
         } catch (error) {
             logger.error("[Tray] Error creating tray:", error)
         }
@@ -73,26 +72,56 @@ export class TrayManager {
             const isPaused = Boolean(status.isPaused)
             this.setMenu(`recording:${isPaused}`, () => this.getRecordingMenu(isPaused))
             this.setTitle(status)
-            this.updateControls(status)
         } else {
             const { video, audio } = this.describeSettings()
             this.setMenu(`default:${video}:${audio}`, () => this.getDefaultMenu())
             this.setTitle(null)
             this.isStartedFromTray = false
-            this.controls.hide()
+        }
+        this.setControls(this.getWantedControls(status))
+    }
+
+    private getWantedControls(status: RecordingStatus): TrayControls {
+        if (!isDarwin || !this.isStartedFromTray || !status.isRecording) return "none"
+        return status.isPaused ? "play" : "pause"
+    }
+
+    /** Кнопки в иконке. Пока они есть, меню не привязано к клику: клик по кнопке не должен открывать меню */
+    private setControls(controls: TrayControls) {
+        if (!this.tray || controls === this.controls) return
+        const wasShown = this.controls !== "none"
+        this.controls = controls
+        this.tray.setImage(getTrayIcon(controls))
+        if (wasShown !== (controls !== "none")) this.applyMenu()
+    }
+
+    private onControlsClick(bounds: Rectangle, position: Point) {
+        if (this.controls === "none") return
+
+        const target = getClickTarget(bounds, position)
+        if (target === "pause") {
+            if (this.controls === "play") screenRecorder.resumeRecording()
+            else screenRecorder.pauseRecording()
+        } else if (target === "stop") {
+            void screenRecorder.stopRecording()
+        } else {
+            this.popUpMenuInControlsMode()
         }
     }
 
-    private updateControls(status: RecordingStatus) {
-        if (!isDarwin || !this.isStartedFromTray || !status.isRecording) return
-        this.controls.show()
-        this.controls.update(status)
+    private popUpMenuInControlsMode() {
+        if (this.controls !== "none" && this.menu) this.tray?.popUpContextMenu(this.menu)
     }
 
     private setMenu(key: string, build: () => Menu) {
         if (!this.tray || this.menuKey === key) return
         this.menuKey = key
-        this.tray.setContextMenu(build())
+        this.menu = build()
+        this.applyMenu()
+    }
+
+    private applyMenu() {
+        this.tray?.setContextMenu(this.controls === "none" ? this.menu : null)
     }
 
     /** Время записи рядом с иконкой (macOS), когда таймер скрыт. На паузе — значок паузы вместо точки */
@@ -203,7 +232,7 @@ export class TrayManager {
             return
         }
         // Не ждём следующего тика статуса: кнопки появляются сразу, как запись началась
-        this.updateControls(screenRecorder.getRecordingStatus())
+        this.updateMenu()
     }
 
     private openSettings(): void {
