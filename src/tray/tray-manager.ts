@@ -55,6 +55,8 @@ export class TrayManager {
         try {
             this.tray = new Tray(this.createIcon())
             this.tray.setToolTip(appName)
+            // Места для кнопок паузы и остановки — сразу рядом с иконкой, пока в строке меню есть место
+            if (isDarwin) this.controls.create()
             this.updateMenu()
 
             // macOS открывает меню по клику сам (setContextMenu). Windows — только по правому клику, добавляем левый
