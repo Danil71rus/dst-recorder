@@ -1,48 +1,18 @@
 import { app, BrowserWindow, nativeImage } from "electron"
-import { screenRecorder } from "./ffmpeg.ts"
+import { screenRecorder } from "./recorder/screen-recorder.ts"
 import { createMainWindow } from "./window/win-main.ts"
 import { createTimerWindow } from "./window/win-timer.ts"
 import { createSelectAriaWindow } from "./window/win-select-aria.ts"
 import { createBorderWindow } from "./window/win-border.ts"
-import { join } from "path"
-import { existsSync } from "fs"
+import { createCaptureWindow } from "./window/win-capture.ts"
 import { getIconPath } from "./utils/icon-utils.ts"
 import { logger } from "./utils/logger.ts"
 import { trayManager } from "./tray/tray-manager.ts"
 import { ensurePermissions } from "./permissions.ts"
+import { MIC_NONE } from "./deinitions/recorder.ts"
 import os from "os"
 
 const isDarwin = os.platform() === "darwin"
-
-// Диагностика путей FFmpeg при запуске (логируем в файл через electron-log)
-function logFFmpegPaths() {
-    logger.info("=== FFmpeg Path Diagnostics at Startup ===")
-    logger.info(`App packaged: ${app.isPackaged}`)
-    logger.info(`App path: ${app.getAppPath()}`)
-    logger.info(`Resources path: ${process.resourcesPath}`)
-    logger.info(`Platform: ${process.platform}`)
-
-    if (app.isPackaged) {
-        const ffmpegName = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"
-        const expectedPath = join(process.resourcesPath, "bin", ffmpegName)
-        logger.info(`Expected FFmpeg path: ${expectedPath}`)
-        logger.info(`FFmpeg exists at expected path: ${existsSync(expectedPath)}`)
-
-        // Проверяем содержимое директории bin
-        const binPath = join(process.resourcesPath, "bin")
-        if (existsSync(binPath)) {
-            try {
-                const files = require("fs").readdirSync(binPath)
-                logger.info(`Files in bin directory: ${files.join(", ")}`)
-            } catch (e) {
-                logger.error("Error reading bin directory:", e)
-            }
-        } else {
-            logger.info(`Bin directory does not exist at: ${binPath}`)
-        }
-    }
-    logger.info("=== End FFmpeg Diagnostics ===")
-}
 
 // Скрываем иконку из Dock (только для macOS)
 if (isDarwin) app.dock?.hide()
@@ -58,15 +28,14 @@ app.whenReady().then(async () => {
         }
     }
 
-    // Логируем диагностику FFmpeg
-    logFFmpegPaths()
+    logger.info(`Start: Electron ${process.versions.electron}, Chrome ${process.versions.chrome}, `
+        + `${process.platform} ${process.getSystemVersion()}, packaged=${app.isPackaged}`)
 
     // macOS: скрываем Dock и делаем приложение "меню-барным", чтобы иконка в трее гарантированно была видна
     if (isDarwin) {
         try {
             app.dock?.hide()
-            // @ts-ignore: доступно только на macOS
-            if (typeof app.setActivationPolicy === "function") app.setActivationPolicy("accessory")
+            app.setActivationPolicy("accessory")
         } catch (e) {
             logger.warn("Failed to adjust activation policy for tray mode:", e)
         }
@@ -77,19 +46,24 @@ app.whenReady().then(async () => {
         return
     }
 
-    await Promise.all([createMainWindow(), createTimerWindow(), createSelectAriaWindow(), createBorderWindow()])
+    screenRecorder.init()
+    await Promise.all([
+        createMainWindow(),
+        createTimerWindow(),
+        createSelectAriaWindow(),
+        createBorderWindow(),
+        createCaptureWindow(),
+    ])
     trayManager.createTray()
-    await screenRecorder.asyncInit()
 
-    // Первый запуск: сразу просим микрофон и запись экрана от имени приложения,
+    // Первый запуск: сразу просим разрешения от имени приложения,
     // чтобы к моменту первой записи всё уже было разрешено
-    void ensurePermissions()
+    void ensurePermissions({ microphone: screenRecorder.getSettings().micDeviceId !== MIC_NONE })
 
     app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
     })
 
-    // 'second-instance' обрабатывается до whenReady — см. блок выше
     app.on("second-instance", () => {
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow) {
@@ -101,7 +75,7 @@ app.whenReady().then(async () => {
 
 // Перед выходом (трей, Cmd+Q, выключение Mac) дожидаемся, пока запись остановится и файл сохранится
 let isQuitAfterRecording = false
-const QUIT_WAIT_TIMEOUT_MS = 60_000
+const QUIT_WAIT_TIMEOUT_MS = 30_000
 app.on("before-quit", (event) => {
     if (isQuitAfterRecording || !screenRecorder.isBusy()) return
     event.preventDefault()
@@ -114,11 +88,10 @@ app.on("before-quit", (event) => {
         .finally(() => app.quit())
 })
 
-// FFmpeg не завершается сам при закрытии stdin — не оставляем процессы-сироты
-app.on("will-quit", () => screenRecorder.forceKill())
+// Страховка: если запись так и не остановилась, закрываем файл с тем, что успело записаться
+app.on("will-quit", () => screenRecorder.abort())
 
 app.on("window-all-closed", () => {
     // Для macOS не выходим, чтобы приложение продолжало жить в трее
     if (!isDarwin) app.quit()
 })
-

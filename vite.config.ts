@@ -41,11 +41,7 @@ export default defineConfig({
                     build: {
                         outDir:        "dist-electron",
                         rollupOptions: {
-                            external: [
-                                "electron",
-                                "fluent-ffmpeg",
-                                "ffmpeg-ffprobe-static",
-                            ],
+                            external: ["electron"],
                         },
                     },
                 },
@@ -61,11 +57,7 @@ export default defineConfig({
                     build: {
                         outDir:        "dist-electron",
                         rollupOptions: {
-                            external: [
-                                "electron",
-                                "fluent-ffmpeg",
-                                "ffmpeg-ffprobe-static",
-                            ],
+                            external: ["electron"],
                         },
                     },
                 },

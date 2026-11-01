@@ -1,16 +1,16 @@
 import { BrowserWindow, ipcMain, shell } from "electron"
-import { ExposedWinTimer, ExposedFfmpeg } from "./definitions/renderer.ts"
-import { screenRecorder } from "../../ffmpeg.ts"
-import { FfmpegSettings, RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import { ExposedRecorder, ExposedWinTimer } from "./definitions/renderer.ts"
+import { screenRecorder } from "../../recorder/screen-recorder.ts"
+import { RecorderSettings, RecordingStatus } from "@/deinitions/recorder.ts"
 import { sizeDef, sizeMax } from "../win-timer.ts"
 
 
 export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
-    ipcMain.handle(ExposedWinTimer.START_FFMPEG_RECORDING, async () => {
+    ipcMain.handle(ExposedWinTimer.START_RECORDING, async () => {
         return await screenRecorder.startRecording()
     })
 
-    ipcMain.handle(ExposedWinTimer.STOP_FFMPEG_RECORDING, async () => {
+    ipcMain.handle(ExposedWinTimer.STOP_RECORDING, async () => {
         return await screenRecorder.stopRecording()
     })
 
@@ -18,7 +18,7 @@ export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
         return screenRecorder.getRecordingStatus()
     })
 
-    ipcMain.on(ExposedFfmpeg.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {
+    ipcMain.on(ExposedRecorder.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {
         timerWin.webContents.send(ExposedWinTimer.UPDATED_STATE_TIMER, status)
     })
 
@@ -36,7 +36,7 @@ export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
         else timerWin.setSize(sizeMax.width, sizeMax.height, true)
     })
 
-    ipcMain.handle(ExposedWinTimer.SAVE_SETTINGS, async (_event, settings?: FfmpegSettings) => {
+    ipcMain.handle(ExposedWinTimer.SAVE_SETTINGS, async (_event, settings?: RecorderSettings) => {
         screenRecorder.setSettings(settings)
     })
 
@@ -50,11 +50,11 @@ export function initTimerWindowControlsHandlers(timerWin: BrowserWindow) {
         }
     })
 
-    ipcMain.handle(ExposedWinTimer.PAUSE_FFMPEG_RECORDING, () => {
+    ipcMain.handle(ExposedWinTimer.PAUSE_RECORDING, () => {
         return screenRecorder.pauseRecording()
     })
 
-    ipcMain.handle(ExposedWinTimer.RESUME_FFMPEG_RECORDING, () => {
+    ipcMain.handle(ExposedWinTimer.RESUME_RECORDING, () => {
         return screenRecorder.resumeRecording()
     })
 }

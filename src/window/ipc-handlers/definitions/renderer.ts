@@ -1,13 +1,14 @@
 import type { IpcRendererEvent } from "electron"
 
-export enum ExposedFfmpeg {
-    UPDATED_SETTINGS = "Ffmpeg::updated-settings",
-    UPDATED_STATE_TIMER = "Ffmpeg::updated-state-timer",
+// Рассылка из ядра записи (src/recorder/screen-recorder.ts) всем окнам
+export enum ExposedRecorder {
+    UPDATED_SETTINGS = "Recorder::updated-settings",
+    UPDATED_STATE_TIMER = "Recorder::updated-state-timer",
 }
 
 export enum ExposedWinMain {
     SHOW = "main:show",
-    GET_DEVICES = "main:get-devices",
+    GET_DISPLAYS = "main:get-displays",
     GET_SETTINGS = "main:get-settings",
     SAVE_SETTINGS = "main:save-settings",
     PICK_OUTPUT_PATH = "main:pick-output-path",
@@ -21,24 +22,30 @@ export enum ExposedWinTimer {
     OPEN_SAVE_FOLDER = "timer:open-save-folder",
     MOVE_TIMER_WINDOW = "timer:move-timer-window",
     UPDATED_STATE_TIMER = "timer:updated-state-timer",
-    HIDE = "hide",
-    // FFmpeg каналы
-    START_FFMPEG_RECORDING = "timer:start-ffmpeg-recording",
-    STOP_FFMPEG_RECORDING = "timer:stop-ffmpeg-recording",
+    HIDE = "timer:hide",
+    START_RECORDING = "timer:start-recording",
+    STOP_RECORDING = "timer:stop-recording",
     GET_RECORDING_STATUS = "timer:get-recording-status",
-
-    PAUSE_FFMPEG_RECORDING = "timer:pause-ffmpeg-recording",
-    RESUME_FFMPEG_RECORDING = "timer:resume-ffmpeg-recording",
+    PAUSE_RECORDING = "timer:pause-recording",
+    RESUME_RECORDING = "timer:resume-recording",
 }
 
 export enum ExposedWinSelectAria {
     MOVE_ARIA_WINDOW = "aria:move-aria-window",
-    STOP_MOVE_WINDOW = "aria:stop-move-window",
     UPDATED_STATE_TIMER = "aria:updated-state-timer",
     SET_ARIA_ACTIVE = "aria:set_aria_active",
 }
 
-export type ExposedChannel = ExposedFfmpeg | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | string
+// Скрытое окно записи (src/capture/ ↔ src/recorder/capture-bridge.ts)
+export enum ExposedCapture {
+    // кусочек MP4-файла
+    CHUNK = "capture:chunk",
+    // запись оборвалась сама: экран отключён, macOS отозвала доступ, ошибка кодировщика
+    ENDED = "capture:ended",
+}
+
+export type ExposedChannel = ExposedRecorder | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | ExposedCapture
+    | string
 
 export interface ExposedIpcRenderer {
     on: (channel: string, listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => void

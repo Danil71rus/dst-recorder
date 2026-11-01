@@ -1,17 +1,17 @@
 import { computed, ref } from "vue"
-import _ from "lodash"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import {
-    DEFAULT_SIZE,
-    FfmpegDeviceLists,
-    FfmpegSettings,
+    describeAudio,
+    DisplayInfo,
     getDefaultSettings,
     normalizeSize,
+    RecorderSettings,
     SIZE_PRESETS,
     sizeTitleMap,
-} from "@/deinitions/ffmpeg.ts"
+} from "@/deinitions/recorder.ts"
+import { fullScreenOutputSize, sizesForDisplay } from "@/recorder/capture-plan.ts"
 import { ExposedWinMain, ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer"
-import { getResultScale } from "@/window/utils/main.ts"
+import { useMicrophones } from "@/composables/microphones.ts"
 
 export enum IpcScope {
     Main = "main",
@@ -23,183 +23,126 @@ interface UseRecordingSettingsOptions {
     ipcScope?:         IpcScope.Main | IpcScope.Timer
 }
 
+/** Состояние окна настроек: выбор экрана, качества, микрофона и звука компьютера */
 export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) {
     const { autoSaveOnChange = false, ipcScope = IpcScope.Main } = options
-    const channels = {
-        save: ipcScope === IpcScope.Timer
-            ? ExposedWinTimer.SAVE_SETTINGS
-            : ExposedWinMain.SAVE_SETTINGS,
-    }
+    const saveChannel = ipcScope === IpcScope.Timer ? ExposedWinTimer.SAVE_SETTINGS : ExposedWinMain.SAVE_SETTINGS
 
-    const deviceList = ref<FfmpegDeviceLists>({
-        audio: [],
-        video: [],
-    })
-    const currentState = ref<FfmpegSettings>(getDefaultSettings())
-    const sizes = computed(() => {
-        // Достаем максимальную физическую высоту текущего монитора (если экрана нет, ставим с запасом)
-        const maxH = currentState.value.video?.scaleMax?.height || 9999
+    const displays = ref<DisplayInfo[]>([])
+    const currentState = ref<RecorderSettings>(getDefaultSettings())
+    const { micList, labelOf } = useMicrophones(currentState)
 
-        return SIZE_PRESETS
-            // Оставляем только те пресеты качества, высота которых не превышает матрицу монитора
-            .filter(size => normalizeSize(Number(size)) <= maxH)
-            .map(size => ({
-                id:    size,
-                title: sizeTitleMap[size],
-            }))
+    // Монитор из настроек; если он отключён, запись пойдёт на основной — его и показываем
+    const currentDisplay = computed(() => {
+        return displays.value.find(display => display.id === currentState.value.displayId) || displays.value[0]
     })
 
-    const sizesCombobox = computed((): ComboboxItem[] => {
-        return sizes.value.map(item => ({
-            id:    item.id,
-            title: item.title,
-        }))
-    })
-
-    const selectedDefSize = computed({
-        get() {
-            return `${currentState.value.defSize}`
-        },
-        set(newSize: string) {
-            setSize(newSize)
+    const selectedVideo = computed({
+        get: () => `${currentDisplay.value?.id ?? ""}`,
+        set: (displayId: string) => {
+            const display = displays.value.find(item => `${item.id}` === displayId)
+            if (!display) return
+            currentState.value.displayId = display.id
+            setSize(currentState.value.defSize)
             tryAutoSave()
         },
     })
 
-
-    // Экраны и звук выбираются по стабильным идентификаторам (id дисплея и имя устройства):
-    // индексы FFmpeg меняются при подключении/отключении устройств
-    const selectedVideo = computed({
-        get() {
-            return `${currentState.value.video?.displayId ?? ""}`
-        },
-        set(newDisplayId: string) {
-            const newVideo = deviceList.value.video.find(item => item.isScreen && `${item.displayId}` === newDisplayId)
-
-            if (newVideo?.name) {
-                currentState.value.video = newVideo
-                currentState.value.displayId = newVideo.displayId
-                setSize()
-                tryAutoSave()
-            }
-        },
-    })
-
-    const selectedAudio = computed({
-        get() {
-            return currentState.value.audio?.name ?? ""
-        },
-        set(newName: string) {
-            const newAudio = deviceList.value.audio.find(item => item.name === newName)
-
-            if (newAudio?.name) {
-                currentState.value.audio = newAudio
-                currentState.value.audioName = newAudio.name
-                tryAutoSave()
-            }
-        },
-    })
-
     const screensList = computed((): ComboboxItem[] => {
-        return deviceList.value.video
-            .filter(item => item.isScreen && item.displayId !== undefined)
-            .map(item => {
-                const { scale } = getResultScale(item, currentState.value.defSize)
-
-                return {
-                    id:       `${item.displayId}`,
-                    title:    `${item.label}`,
-                    subtitle: `${scale.w} × ${scale.h}`,
-                }
-            })
+        return displays.value.map((display) => {
+            const { width, height } = fullScreenOutputSize(display, currentState.value.defSize)
+            return {
+                id:       `${display.id}`,
+                title:    display.label,
+                subtitle: `${width} × ${height}`,
+            }
+        })
     })
 
-
-    const audioList = computed((): ComboboxItem[] => {
-        return deviceList.value.audio.map(item => ({
-            id:    item.name,
-            title: `${item.name} `,
+    const sizesCombobox = computed((): ComboboxItem[] => {
+        return sizesForDisplay(SIZE_PRESETS, currentDisplay.value).map(size => ({
+            id:    size,
+            title: sizeTitleMap[size],
         }))
     })
 
-    const selectedDefSizeName = computed(() => {
-        return sizesCombobox.value.find(item => item.id === Number(selectedDefSize.value))?.title
-            || sizeTitleMap[DEFAULT_SIZE]
+    const selectedDefSize = computed({
+        get: () => `${currentState.value.defSize}`,
+        set: (size: string) => {
+            setSize(Number(size))
+            tryAutoSave()
+        },
     })
 
-    const selectedVideoName = computed(() => currentState.value.video?.label || "")
+    const selectedMic = computed({
+        get: () => currentState.value.micDeviceId,
+        set: (deviceId: string) => {
+            currentState.value.micDeviceId = deviceId
+            currentState.value.micLabel = labelOf(deviceId)
+            tryAutoSave()
+        },
+    })
 
-    const selectedAudioName = computed(() => currentState.value.audio?.name || "")
+    const recordSystemAudio = computed({
+        get: () => currentState.value.recordSystemAudio,
+        set: (value: boolean) => {
+            currentState.value.recordSystemAudio = value
+            tryAutoSave()
+        },
+    })
 
     const showBorder = computed({
-        get: () => currentState.value.showBorder ?? false,
+        get: () => currentState.value.showBorder,
         set: (value: boolean) => {
             currentState.value.showBorder = value
             tryAutoSave()
         },
     })
 
-    async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
-        const settings = (newSettings
-            || await window.ipcRenderer?.invoke(ExposedWinMain.GET_SETTINGS)) as FfmpegSettings
-        if (settings) {
-            const defSize = normalizeSize(Number(settings.defSize))
-            currentState.value = { ...settings, defSize }
-        }
+    const selectedDefSizeName = computed(() => sizeTitleMap[normalizeSize(currentState.value.defSize)])
+    const selectedVideoName = computed(() => currentDisplay.value?.label || "")
+    const selectedAudioName = computed(() => describeAudio(currentState.value))
 
-        // Пришли готовые настройки из main — список устройств берём из кэша, иначе (открытие окна) перечитываем
-        const refresh = !newSettings
-        const devices = await window.ipcRenderer?.invoke(ExposedWinMain.GET_DEVICES, { refresh }) as FfmpegDeviceLists
-        if (devices?.video?.length || devices?.audio?.length) deviceList.value = devices
-
-        console.log(" deviceList.value: ", deviceList.value)
-        console.log(" currentState.value: ", currentState.value)
+    /** Качество не выше разрешения экрана: на мониторе 1080p пресет 4K превращается в 1080p */
+    function setSize(size: number) {
+        const available = sizesForDisplay(SIZE_PRESETS, currentDisplay.value)
+        const wanted = normalizeSize(size)
+        currentState.value.defSize = available.includes(wanted) ? wanted : available[0] ?? wanted
     }
 
-    function setSize(size = "") {
-        let newSize = normalizeSize(Number(size) || currentState.value.defSize)
-        const newVideo = currentState.value.video
-
-        // Если физическая высота монитора меньше выбранного качества - понижаем качество
-        const maxH = newVideo?.scaleMax?.height || 9999
-        if (newSize > maxH) {
-            // Находим максимально доступный пресет для текущего экрана (например, переключит с 4K на 1080p)
-            const availableSizes = SIZE_PRESETS.filter(s => normalizeSize(Number(s)) <= maxH)
-            newSize = availableSizes.length > 0 ? normalizeSize(Number(availableSizes[0])) : normalizeSize(DEFAULT_SIZE)
-        }
-
-        if (newVideo?.name) {
-            currentState.value = {
-                ...currentState.value,
-                ...getResultScale(newVideo, newSize),
-                defSize: newSize,
-            }
-        }
+    /** newSettings — рассылка из main после сохранения; без них (открыли окно) настройки запрашиваются */
+    async function updateSettings({ newSettings }: { newSettings?: unknown } = {}) {
+        const [settings, displayList] = await Promise.all([
+            (newSettings as RecorderSettings | undefined)
+                ?? window.ipcRenderer?.invoke<RecorderSettings>(ExposedWinMain.GET_SETTINGS),
+            window.ipcRenderer?.invoke<DisplayInfo[]>(ExposedWinMain.GET_DISPLAYS),
+        ])
+        if (displayList?.length) displays.value = displayList
+        if (settings) currentState.value = { ...settings }
     }
 
     async function save() {
-        await window.ipcRenderer?.invoke(channels.save, _.cloneDeep(currentState.value))
+        // Настройки — плоский объект: копии достаточно, чтобы отправить его без реактивной обёртки
+        await window.ipcRenderer?.invoke(saveChannel, { ...currentState.value })
     }
 
-    async function tryAutoSave() {
-        if (autoSaveOnChange) await save()
+    function tryAutoSave() {
+        if (autoSaveOnChange) void save()
     }
 
     return {
-        deviceList,
         currentState,
-        sizes,
         sizesCombobox,
         selectedDefSize,
         selectedVideo,
-        selectedAudio,
+        selectedMic,
+        recordSystemAudio,
+        showBorder,
         screensList,
-        audioList,
+        micList,
         selectedDefSizeName,
         selectedVideoName,
         selectedAudioName,
-        showBorder,
-        setSize,
         save,
         updateSettings,
     }

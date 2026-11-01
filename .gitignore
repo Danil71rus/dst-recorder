@@ -32,5 +32,3 @@ Thumbs.db
 build/
 out/
 
-# FFmpeg binaries
-bin/

@@ -16,23 +16,6 @@
   ],
   "asar": false,
   "afterPack": "builder/after-pack.js",
-  "extraResources": [
-    {
-      "from": "bin",
-      "to": "bin",
-      "filter": ["**/*"]
-    }
-  ],
-  "extraFiles": [
-    {
-      "from": "bin/ffmpeg",
-      "to": "MacOS/ffmpeg"
-    },
-    {
-      "from": "bin/ffprobe",
-      "to": "MacOS/ffprobe"
-    }
-  ],
   "mac": {
     "icon": "src/assets/camera.icns",
     "category": "public.app-category.productivity",
@@ -41,11 +24,15 @@
     "target": [
       {
         "target": "dmg",
-        "arch": ["x64", "arm64"]
+        "arch": [
+          "x64",
+          "arm64"
+        ]
       }
     ],
     "extendInfo": {
-      "NSMicrophoneUsageDescription": "Dst-Recorder использует микрофон для записи звука при захвате экрана."
+      "NSMicrophoneUsageDescription": "Dst-Recorder записывает ваш голос вместе с экраном.",
+      "NSAudioCaptureUsageDescription": "Dst-Recorder записывает звук компьютера вместе с экраном: собеседников, видео, уведомления."
     }
   },
   "win": {
@@ -53,7 +40,9 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ]
   },

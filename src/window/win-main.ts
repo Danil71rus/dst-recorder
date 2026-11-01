@@ -9,7 +9,7 @@ export async function createMainWindow() {
     const mainWindow = new BrowserWindow({
         icon:           getIconPath(),
         width:          550,
-        height:         500,
+        height:         600,
         show:           false,
         frame:          false,
         alwaysOnTop:    true,

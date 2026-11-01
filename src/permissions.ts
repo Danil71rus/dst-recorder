@@ -3,12 +3,13 @@ import { existsSync, writeFileSync } from "fs"
 import { join } from "path"
 import { logger } from "./utils/logger.ts"
 import { appName } from "./utils/utilsForMain.ts"
+import { CaptureSource } from "@/deinitions/recorder.ts"
 
 /**
- * Разрешения macOS (TCC) запрашиваются от имени самого приложения, а не ffmpeg:
- * тогда в системных диалогах и в настройках фигурирует только Dst-Recorder.
- * ffmpeg — дочерний процесс, и macOS засчитывает ему разрешения приложения
- * (при условии, что пакет приложения подписан — см. builder/after-pack.js).
+ * Разрешения macOS (TCC): микрофон и «Запись экрана и системного звука».
+ * Запись идёт внутри самого приложения (Chromium), поэтому в системных диалогах и настройках
+ * фигурирует только Dst-Recorder. Ad-hoc подпись пакета (builder/after-pack.js) нужна,
+ * чтобы macOS не сбрасывала разрешения после каждой пересборки.
  */
 
 type MediaPermission = "microphone" | "screen"
@@ -50,8 +51,9 @@ const HELP: Record<MediaPermission, PermissionHelp> = {
     },
 }
 
-// Ошибки FFmpeg, которые означают отказ macOS в доступе к экрану
+// Ошибки захвата, которые означают отказ macOS в доступе
 const CAPTURE_DENIED_PATTERNS = [
+    /NotAllowedError/,
     /permission/i,
     /denied/i,
     /not authorized/i,
@@ -113,14 +115,20 @@ export function showPermissionHelp(kind: MediaPermission) {
     }
 }
 
+interface PermissionsOptions {
+    // запись без микрофона его разрешения не требует
+    microphone?: boolean
+}
+
 /**
  * Запрашивает недостающие разрешения: при первом запуске — системными диалогами,
  * дальше — нашей инструкцией. Возвращает true, если можно начинать запись.
  */
-export async function ensurePermissions(): Promise<boolean> {
+export async function ensurePermissions({ microphone = true }: PermissionsOptions = {}): Promise<boolean> {
     if (!isDarwin) return true
 
-    for (const kind of PERMISSIONS_ORDER) {
+    const required = PERMISSIONS_ORDER.filter(kind => kind !== "microphone" || microphone)
+    for (const kind of required) {
         if (isGranted(kind)) continue
 
         const isFirstScreenRequest = kind === "screen" && !existsSync(screenRequestedMarker())
@@ -138,9 +146,14 @@ export async function ensurePermissions(): Promise<boolean> {
     return true
 }
 
-/** Если FFmpeg упал из-за отказа в доступе к экрану — показываем инструкцию */
+/**
+ * Если захват не удался из-за отказа в доступе — показываем инструкцию.
+ * Окно записи помечает ошибки источником: «[microphone] NotAllowedError: …», «[screen] …»
+ */
 export function handleCaptureError(error: string) {
-    if (!CAPTURE_DENIED_PATTERNS.some(pattern => pattern.test(error))) return
-    logger.error(`[TCC] Screen capture denied by macOS: ${error}`)
-    showPermissionHelp("screen")
+    if (!isDarwin || !CAPTURE_DENIED_PATTERNS.some(pattern => pattern.test(error))) return
+
+    const kind: MediaPermission = error.startsWith(`[${CaptureSource.Microphone}]`) ? "microphone" : "screen"
+    logger.error(`[TCC] ${kind} access denied by macOS: ${error}`)
+    showPermissionHelp(kind)
 }

@@ -1,9 +1,9 @@
 import { app, Tray, Menu, nativeImage, shell } from "electron"
 import { join } from "path"
 import { getWindowByName, WindowName } from "../window/utils/ipc-controller.ts"
-import { screenRecorder } from "../ffmpeg.ts"
+import { screenRecorder } from "../recorder/screen-recorder.ts"
 import { ExposedWinMain, ExposedWinSelectAria } from "../window/ipc-handlers/definitions/renderer.ts"
-import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import { describeAudio, RecordingStatus, sizeTitleMap } from "@/deinitions/recorder.ts"
 import { updatePositionByAria } from "../window/ipc-handlers/ipc-win-select-aria.ts"
 
 export class TrayManager {
@@ -66,8 +66,8 @@ export class TrayManager {
                 this.tray.setTitle(this.isTimerVisible() ? "" : this.getFormattedDuration(status.duration))
             }
         } else {
-            const { defSizeName, video, audio } = screenRecorder.getSettings()
-            this.setMenu(`default:${video?.displayId}:${video?.label}:${defSizeName}:${audio?.name}`, () => this.getDefaultMenu())
+            const { video, audio } = this.describeSettings()
+            this.setMenu(`default:${video}:${audio}`, () => this.getDefaultMenu())
             if (this.isDarwin) this.tray.setTitle("")
         }
     }
@@ -78,19 +78,29 @@ export class TrayManager {
         this.tray.setContextMenu(build())
     }
 
+    /** Подписи выбранного экрана и звука для меню */
+    private describeSettings() {
+        const settings = screenRecorder.getSettings()
+        const display = screenRecorder.getSelectedDisplay()
+        return {
+            video: `${display.label} (${sizeTitleMap[settings.defSize]})`,
+            audio: describeAudio(settings),
+        }
+    }
+
     private getDefaultMenu(): Menu {
-        const { defSizeName, video, audio } = screenRecorder.getSettings()
+        const { video, audio } = this.describeSettings()
         return Menu.buildFromTemplate([
             {
                 label: "▶️ Начать запись",
                 click: () => this.startRecording(),
             },
             {
-                label:   `-Видео: ${video?.label} (${defSizeName})`,
+                label:   `-Видео: ${video}`,
                 enabled: false,
             },
             {
-                label:   `-Звук:    ${audio?.name}`,
+                label:   `-Звук:    ${audio}`,
                 enabled: false,
             },
             {

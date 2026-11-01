@@ -106,13 +106,16 @@
                 label="Качество"
             />
 
-            <dst-combobox
-                v-model="selectedAudio"
-                :items="audioList"
-                :display-type="ComboboxDisplayType.Right"
-                :variant="ComboboxStyle.Secondary"
-                placeholder="Звук"
-                label="Выбор звука"
+            <dst-microphone-picker
+                v-model="selectedMic"
+                :mic-label="currentState.micLabel"
+                :items="micList"
+                :monitoring="isMicMonitoring"
+            />
+
+            <dst-switch
+                v-model="recordSystemAudio"
+                label="Записывать звук компьютера"
             />
 
             <dst-switch
@@ -126,23 +129,22 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue"
 import {
-    ExposedFfmpeg,
+    ExposedRecorder,
     ExposedWinMain,
     ExposedWinSelectAria,
     ExposedWinTimer,
 } from "@/window/ipc-handlers/definitions/renderer.ts"
 import DstButton from "@/components/butoon/DstButton.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
-import {
-    RecordingStatus,
-    StartRecordingResponse,
-} from "@/deinitions/ffmpeg.ts"
+import { RecordingStatus, StartRecordingResponse } from "@/deinitions/recorder.ts"
 import DstSvg from "@/components/dst-svg.vue"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox.ts"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstSwitch from "@/components/DstSwitch.vue"
+import DstMicrophonePicker from "@/components/DstMicrophonePicker.vue"
 import { dragPosition } from "@/composables/drag-position.ts"
 import { IpcScope, useRecordingSettings } from "@/composables/recording-settings"
+import { usePageVisible } from "@/composables/page-visible.ts"
 
 const isShowSettings = ref(false)
 const isAriaActive = ref(false)
@@ -166,7 +168,7 @@ async function startRecording() {
 
     let result: StartRecordingResponse | undefined
     try {
-        result = await window.ipcRenderer?.invoke<StartRecordingResponse>(ExposedWinTimer.START_FFMPEG_RECORDING)
+        result = await window.ipcRenderer?.invoke<StartRecordingResponse>(ExposedWinTimer.START_RECORDING)
     } catch (error) {
         result = { error: error instanceof Error ? error.message : String(error) }
     }
@@ -182,7 +184,7 @@ async function startRecording() {
 
 // Функция для остановки записи
 async function stopRecording() {
-    await window.ipcRenderer?.invoke(ExposedWinTimer.STOP_FFMPEG_RECORDING)
+    await window.ipcRenderer?.invoke(ExposedWinTimer.STOP_RECORDING)
 }
 
 function openSaveFolder() {
@@ -205,16 +207,18 @@ function resetParams() {
 }
 
 const {
+    currentState,
     sizesCombobox,
     selectedDefSize,
     selectedVideo,
-    selectedAudio,
+    selectedMic,
+    recordSystemAudio,
+    showBorder,
     screensList,
-    audioList,
+    micList,
     selectedDefSizeName,
     selectedVideoName,
     selectedAudioName,
-    showBorder,
     updateSettings: updateRecordingSettings,
 } = useRecordingSettings({
     autoSaveOnChange: true,
@@ -223,9 +227,14 @@ const {
 
 const drag = dragPosition(ExposedWinTimer.MOVE_TIMER_WINDOW)
 
+// Индикатор микрофона слушает его, только пока открыты настройки и запись не идёт
+const isPageVisible = usePageVisible()
+const isMicMonitoring = computed(() => isPageVisible.value && isShowSettings.value && !isRecording.value)
+
+void updateRecordingSettings()
 window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateRecordingSettings())
 window.ipcRenderer?.on(
-    ExposedFfmpeg.UPDATED_SETTINGS,
+    ExposedRecorder.UPDATED_SETTINGS,
     async (_event, newSettings) => await updateRecordingSettings({ newSettings }),
 )
 window.ipcRenderer?.on(ExposedWinSelectAria.SET_ARIA_ACTIVE, (_event, isActive) => {
@@ -235,10 +244,10 @@ window.ipcRenderer?.on(ExposedWinSelectAria.SET_ARIA_ACTIVE, (_event, isActive) 
 
 const isPaused = ref(false)
 async function pauseRecording() {
-    await window.ipcRenderer?.invoke(ExposedWinTimer.PAUSE_FFMPEG_RECORDING)
+    await window.ipcRenderer?.invoke(ExposedWinTimer.PAUSE_RECORDING)
 }
 async function resumeRecording() {
-    await window.ipcRenderer?.invoke(ExposedWinTimer.RESUME_FFMPEG_RECORDING)
+    await window.ipcRenderer?.invoke(ExposedWinTimer.RESUME_RECORDING)
 }
 // Синхронизация состояния записи (в т.ч. паузы) из main-процесса
 window.ipcRenderer?.on(ExposedWinTimer.UPDATED_STATE_TIMER, (_event, status) => {
@@ -364,7 +373,7 @@ onBeforeUnmount(() => {
         color: white;
         flex: 1;
         overflow-y: auto;
-        max-height: 300px;
+        max-height: 420px;
 
         @include custom-scrollbar(
             $width: 6px,

@@ -1,9 +1,11 @@
 import { ExposedIpcRenderer } from "../../window/ipc-handlers/definitions/renderer.ts"
+import { CaptureApi } from "../recorder.ts"
 
 declare global {
-    const _: typeof import("lodash")
     interface Window {
         ipcRenderer?: ExposedIpcRenderer
+        // API окна записи (CaptureView.vue), main вызывает его через executeJavaScript
+        dstCapture?: CaptureApi
         isElectron: boolean
     }
 

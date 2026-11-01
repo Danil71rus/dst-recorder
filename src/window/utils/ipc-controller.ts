@@ -9,6 +9,7 @@ export enum WindowName {
     Timer = "timerWindow",
     SelectAria = "selectAria",
     Border = "border",
+    Capture = "capture",
 }
 
 type WindowsState = Record<WindowName, WindowState>
@@ -24,10 +25,11 @@ const windowDefaultState = () => ({
 })
 
 const _windowsState: WindowsState = {
-    [WindowName.Main]:       windowDefaultState(),
-    [WindowName.Timer]:      windowDefaultState(),
-    [WindowName.SelectAria]: windowDefaultState(),
-    [WindowName.Border]:     windowDefaultState(),
+    [WindowName.Main]:         windowDefaultState(),
+    [WindowName.Timer]:        windowDefaultState(),
+    [WindowName.SelectAria]:   windowDefaultState(),
+    [WindowName.Border]:       windowDefaultState(),
+    [WindowName.Capture]:      windowDefaultState(),
 }
 
 const _handlersRegister = [

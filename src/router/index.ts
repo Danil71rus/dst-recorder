@@ -3,6 +3,7 @@ import MainView from "../views/MainView.vue"
 import TimerView from "../views/TimerView.vue"
 import SelectAriaView from "../views/SelectAriaView.vue"
 import BorderView from "../views/BorderView.vue"
+import CaptureView from "../views/CaptureView.vue"
 
 const routes = [
     {
@@ -24,6 +25,11 @@ const routes = [
         path: "/border",
         name: "Border",
         component: BorderView,
+    },
+    {
+        path: "/capture",
+        name: "Capture",
+        component: CaptureView,
     },
 ]
 

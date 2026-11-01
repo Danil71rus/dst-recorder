@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from "electron"
 import { join } from "path"
 import { setWindowReady, WindowName } from "./utils/ipc-controller.ts"
-import { updatePositionByAria, updateSettingCropByAria } from "./ipc-handlers/ipc-win-select-aria.ts"
+import { updatePositionByAria } from "./ipc-handlers/ipc-win-select-aria.ts"
 
 const isDev = !app.isPackaged
 
@@ -45,7 +45,6 @@ export async function createSelectAriaWindow() {
     })
 
     selectAriaWindow.on("resize", () => updatePositionByAria(selectAriaWindow))
-    selectAriaWindow.on("resized", () => updateSettingCropByAria(selectAriaWindow))
 
     // Добавляем обработчик для отладки загрузки только если есть проблемы
     selectAriaWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {

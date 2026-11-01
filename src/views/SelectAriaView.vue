@@ -14,22 +14,19 @@
 
 <script setup lang="ts">
 import { ref } from "vue"
-import _ from "lodash"
 import { ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
-import { RecordingStatus } from "@/deinitions/ffmpeg.ts"
+import { RecordingStatus } from "@/deinitions/recorder.ts"
 import DstSvg from "@/components/dst-svg.vue"
 import { dragPosition } from "@/composables/drag-position.ts"
 
 const isRecord = ref(false)
 
-const drag = dragPosition(ExposedWinSelectAria.MOVE_ARIA_WINDOW, () => {
-    window.ipcRenderer?.send(ExposedWinSelectAria.STOP_MOVE_WINDOW)
-})
+const drag = dragPosition(ExposedWinSelectAria.MOVE_ARIA_WINDOW)
 
 // Обновление состояния записи в трее
 window.ipcRenderer?.on(ExposedWinSelectAria.UPDATED_STATE_TIMER, (_event, status) => {
     const newVal = status as RecordingStatus
-    if (_.isBoolean(newVal?.isRecording)) isRecord.value = newVal.isRecording
+    if (typeof newVal?.isRecording === "boolean") isRecord.value = newVal.isRecording
 })
 </script>
 

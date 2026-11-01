@@ -23,13 +23,16 @@
                     label="Качество"
                 />
 
-                <dst-combobox
-                    v-model="selectedAudio"
-                    :items="audioList"
-                    :display-type="ComboboxDisplayType.Right"
-                    :variant="ComboboxStyle.Secondary"
-                    placeholder="Звук"
-                    label="Выбор звука"
+                <dst-microphone-picker
+                    v-model="selectedMic"
+                    :mic-label="currentState.micLabel"
+                    :items="micList"
+                    :monitoring="isPageVisible"
+                />
+
+                <dst-switch
+                    v-model="recordSystemAudio"
+                    label="Записывать звук компьютера"
                 />
 
                 <dst-output-path-picker
@@ -64,34 +67,40 @@
 </template>
 
 <script setup lang="ts">
-import { ExposedFfmpeg, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
+import { ExposedRecorder, ExposedWinMain } from "@/window/ipc-handlers/definitions/renderer"
 import { ComboboxDisplayType, ComboboxStyle } from "@/components/combobox/definitions/dst-combobox"
 import DstCombobox from "@/components/combobox/DstCombobox.vue"
 import DstOutputPathPicker from "@/components/DstOutputPathPicker.vue"
 import DstButton from "@/components/butoon/DstButton.vue"
 import DstSwitch from "@/components/DstSwitch.vue"
+import DstMicrophonePicker from "@/components/DstMicrophonePicker.vue"
 import { ButtonVariant } from "@/components/butoon/definitions/button-types.ts"
 import { dragPosition } from "@/composables/drag-position.ts"
 import { useRecordingSettings } from "@/composables/recording-settings"
+import { usePageVisible } from "@/composables/page-visible.ts"
 
 const {
     currentState,
     sizesCombobox,
     selectedDefSize,
     selectedVideo,
-    selectedAudio,
-    screensList,
-    audioList,
+    selectedMic,
+    recordSystemAudio,
     showBorder,
+    screensList,
+    micList,
     save,
     updateSettings,
 } = useRecordingSettings()
 
 const drag = dragPosition(ExposedWinMain.MOVE_MAIN_WINDOW)
+// Индикатор микрофона работает, только пока окно настроек открыто
+const isPageVisible = usePageVisible()
 
+void updateSettings()
 window.ipcRenderer?.on(ExposedWinMain.SHOW, async () => await updateSettings())
 window.ipcRenderer?.on(
-    ExposedFfmpeg.UPDATED_SETTINGS,
+    ExposedRecorder.UPDATED_SETTINGS,
     async (_event, newSettings) => await updateSettings({ newSettings }),
 )
 
