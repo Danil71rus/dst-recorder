@@ -54,8 +54,14 @@
     "vue-router": "4.5.1"
   },
   "pnpm": {
-    "allowedBuildScripts": [
+    "onlyBuiltDependencies": [
       "esbuild"
+    ],
+    "ignoredBuiltDependencies": [
+      "@parcel/watcher",
+      "electron-winstaller",
+      "vue-demi"
     ]
-  }
+  },
+  "packageManager": "pnpm@10.33.4"
 }

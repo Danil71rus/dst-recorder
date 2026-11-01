@@ -5,6 +5,14 @@ import { resolve } from "path"
 // @ts-ignore
 import { build } from "./builder/build.js"
 
+// Общие алиасы: main-процесс и preload собираются отдельными сборками vite-plugin-electron,
+// которые не наследуют resolve из корневого конфига
+const alias = {
+    "@":   resolve(__dirname, "src"),
+    "@a":  resolve(__dirname, "src", "assets"),
+    "@ad": resolve(__dirname, "dist-electron", "assets"),
+}
+
 export default defineConfig({
     plugins: [
         vue(),
@@ -38,6 +46,7 @@ export default defineConfig({
                     options.startup()
                 },
                 vite: {
+                    resolve: { alias },
                     build: {
                         outDir:        "dist-electron",
                         rollupOptions: {
@@ -54,6 +63,7 @@ export default defineConfig({
                     options.reload()
                 },
                 vite: {
+                    resolve: { alias },
                     build: {
                         outDir:        "dist-electron",
                         rollupOptions: {
@@ -66,11 +76,7 @@ export default defineConfig({
     ],
     resolve: {
         preserveSymlinks: true,
-        alias:            {
-            "@":   resolve(__dirname, "src"),
-            "@a":  resolve(__dirname, "src", "assets"),
-            "@ad": resolve(__dirname, "dist-electron", "assets"),
-        },
+        alias,
     },
     // Для Electron приложений всегда используем относительные пути
     base:  "./",
