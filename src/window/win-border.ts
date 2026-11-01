@@ -24,6 +24,8 @@ export async function createBorderWindow() {
         focusable:              false,
         fullscreenable:         false,
         enableLargerThanScreen: true,
+        // macOS: рамка — служебный оверлей, а не окно приложения. Не показываем её в Mission Control
+        hiddenInMissionControl: true,
         webPreferences:         {
             preload:          join(__dirname, "preload.js"),
             contextIsolation: true,
@@ -43,6 +45,7 @@ export async function createBorderWindow() {
     borderWindow.on("ready-to-show", () => {
         borderWindow.setAlwaysOnTop(true, "screen-saver")
         borderWindow.setVisibleOnAllWorkspaces(true)
+        borderWindow.setHiddenInMissionControl(true)
         borderWindow.setIgnoreMouseEvents(true)
     })
 
