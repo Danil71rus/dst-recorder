@@ -95,6 +95,7 @@ export class ScreenRecorder {
 
     public init() {
         captureBridge.init()
+        recentRecordings.setFolder(this.settings.outputPath)
         watchDisplays(() => this.onDisplaysChanged())
     }
 
@@ -112,6 +113,7 @@ export class ScreenRecorder {
         const next = sanitizeSettings({ ...this.settings, ...settings }, this.settings.outputPath)
         this.settings = { ...next, outputPath: this.store.ensureOutputDir(next.outputPath) }
         this.store.save(this.settings)
+        recentRecordings.setFolder(this.settings.outputPath)
         this.broadcastSettings()
     }
 
@@ -227,6 +229,7 @@ export class ScreenRecorder {
             const outputDir = this.store.ensureOutputDir(settings.outputPath)
             this.file = await RecordingFile.open(join(outputDir, createFileName()))
             this.activeDisplayId = display.id
+            recentRecordings.setRecordingPath(this.file.path)
 
             logger.info(`[Recorder] Start: display "${display.label}" (${display.id}), area ${JSON.stringify(area)}, `
                 + `output ${plan.outputWidth}×${plan.outputHeight}@${settings.fps}, ${plan.videoBitsPerSecond} bit/s`)
@@ -267,6 +270,7 @@ export class ScreenRecorder {
         const file = this.file
         this.file = null
         await file?.close()
+        recentRecordings.setRecordingPath(null)
         this.activeDisplayId = undefined
         this.stopRequestedWhileStarting = false
         this.state = "idle"
@@ -308,6 +312,7 @@ export class ScreenRecorder {
         this.file = null
         const result = await file?.close()
         if (file?.error) logger.error("[Recorder] File was not written completely:", file.error)
+        recentRecordings.setRecordingPath(null)
 
         this.resetAfterRecording()
         if (this.revealAfterStop && file && result?.saved) this.onRecordingSaved(file.path, durationMs, displayId)

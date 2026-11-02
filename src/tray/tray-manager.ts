@@ -242,10 +242,12 @@ export class TrayManager {
         }]
     }
 
-    /** «14:17  ·  0:42  ·  12,4 МБ» */
+    /** «14:17  ·  0:42  ·  12,4 МБ»; длительность не показываем, если она неизвестна */
     private describeRecording(item: RecentRecording) {
-        const time = formatRecordingTime(item.savedAt)
-        return [time, formatDuration(item.durationMs), formatFileSize(item.sizeBytes)].join("  ·  ")
+        const duration = item.durationMs === null ? null : formatDuration(item.durationMs)
+        return [formatRecordingTime(item.savedAt), duration, formatFileSize(item.sizeBytes)]
+            .filter(Boolean)
+            .join("  ·  ")
     }
 
     private getRecordingActions(item: RecentRecording): MenuItemConstructorOptions[] {
