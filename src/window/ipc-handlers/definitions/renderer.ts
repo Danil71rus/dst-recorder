@@ -65,6 +65,10 @@ export enum ExposedRecordingPreview {
     START_DRAG = "preview:start-drag",
     // курсор над миниатюрой — не прятать её
     HOVER = "preview:hover",
+    // переименовать файл записи (новое имя без расширения)
+    RENAME = "preview:rename",
+    // идёт редактирование имени: миниатюра не прячется и получает фокус клавиатуры
+    EDITING = "preview:editing",
 }
 
 export type ExposedChannel = ExposedRecorder | ExposedWinMain | ExposedWinTimer | ExposedWinSelectAria | ExposedCapture

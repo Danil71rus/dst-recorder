@@ -81,6 +81,17 @@ class RecentRecordings {
         this.refresh()
     }
 
+    /** Файл переименовали из миниатюры: запомненная длительность переезжает на новое имя */
+    rename(oldPath: string, newPath: string) {
+        const durationMs = this.durations.get(oldPath)
+        if (durationMs !== undefined) {
+            this.durations.delete(oldPath)
+            this.durations.set(newPath, durationMs)
+            this.saveDurations()
+        }
+        this.refresh()
+    }
+
     /** Перечитать папку; слушатели узнают, только если список изменился */
     refresh() {
         const next = this.scan()

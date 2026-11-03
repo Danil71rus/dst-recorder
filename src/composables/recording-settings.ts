@@ -182,12 +182,15 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     }
 
     async function save() {
-        // Настройки — плоский объект: копии достаточно, чтобы отправить его без реактивной обёртки
-        await window.ipcRenderer?.invoke(saveChannel, { ...currentState.value })
+        // Через IPC можно передать только обычный объект. Поверхностная копия не годится: вложенный объект
+        // (hotkeys) остаётся реактивным Proxy, IPC отказывается его копировать — и настройки не сохраняются
+        const plain = JSON.parse(JSON.stringify(currentState.value)) as RecorderSettings
+        await window.ipcRenderer?.invoke(saveChannel, plain)
     }
 
     function tryAutoSave() {
-        if (autoSaveOnChange) void save()
+        if (!autoSaveOnChange) return
+        save().catch(error => console.error("[Settings] Failed to save:", error))
     }
 
     return {
