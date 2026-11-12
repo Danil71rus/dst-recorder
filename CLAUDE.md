@@ -41,7 +41,7 @@ Main-процесс, `src/recorder/`:
 
 - `screen-recorder.ts` — синглтон `ScreenRecorder`: состояние idle → starting → recording ⇄ paused → stopping, настройки, окна области/рамки, реакция на отключение мониторов.
 - `capture-bridge.ts` — управляет окном записи через `webContents.executeJavaScript(…, true)` (`window.dstCapture`), выбирает экран в `setDisplayMediaRequestHandler` (`audio: "loopback"`), принимает кусочки MP4 по IPC. Для звука компьютера нужен ключ `NSAudioCaptureUsageDescription` в Info.plist (`electron-builder.json`), флаги Chromium не нужны.
-- `capture-plan.ts` — чистые функции: размер захвата, область в долях кадра, битрейт (потолок по настройке «Сжатие» и кодеку; кодировщик работает с переменным битрейтом и на статичном экране тратит меньше). Используются и в окнах настроек.
+- `capture-plan.ts` — чистые функции: размер захвата, область в долях кадра, битрейт (потолок по настройке «Сжатие», одинаковый для H.264 и HEVC; кодировщик работает с переменным битрейтом и на статичном экране тратит меньше). Используются и в окнах настроек.
 - `recording-file.ts`, `settings-store.ts` (проверка и миграция `dst-settings.json`), `displays.ts`.
 
 Окно записи, `src/capture/`: `capture-session.ts` (getDisplayMedia + getUserMedia + MediaRecorder, фрагментированный MP4; опорный кадр и новый фрагмент — раз в 4 секунды), `video-mime.ts` (выбор кодека: H.264 или HEVC по настройке «Кодек», с откатом на H.264), `audio-mixer.ts` (WebAudio на фиксированных 48 кГц, микрофон ×2), `video-crop.ts` (обрезка области через MediaStreamTrackProcessor/Generator), `media-devices.ts` (микрофоны — общий модуль с окнами настроек).

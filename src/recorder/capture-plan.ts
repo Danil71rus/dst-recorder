@@ -1,12 +1,10 @@
 import {
     Compression,
     DEFAULT_COMPRESSION,
-    DEFAULT_VIDEO_CODEC,
     DisplayInfo,
     RecorderSettings,
     Rect,
     Size,
-    VideoCodec,
 } from "@/deinitions/recorder.ts"
 
 /**
@@ -36,13 +34,11 @@ const BITS_PER_PIXEL: Record<Compression, number> = {
     [Compression.Balanced]: 0.07,
 }
 const REFERENCE_FPS = 30
-// HEVC даёт то же качество при меньшем битрейте
-const HEVC_BITRATE_RATIO = 0.65
 const MIN_BITRATE = 500_000
 const MAX_BITRATE = 24_000_000
 
-export type VideoEncoding = Pick<RecorderSettings, "videoCodec" | "compression">
-const DEFAULT_ENCODING: VideoEncoding = { videoCodec: DEFAULT_VIDEO_CODEC, compression: DEFAULT_COMPRESSION }
+export type VideoEncoding = Pick<RecorderSettings, "compression">
+const DEFAULT_ENCODING: VideoEncoding = { compression: DEFAULT_COMPRESSION }
 // Меньше этого область не имеет смысла: H.264 и рамка выбора всё равно не дадут меньше
 const MIN_AREA_SIZE = 16
 
@@ -93,11 +89,11 @@ export function planCapture(
 
     const outputWidth = crop ? even(crop.width * width) : width
     const outputHeight = crop ? even(crop.height * height) : height
-    const codecRatio = encoding.videoCodec === VideoCodec.Hevc ? HEVC_BITRATE_RATIO : 1
-    const bitsPerPixel = BITS_PER_PIXEL[encoding.compression] * codecRatio
-    // Потолок растёт с частотой кадров медленнее неё самой: при 15 кадрах/с на кадр остаётся больше бит,
-    // и картинка после смены экрана проясняется за то же время, а не вдвое дольше
-    const fpsFactor = Math.sqrt(fps / REFERENCE_FPS)
+    // Потолок не снижается ни для HEVC, ни для частоты ниже 30 кадров/с: экономию дают сами кодек и редкие
+    // кадры, а урезанный потолок (пробовали 2 Мбит/с для HEVC при 15 кадрах/с) на 10+ секунд превращал текст
+    // в кашу, стоило на экране появиться движению. Выше 30 кадров/с потолок растёт медленнее частоты
+    const fpsFactor = Math.max(1, Math.sqrt(fps / REFERENCE_FPS))
+    const bitsPerPixel = BITS_PER_PIXEL[encoding.compression]
     const bitrate = Math.round(outputWidth * outputHeight * REFERENCE_FPS * fpsFactor * bitsPerPixel)
 
     return {
