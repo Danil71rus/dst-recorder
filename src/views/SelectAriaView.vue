@@ -29,7 +29,7 @@
 
                 <span class="size">{{ sizeLabel }}</span>
                 <span class="hint">Перетащите рамку или тяните за край</span>
-                <span class="hint">Рамка липнет к окнам и краям экрана, с ⌥ — свободно</span>
+                <span class="hint">Наведите на середину окна — рамка обхватит его. С ⌥ — без примагничивания</span>
             </div>
         </template>
     </div>

@@ -17,6 +17,43 @@ const SNAP_DISTANCE = 12
 // Меньше рамку примагничивание не делает
 const MIN_SIZE = 48
 
+// Рамка «садится» на окно целиком, когда её центр оказался рядом с центром окна: ближе этой доли меньшей
+// стороны окна, но в пределах от MIN до MAX точек. По всему окну ловить нельзя — иначе на большом окне
+// не получилось бы выбрать его часть
+const FIT_RADIUS_RATIO = 0.15
+const FIT_RADIUS_MIN = 40
+const FIT_RADIUS_MAX = 120
+
+const center = (rect: Rect) => ({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 })
+
+/**
+ * Окно, которое рамка должна обхватить целиком. windows — от верхнего окна к нижнему: рассматривается только
+ * окно, которое видно под центром рамки, — середина нижнего окна может быть закрыта верхним
+ */
+export function findFitTarget(frame: Rect, windows: Rect[]): Rect | null {
+    const point = center(frame)
+    const under = windows.find((rect) => {
+        return point.x >= rect.x && point.x <= rect.x + rect.width
+            && point.y >= rect.y && point.y <= rect.y + rect.height
+    })
+    if (!under) return null
+
+    const target = center(under)
+    const side = Math.min(under.width, under.height)
+    const radius = Math.min(Math.max(side * FIT_RADIUS_RATIO, FIT_RADIUS_MIN), FIT_RADIUS_MAX)
+    return Math.hypot(point.x - target.x, point.y - target.y) <= radius ? under : null
+}
+
+/** Прямоугольник, увеличенный на margin с каждой стороны */
+export function outset(rect: Rect, margin: number): Rect {
+    return {
+        x:      rect.x - margin,
+        y:      rect.y - margin,
+        width:  rect.width + margin * 2,
+        height: rect.height + margin * 2,
+    }
+}
+
 interface Span {
     start: number
     end:   number

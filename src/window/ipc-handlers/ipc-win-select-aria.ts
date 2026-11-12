@@ -2,26 +2,27 @@ import { BrowserWindow, ipcMain, screen } from "electron"
 import { ExposedRecorder, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
 import { ARIA_BORDER } from "@/window/utils/aria-geometry.ts"
-import { AriaEdges, resizeAria, snapAriaPosition } from "@/window/utils/aria-snap.ts"
-import { RecordingStatus } from "@/deinitions/recorder.ts"
+import { AriaEdges, AriaMove, moveAria, resizeAria } from "@/window/utils/aria-snap.ts"
+import { RecordingStatus, Rect } from "@/deinitions/recorder.ts"
 
 export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
-    // Рамка примагничивается к окнам и краям экрана; с зажатым Option (Alt) двигается свободно
-    ipcMain.on(ExposedWinSelectAria.MOVE_ARIA_WINDOW, (_event, val: { x: number, y: number, isFree?: boolean }) => {
-        const position = val.isFree ? val : snapAriaPosition(ariaWin, val.x, val.y)
-        ariaWin.setPosition(Math.round(position.x), Math.round(position.y))
-        updatePositionByAria(ariaWin)
-    })
-
-    ipcMain.on(ExposedWinSelectAria.RESIZE_ARIA_WINDOW, (_event, val: { edges: AriaEdges, isFree?: boolean }) => {
-        const { x, y, width, height } = resizeAria(ariaWin, val.edges, Boolean(val.isFree))
-        // событие resize окна само передвинет таймер (см. win-select-aria.ts)
+    const setAriaBounds = ({ x, y, width, height }: Rect) => {
         ariaWin.setBounds({
             x:      Math.round(x),
             y:      Math.round(y),
             width:  Math.round(width),
             height: Math.round(height),
         })
+        updatePositionByAria(ariaWin)
+    }
+
+    // Рамка обхватывает окно или липнет краями к окнам и экрану; с зажатым Option (Alt) двигается свободно
+    ipcMain.on(ExposedWinSelectAria.MOVE_ARIA_WINDOW, (_event, val: AriaMove) => {
+        setAriaBounds(moveAria(ariaWin, val))
+    })
+
+    ipcMain.on(ExposedWinSelectAria.RESIZE_ARIA_WINDOW, (_event, val: { edges: AriaEdges, isFree?: boolean }) => {
+        setAriaBounds(resizeAria(ariaWin, val.edges, Boolean(val.isFree)))
     })
 
     ipcMain.on(ExposedRecorder.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {

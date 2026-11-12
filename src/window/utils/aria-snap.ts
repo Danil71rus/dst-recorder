@@ -1,7 +1,7 @@
 import { BrowserWindow, screen } from "electron"
 import { Rect } from "@/deinitions/recorder.ts"
 import { ARIA_BORDER } from "@/window/utils/aria-geometry.ts"
-import { snapMove, snapResize, SnapTarget } from "@/window/utils/snap.ts"
+import { findFitTarget, outset, snapMove, snapResize, SnapTarget } from "@/window/utils/snap.ts"
 import { getWindowBounds } from "@/window/utils/window-bounds.ts"
 
 /**
@@ -18,10 +18,39 @@ function snapTargets(): SnapTarget[] {
     ]
 }
 
-/** Куда поставить рамку, которую пользователь тащит в точку (x, y) */
-export function snapAriaPosition(ariaWin: BrowserWindow, x: number, y: number) {
+export interface AriaMove {
+    // куда пользователь тащит левый верхний угол рамки
+    x:        number
+    y:        number
+    // зажат Option: без примагничивания
+    isFree?:  boolean
+    // первое сообщение нового перетаскивания
+    isStart?: boolean
+}
+
+// Размер рамки до того, как она обхватила окно: если увести её с окна в том же перетаскивании, он вернётся
+let sizeBeforeFit: { width: number, height: number } | null = null
+
+/**
+ * Границы рамки, которую пользователь тащит. Центр рамки рядом с центром окна — рамка обхватывает окно целиком;
+ * иначе её края липнут к краям окон и экранов
+ */
+export function moveAria(ariaWin: BrowserWindow, move: AriaMove): Rect {
+    // Новое перетаскивание: размер, с которым рамку оставили (в том числе на окне), теперь её собственный
+    if (move.isStart) sizeBeforeFit = null
+
     const [width = 0, height = 0] = ariaWin.getSize()
-    return snapMove({ x, y, width, height }, snapTargets())
+    const size = sizeBeforeFit ?? { width, height }
+    const frame = { x: move.x, y: move.y, ...size }
+
+    const target = move.isFree ? null : findFitTarget(frame, getWindowBounds())
+    if (target) {
+        sizeBeforeFit = size
+        return outset(target, ARIA_BORDER)
+    }
+
+    sizeBeforeFit = null
+    return move.isFree ? frame : snapMove(frame, snapTargets())
 }
 
 /** Новые координаты краёв рамки (экранные точки): заданы только те края, которые тянет пользователь */

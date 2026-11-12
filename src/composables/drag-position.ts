@@ -2,8 +2,10 @@
 export const dragPosition = (exposed: string, customActionForStop?: unknown) => {
     /** Перемещение окна */
     let dragPosition: { x: number, y: number } | null = null
+    let isStart = false
     function startDrag(e: MouseEvent) {
         dragPosition = { x: e.clientX, y: e.clientY }
+        isStart = true
         window.addEventListener("mousemove", drag)
         window.addEventListener("mouseup", stopDrag)
     }
@@ -14,7 +16,10 @@ export const dragPosition = (exposed: string, customActionForStop?: unknown) => 
             y:      e.screenY - dragPosition.y,
             // с зажатым Option (Alt) рамка области не примагничивается
             isFree: e.altKey,
+            // первое сообщение перетаскивания
+            isStart,
         })
+        isStart = false
     }
     function stopDrag() {
         dragPosition = null
