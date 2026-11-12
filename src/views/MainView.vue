@@ -42,6 +42,14 @@
                             />
 
                             <dst-combobox
+                                v-model="selectedFps"
+                                :items="fpsList"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                label="Частота кадров"
+                            />
+
+                            <dst-combobox
                                 v-model="selectedCompression"
                                 :items="compressionList"
                                 :display-type="ComboboxDisplayType.Right"
@@ -165,6 +173,8 @@ const {
     currentDisplay,
     sizesCombobox,
     selectedDefSize,
+    fpsList,
+    selectedFps,
     compressionList,
     selectedCompression,
     codecList,

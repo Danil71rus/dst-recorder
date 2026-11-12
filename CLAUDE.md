@@ -44,7 +44,7 @@ Main-процесс, `src/recorder/`:
 - `capture-plan.ts` — чистые функции: размер захвата, область в долях кадра, битрейт (потолок по настройке «Сжатие» и кодеку; кодировщик работает с переменным битрейтом и на статичном экране тратит меньше). Используются и в окнах настроек.
 - `recording-file.ts`, `settings-store.ts` (проверка и миграция `dst-settings.json`), `displays.ts`.
 
-Окно записи, `src/capture/`: `capture-session.ts` (getDisplayMedia + getUserMedia + MediaRecorder, фрагментированный MP4; опорный кадр и новый фрагмент — раз в 10 секунд), `video-mime.ts` (выбор кодека: H.264 или HEVC по настройке «Кодек», с откатом на H.264), `audio-mixer.ts` (WebAudio на фиксированных 48 кГц, микрофон ×2), `video-crop.ts` (обрезка области через MediaStreamTrackProcessor/Generator), `media-devices.ts` (микрофоны — общий модуль с окнами настроек).
+Окно записи, `src/capture/`: `capture-session.ts` (getDisplayMedia + getUserMedia + MediaRecorder, фрагментированный MP4; опорный кадр и новый фрагмент — раз в 4 секунды), `video-mime.ts` (выбор кодека: H.264 или HEVC по настройке «Кодек», с откатом на H.264), `audio-mixer.ts` (WebAudio на фиксированных 48 кГц, микрофон ×2), `video-crop.ts` (обрезка области через MediaStreamTrackProcessor/Generator), `media-devices.ts` (микрофоны — общий модуль с окнами настроек).
 
 Пауза — `MediaRecorder.pause()`. Ошибки захвата приходят с префиксом источника (`[screen] …`, `[microphone] …`) — по нему `permissions.ts` показывает нужную инструкцию.
 

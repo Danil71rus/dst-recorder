@@ -4,8 +4,10 @@ import {
     AfterRecordingAction,
     Compression,
     COUNTDOWN_OPTIONS,
+    DEFAULT_FPS,
     describeAudio,
     DisplayInfo,
+    FPS_OPTIONS,
     HotkeyAction,
     HotkeyStatus,
     getDefaultSettings,
@@ -81,20 +83,33 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         },
     })
 
+    const fpsSubtitles: Record<number, string> = {
+        15: "Текст, код, документы — файлы меньше",
+        30: "Обычная запись",
+        60: "Видео и анимации — файлы больше",
+    }
+    const fpsList: ComboboxItem[] = FPS_OPTIONS.map(fps => ({
+        id:       `${fps}`,
+        title:    `${fps} кадров/с`,
+        subtitle: fpsSubtitles[fps],
+    }))
+    const selectedFps = computed({
+        get: () => `${currentState.value.fps}`,
+        set: (fps: string) => {
+            currentState.value.fps = Number(fps) || DEFAULT_FPS
+            tryAutoSave()
+        },
+    })
+
     const compressionList: ComboboxItem[] = [
         {
             id:       Compression.Quality,
             title:    "Высокое качество",
-            subtitle: "Чётче в движении, файлы больше",
+            subtitle: "Чётче при смене окон и прокрутке, файлы больше",
         },
         {
             id:    Compression.Balanced,
             title: "Сбалансированное",
-        },
-        {
-            id:       Compression.Compact,
-            title:    "Компактное",
-            subtitle: "Файлы меньше, быстрые сцены мягче",
         },
     ]
     const selectedCompression = computed({
@@ -248,6 +263,8 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         currentDisplay,
         sizesCombobox,
         selectedDefSize,
+        fpsList,
+        selectedFps,
         compressionList,
         selectedCompression,
         codecList,

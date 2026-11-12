@@ -28,18 +28,18 @@ export interface CapturePlan {
     videoBitsPerSecond: number
 }
 
-// Бит на пиксель кадра для аппаратного H.264. Это потолок, а не расход: кодировщик работает с переменным
-// битрейтом и на неподвижном экране тратит в 2–3 раза меньше. Balanced на экранном контенте даёт чёткий текст
-// при размере файлов на уровне x264 veryfast (проверено прототипом)
+// Бит на пиксель кадра для аппаратного H.264 при 30 кадрах/с. Это потолок, а не расход: кодировщик работает
+// с переменным битрейтом и на неподвижном экране тратит в разы меньше. Запас нужен для смены всего экрана
+// (переключение окон): при 0.03 кодировщик уходил в самое грубое сжатие и текст размазывался на 1–2 секунды
 const BITS_PER_PIXEL: Record<Compression, number> = {
-    [Compression.Quality]:  0.045,
-    [Compression.Balanced]: 0.03,
-    [Compression.Compact]:  0.018,
+    [Compression.Quality]:  0.1,
+    [Compression.Balanced]: 0.07,
 }
+const REFERENCE_FPS = 30
 // HEVC даёт то же качество при меньшем битрейте
 const HEVC_BITRATE_RATIO = 0.65
 const MIN_BITRATE = 500_000
-const MAX_BITRATE = 16_000_000
+const MAX_BITRATE = 24_000_000
 
 export type VideoEncoding = Pick<RecorderSettings, "videoCodec" | "compression">
 const DEFAULT_ENCODING: VideoEncoding = { videoCodec: DEFAULT_VIDEO_CODEC, compression: DEFAULT_COMPRESSION }
@@ -95,7 +95,10 @@ export function planCapture(
     const outputHeight = crop ? even(crop.height * height) : height
     const codecRatio = encoding.videoCodec === VideoCodec.Hevc ? HEVC_BITRATE_RATIO : 1
     const bitsPerPixel = BITS_PER_PIXEL[encoding.compression] * codecRatio
-    const bitrate = Math.round(outputWidth * outputHeight * fps * bitsPerPixel)
+    // Потолок растёт с частотой кадров медленнее неё самой: при 15 кадрах/с на кадр остаётся больше бит,
+    // и картинка после смены экрана проясняется за то же время, а не вдвое дольше
+    const fpsFactor = Math.sqrt(fps / REFERENCE_FPS)
+    const bitrate = Math.round(outputWidth * outputHeight * REFERENCE_FPS * fpsFactor * bitsPerPixel)
 
     return {
         width,

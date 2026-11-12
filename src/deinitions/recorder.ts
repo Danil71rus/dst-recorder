@@ -48,8 +48,11 @@ export enum VideoCodec {
 export enum Compression {
     Quality = "quality",
     Balanced = "balanced",
-    Compact = "compact",
 }
+
+// Частота кадров: 15 — для текста и кода, 60 — для видео и анимаций
+export const FPS_OPTIONS = [15, 30, 60]
+export const DEFAULT_FPS = 30
 
 export const DEFAULT_VIDEO_CODEC = VideoCodec.H264
 export const DEFAULT_COMPRESSION = Compression.Balanced
@@ -109,7 +112,7 @@ export const getDefaultHotkeys = (): HotkeySettings => ({
 
 export const getDefaultSettings = (): RecorderSettings => ({
     outputPath:        "",
-    fps:               30,
+    fps:               DEFAULT_FPS,
     defSize:           DEFAULT_SIZE,
     videoCodec:        DEFAULT_VIDEO_CODEC,
     compression:       DEFAULT_COMPRESSION,
