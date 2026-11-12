@@ -2,12 +2,26 @@ import { BrowserWindow, ipcMain, screen } from "electron"
 import { ExposedRecorder, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
 import { ARIA_BORDER } from "@/window/utils/aria-geometry.ts"
+import { AriaEdges, resizeAria, snapAriaPosition } from "@/window/utils/aria-snap.ts"
 import { RecordingStatus } from "@/deinitions/recorder.ts"
 
 export function initSelectAriaWindowControlsHandlers(ariaWin: BrowserWindow) {
-    ipcMain.on(ExposedWinSelectAria.MOVE_ARIA_WINDOW, (_event, val) => {
-        ariaWin.setPosition(val.x, val.y)
+    // Рамка примагничивается к окнам и краям экрана; с зажатым Option (Alt) двигается свободно
+    ipcMain.on(ExposedWinSelectAria.MOVE_ARIA_WINDOW, (_event, val: { x: number, y: number, isFree?: boolean }) => {
+        const position = val.isFree ? val : snapAriaPosition(ariaWin, val.x, val.y)
+        ariaWin.setPosition(Math.round(position.x), Math.round(position.y))
         updatePositionByAria(ariaWin)
+    })
+
+    ipcMain.on(ExposedWinSelectAria.RESIZE_ARIA_WINDOW, (_event, val: { edges: AriaEdges, isFree?: boolean }) => {
+        const { x, y, width, height } = resizeAria(ariaWin, val.edges, Boolean(val.isFree))
+        // событие resize окна само передвинет таймер (см. win-select-aria.ts)
+        ariaWin.setBounds({
+            x:      Math.round(x),
+            y:      Math.round(y),
+            width:  Math.round(width),
+            height: Math.round(height),
+        })
     })
 
     ipcMain.on(ExposedRecorder.UPDATED_STATE_TIMER, (_event, status: RecordingStatus) => {

@@ -10,8 +10,10 @@ export const dragPosition = (exposed: string, customActionForStop?: unknown) => 
     function drag(e: MouseEvent) {
         if (!dragPosition) return
         window.ipcRenderer?.send(exposed, {
-            x: e.screenX - dragPosition.x,
-            y: e.screenY - dragPosition.y,
+            x:      e.screenX - dragPosition.x,
+            y:      e.screenY - dragPosition.y,
+            // с зажатым Option (Alt) рамка области не примагничивается
+            isFree: e.altKey,
         })
     }
     function stopDrag() {

@@ -439,7 +439,6 @@ export class ScreenRecorder {
 
         ariaWin.setIgnoreMouseEvents(true)
         ariaWin.setMovable(false)
-        ariaWin.setResizable(false)
 
         // Во время записи области управление — из трея (там же идёт время записи)
         const timerWin = getWindowByName(WindowName.Timer)
@@ -451,7 +450,6 @@ export class ScreenRecorder {
         if (ariaWin && !ariaWin.isDestroyed()) {
             ariaWin.setIgnoreMouseEvents(false)
             ariaWin.setMovable(true)
-            ariaWin.setResizable(true)
             ariaWin.hide()
         }
 

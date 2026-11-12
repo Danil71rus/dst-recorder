@@ -10,6 +10,8 @@ export async function createSelectAriaWindow() {
         width:                  669,
         height:                 508,
         roundedCorners:         false,
+        // Размер меняют ручки в самой рамке (SelectAriaView), а не macOS: так рамка примагничивается на ходу
+        resizable:              false,
         // macOS: служебное окно — не показываем его в Mission Control
         hiddenInMissionControl: true,
         show:                   false,

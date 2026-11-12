@@ -36,6 +36,7 @@ export enum ExposedWinTimer {
 
 export enum ExposedWinSelectAria {
     MOVE_ARIA_WINDOW = "aria:move-aria-window",
+    RESIZE_ARIA_WINDOW = "aria:resize-aria-window",
     UPDATED_STATE_TIMER = "aria:updated-state-timer",
     SET_ARIA_ACTIVE = "aria:set_aria_active",
 }

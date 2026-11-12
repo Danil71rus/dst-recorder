@@ -4,8 +4,16 @@
         :class="{ recording: isRecord }"
         @mousedown="drag.startDrag"
     >
-        <!-- Уголки — подсказка, что рамку можно тянуть за края (размер меняет сама macOS по краю окна) -->
+        <!-- Уголки — подсказка, что рамку можно тянуть за края; сами ручки — невидимые полосы по краям и углам -->
         <template v-if="!isRecord">
+            <span
+                v-for="handle in ARIA_HANDLES"
+                :key="`handle-${handle}`"
+                class="handle"
+                :class="handle"
+                @mousedown.stop="startResize(handle, $event)"
+            />
+
             <span
                 v-for="corner in corners"
                 :key="corner"
@@ -21,6 +29,7 @@
 
                 <span class="size">{{ sizeLabel }}</span>
                 <span class="hint">Перетащите рамку или тяните за край</span>
+                <span class="hint">Рамка липнет к окнам и краям экрана, с ⌥ — свободно</span>
             </div>
         </template>
     </div>
@@ -37,6 +46,7 @@ import { ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer
 import { RecordingStatus } from "@/deinitions/recorder.ts"
 import DstSvg from "@/components/dst-svg.vue"
 import { dragPosition } from "@/composables/drag-position.ts"
+import { ARIA_HANDLES, useAriaResize } from "@/composables/aria-resize.ts"
 
 // Толщина рамки в точках — должна совпадать с ARIA_BORDER
 const FRAME = 4
@@ -47,6 +57,7 @@ const isRecord = ref(false)
 const viewport = ref({ width: window.innerWidth, height: window.innerHeight })
 
 const drag = dragPosition(ExposedWinSelectAria.MOVE_ARIA_WINDOW)
+const { startResize } = useAriaResize()
 
 /** Размер области в пикселях экрана — столько же будет в записи, если качество не уменьшит картинку */
 const sizeLabel = computed(() => {
@@ -74,6 +85,8 @@ $frame: 4px;
 $accent: #667eea;
 $recording: #f87171;
 $corner-size: 22px;
+// ширина полосы у края, за которую рамку можно тянуть
+$handle-size: 12px;
 
 .aria {
     position: relative;
@@ -95,6 +108,70 @@ $corner-size: 22px;
         box-shadow: none;
         background: transparent;
         cursor: default;
+    }
+}
+
+// Ручки изменения размера: полосы вдоль краёв (заходят внутрь рамки) и квадраты в углах поверх них
+.handle {
+    position: absolute;
+
+    &.top,
+    &.bottom {
+        left: 0;
+        right: 0;
+        height: $handle-size;
+        cursor: ns-resize;
+    }
+
+    &.left,
+    &.right {
+        top: 0;
+        bottom: 0;
+        width: $handle-size;
+        cursor: ew-resize;
+    }
+
+    &.top-left,
+    &.top-right,
+    &.bottom-left,
+    &.bottom-right {
+        width: $corner-size;
+        height: $corner-size;
+        z-index: 1;
+    }
+
+    &.top-left,
+    &.bottom-right {
+        cursor: nwse-resize;
+    }
+
+    &.top-right,
+    &.bottom-left {
+        cursor: nesw-resize;
+    }
+
+    &.top,
+    &.top-left,
+    &.top-right {
+        top: -$frame;
+    }
+
+    &.bottom,
+    &.bottom-left,
+    &.bottom-right {
+        bottom: -$frame;
+    }
+
+    &.left,
+    &.top-left,
+    &.bottom-left {
+        left: -$frame;
+    }
+
+    &.right,
+    &.top-right,
+    &.bottom-right {
+        right: -$frame;
     }
 }
 
