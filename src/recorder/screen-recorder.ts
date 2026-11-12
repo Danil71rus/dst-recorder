@@ -11,6 +11,7 @@ import {
     RecorderSettings,
     RecordingStatus,
     StartRecordingResponse,
+    VideoCodec,
 } from "@/deinitions/recorder.ts"
 import { ExposedRecorder, ExposedWinSelectAria } from "@/window/ipc-handlers/definitions/renderer.ts"
 import { getWindowAll, getWindowByName, WindowName } from "@/window/utils/ipc-controller.ts"
@@ -214,13 +215,14 @@ export class ScreenRecorder {
             )
             if (!isCountdownDone) return this.failStart("Recording was cancelled")
 
-            const plan = planCapture(display, settings.defSize, settings.fps, area)
+            const plan = planCapture(display, settings.defSize, settings.fps, area, settings)
             const options: CaptureOptions = {
                 width:              plan.width,
                 height:             plan.height,
                 fps:                settings.fps,
                 crop:               plan.crop,
                 videoBitsPerSecond: plan.videoBitsPerSecond,
+                videoCodec:         settings.videoCodec,
                 micDeviceId:        settings.micDeviceId,
                 micLabel:           settings.micLabel,
                 recordSystemAudio:  settings.recordSystemAudio,
@@ -232,10 +234,14 @@ export class ScreenRecorder {
             recentRecordings.setRecordingPath(this.file.path)
 
             logger.info(`[Recorder] Start: display "${display.label}" (${display.id}), area ${JSON.stringify(area)}, `
-                + `output ${plan.outputWidth}×${plan.outputHeight}@${settings.fps}, ${plan.videoBitsPerSecond} bit/s`)
+                + `output ${plan.outputWidth}×${plan.outputHeight}@${settings.fps}, ${settings.videoCodec}, `
+                + `${settings.compression}, up to ${plan.videoBitsPerSecond} bit/s`)
             const onEnded = (reason: string) => this.onCaptureEnded(reason)
             const info = await captureBridge.start(display.id, options, this.file, onEnded)
             logger.info("[Recorder] Capture started:", info)
+            if (settings.videoCodec === VideoCodec.Hevc && !info.mimeType.includes("hvc1")) {
+                logger.warn("[Recorder] HEVC is not supported by this system — recording in H.264")
+            }
 
             this.state = "recording"
             this.recordingStartTime = Date.now()

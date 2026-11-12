@@ -41,6 +41,22 @@
                                 label="Качество"
                             />
 
+                            <dst-combobox
+                                v-model="selectedCompression"
+                                :items="compressionList"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                label="Сжатие"
+                            />
+
+                            <dst-combobox
+                                v-model="selectedCodec"
+                                :items="codecList"
+                                :display-type="ComboboxDisplayType.Right"
+                                :variant="ComboboxStyle.Secondary"
+                                label="Кодек"
+                            />
+
                             <dst-switch
                                 v-model="showBorder"
                                 label="Подсвечивать экран рамкой во время записи"
@@ -149,6 +165,10 @@ const {
     currentDisplay,
     sizesCombobox,
     selectedDefSize,
+    compressionList,
+    selectedCompression,
+    codecList,
+    selectedCodec,
     selectedVideo,
     selectedMic,
     recordSystemAudio,

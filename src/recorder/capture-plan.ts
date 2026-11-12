@@ -1,4 +1,13 @@
-import { DisplayInfo, Rect, Size } from "@/deinitions/recorder.ts"
+import {
+    Compression,
+    DEFAULT_COMPRESSION,
+    DEFAULT_VIDEO_CODEC,
+    DisplayInfo,
+    RecorderSettings,
+    Rect,
+    Size,
+    VideoCodec,
+} from "@/deinitions/recorder.ts"
 
 /**
  * Геометрия и битрейт записи. Чистые функции без Electron — используются и в main, и в окнах настроек.
@@ -19,11 +28,21 @@ export interface CapturePlan {
     videoBitsPerSecond: number
 }
 
-// Бит на пиксель кадра для аппаратного H.264: на экранном контенте даёт чёткий текст
+// Бит на пиксель кадра для аппаратного H.264. Это потолок, а не расход: кодировщик работает с переменным
+// битрейтом и на неподвижном экране тратит в 2–3 раза меньше. Balanced на экранном контенте даёт чёткий текст
 // при размере файлов на уровне x264 veryfast (проверено прототипом)
-const BITS_PER_PIXEL = 0.03
-const MIN_BITRATE = 1_000_000
+const BITS_PER_PIXEL: Record<Compression, number> = {
+    [Compression.Quality]:  0.045,
+    [Compression.Balanced]: 0.03,
+    [Compression.Compact]:  0.018,
+}
+// HEVC даёт то же качество при меньшем битрейте
+const HEVC_BITRATE_RATIO = 0.65
+const MIN_BITRATE = 500_000
 const MAX_BITRATE = 16_000_000
+
+export type VideoEncoding = Pick<RecorderSettings, "videoCodec" | "compression">
+const DEFAULT_ENCODING: VideoEncoding = { videoCodec: DEFAULT_VIDEO_CODEC, compression: DEFAULT_COMPRESSION }
 // Меньше этого область не имеет смысла: H.264 и рамка выбора всё равно не дадут меньше
 const MIN_AREA_SIZE = 16
 
@@ -44,7 +63,13 @@ export function clampArea(area: Rect, display: DisplayInfo): Rect | null {
 /**
  * @param area — область записи в логических точках относительно экрана; null — весь экран
  */
-export function planCapture(display: DisplayInfo, size: Size, fps: number, area: Rect | null): CapturePlan {
+export function planCapture(
+    display: DisplayInfo,
+    size: Size,
+    fps: number,
+    area: Rect | null,
+    encoding: VideoEncoding = DEFAULT_ENCODING,
+): CapturePlan {
     const { width: physicalWidth, height: physicalHeight } = display.physical
     const region = area ? clampArea(area, display) : null
 
@@ -68,7 +93,9 @@ export function planCapture(display: DisplayInfo, size: Size, fps: number, area:
 
     const outputWidth = crop ? even(crop.width * width) : width
     const outputHeight = crop ? even(crop.height * height) : height
-    const bitrate = Math.round(outputWidth * outputHeight * fps * BITS_PER_PIXEL)
+    const codecRatio = encoding.videoCodec === VideoCodec.Hevc ? HEVC_BITRATE_RATIO : 1
+    const bitsPerPixel = BITS_PER_PIXEL[encoding.compression] * codecRatio
+    const bitrate = Math.round(outputWidth * outputHeight * fps * bitsPerPixel)
 
     return {
         width,

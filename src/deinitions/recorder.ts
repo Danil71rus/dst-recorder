@@ -38,6 +38,22 @@ export function normalizeSize(size?: number): Size {
     return DEFAULT_SIZE
 }
 
+/** Кодек видео. H.264 открывается везде; HEVC при том же качестве даёт файлы меньше, но его читают не все плееры */
+export enum VideoCodec {
+    H264 = "h264",
+    Hevc = "hevc",
+}
+
+/** Сжатие видео: сколько бит кодировщику разрешено тратить на кадр */
+export enum Compression {
+    Quality = "quality",
+    Balanced = "balanced",
+    Compact = "compact",
+}
+
+export const DEFAULT_VIDEO_CODEC = VideoCodec.H264
+export const DEFAULT_COMPRESSION = Compression.Balanced
+
 // Специальные значения выбора микрофона: системный по умолчанию и запись без микрофона
 export const MIC_DEFAULT = "default"
 export const MIC_NONE = "none"
@@ -48,6 +64,8 @@ export interface RecorderSettings {
     fps:               number
     // качество: максимальная высота итогового видео
     defSize:           Size
+    videoCodec:        VideoCodec
+    compression:       Compression
     // выбранный монитор (id дисплея Electron). Если он отключён — пишется основной
     displayId?:        number
     // микрофон: deviceId Chromium (или MIC_DEFAULT / MIC_NONE) и его название — запасной способ найти устройство
@@ -93,6 +111,8 @@ export const getDefaultSettings = (): RecorderSettings => ({
     outputPath:        "",
     fps:               30,
     defSize:           DEFAULT_SIZE,
+    videoCodec:        DEFAULT_VIDEO_CODEC,
+    compression:       DEFAULT_COMPRESSION,
     micDeviceId:       MIC_DEFAULT,
     micLabel:          "",
     recordSystemAudio: true,
@@ -122,6 +142,8 @@ export interface CaptureOptions {
     // область записи в долях кадра (0..1); null — весь экран
     crop:               Rect | null
     videoBitsPerSecond: number
+    // желаемый кодек; если Chromium не умеет им кодировать, запись пойдёт в H.264 (см. CaptureInfo.mimeType)
+    videoCodec:         VideoCodec
     micDeviceId:        string
     micLabel:           string
     recordSystemAudio:  boolean

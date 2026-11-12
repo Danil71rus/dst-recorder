@@ -13,6 +13,15 @@ try {
   // @ts-ignore - format is available in electron-log
   log.transports.file.format = "{y}-{m}-{d} {h}:{i}:{s}.{ms} [{level}] {scope} {text}"
 
+  // Терминал, из которого запущено приложение, закрыт: запись в консоль падает с EIO/EPIPE. Без обработчика
+  // ошибка считается необработанной, логгер снова пишет её в консоль — и так по кругу, забивая файл лога.
+  // Консоль отключается, запись в файл остаётся
+  const disableConsole = () => {
+    log.transports.console.level = false
+  }
+  process.stdout?.on("error", disableConsole)
+  process.stderr?.on("error", disableConsole)
+
   // Catch unhandled errors and promise rejections
   // @ts-ignore - catchErrors is available in electron-log
   log.catchErrors({ showDialog: false })

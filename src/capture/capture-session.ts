@@ -2,15 +2,19 @@ import { CaptureInfo, CaptureOptions, CaptureResult, CaptureSource, MIC_NONE } f
 import { AudioMixer } from "@/capture/audio-mixer.ts"
 import { openMicrophone, RAW_AUDIO } from "@/capture/media-devices.ts"
 import { VideoCrop } from "@/capture/video-crop.ts"
+import { pickMimeType } from "@/capture/video-mime.ts"
 
 /**
  * Одна запись: экран (+ звук компьютера) из getDisplayMedia, микрофон из getUserMedia,
- * сведение звука в WebAudio и кодирование в MediaRecorder (аппаратный H.264 + AAC в MP4).
+ * сведение звука в WebAudio и кодирование в MediaRecorder (аппаратный H.264 или HEVC + AAC в MP4).
  */
 
 // Кусочек файла раз в секунду: фрагментированный MP4 на диске переживает сбой
 const CHUNK_INTERVAL_MS = 1000
 const AUDIO_BITS_PER_SECOND = 128_000
+// Опорный кадр раз в 10 секунд вместо стандартных 100 кадров (~3 с): на записи экрана опорные кадры занимали
+// 20–40% файла. Фрагмент MP4 начинается с опорного кадра, поэтому при сбое теряется не больше этого интервала
+const KEY_FRAME_INTERVAL_MS = 10_000
 
 export interface CaptureSink {
     chunk: (data: Uint8Array) => void
@@ -23,26 +27,6 @@ class CaptureError extends Error {
         const text = cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause)
         super(`[${source}] ${text}`)
     }
-}
-
-/** Уровень H.264 по размеру кадра (в макроблоках 16×16): 4.0 — до 1080p, 5.0 — до 1440p, 5.1 — 4K */
-function h264Level(width: number, height: number) {
-    const macroblocks = Math.ceil(width / 16) * Math.ceil(height / 16)
-    if (macroblocks <= 8192) return "28"
-    if (macroblocks <= 22080) return "32"
-    return "33"
-}
-
-function pickMimeType(width: number, height: number, hasAudio: boolean): string {
-    const audio = hasAudio ? ",mp4a.40.2" : ""
-    const candidates = [
-        `video/mp4;codecs=avc1.6400${h264Level(width, height)}${audio}`,
-        `video/mp4;codecs=avc1${audio}`,
-        "video/mp4",
-    ]
-    const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type))
-    if (!mimeType) throw new Error("MP4 recording is not supported by this Chromium build")
-    return mimeType
 }
 
 export class CaptureSession {
@@ -83,13 +67,20 @@ export class CaptureSession {
         const { width = options.width, height = options.height } = screenTrack.getSettings()
         const outputWidth = options.crop ? Math.round(options.crop.width * width) : width
         const outputHeight = options.crop ? Math.round(options.crop.height * height) : height
-        const mimeType = pickMimeType(outputWidth, outputHeight, Boolean(this.mixer))
+        const mimeType = pickMimeType({
+            codec:    options.videoCodec,
+            width:    outputWidth,
+            height:   outputHeight,
+            fps:      options.fps,
+            hasAudio: Boolean(this.mixer),
+        })
 
         const tracks = this.mixer ? [videoTrack, this.mixer.track] : [videoTrack]
         this.recorder = new MediaRecorder(new MediaStream(tracks), {
             mimeType,
-            videoBitsPerSecond: options.videoBitsPerSecond,
-            audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
+            videoBitsPerSecond:            options.videoBitsPerSecond,
+            audioBitsPerSecond:            AUDIO_BITS_PER_SECOND,
+            videoKeyFrameIntervalDuration: KEY_FRAME_INTERVAL_MS,
         })
         this.recorder.ondataavailable = event => this.send(event.data)
         this.recorder.onerror = (event) => {

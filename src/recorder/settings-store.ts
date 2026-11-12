@@ -2,12 +2,14 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import { dirname } from "path"
 import {
     AfterRecordingAction,
+    Compression,
     COUNTDOWN_OPTIONS,
     getDefaultSettings,
     HotkeySettings,
     MIC_DEFAULT,
     normalizeSize,
     RecorderSettings,
+    VideoCodec,
 } from "@/deinitions/recorder.ts"
 import { logger } from "@/utils/logger.ts"
 
@@ -40,6 +42,11 @@ function sanitizeHotkeys(value: Partial<HotkeySettings> | undefined, defaults: H
 const AFTER_RECORDING_ACTIONS = Object.values(AfterRecordingAction) as string[]
 const isAfterRecordingAction = (value: unknown) => isString(value) && AFTER_RECORDING_ACTIONS.includes(value)
 
+/** Значение enum из файла настроек; незнакомое заменяется значением по умолчанию */
+function pickEnum<T extends string>(values: Record<string, T>, value: unknown, fallback: T): T {
+    return Object.values(values).includes(value as T) ? value as T : fallback
+}
+
 /**
  * Приводит настройки к актуальному формату: только известные поля и корректные значения.
  * Используется и для файла настроек, и для настроек, пришедших из окон.
@@ -53,6 +60,8 @@ export function sanitizeSettings(input: StoredSettings | undefined, defaultOutpu
         outputPath:        isString(value.outputPath) && value.outputPath ? value.outputPath : defaultOutputPath,
         fps:               isNumber(value.fps) && value.fps > 0 ? clampFps(value.fps) : defaults.fps,
         defSize:           normalizeSize(Number(value.defSize)),
+        videoCodec:        pickEnum(VideoCodec, value.videoCodec, defaults.videoCodec),
+        compression:       pickEnum(Compression, value.compression, defaults.compression),
         displayId:         isNumber(displayId) ? displayId : undefined,
         micDeviceId:       isString(value.micDeviceId) && value.micDeviceId ? value.micDeviceId : MIC_DEFAULT,
         micLabel:          isString(value.micLabel) ? value.micLabel : "",

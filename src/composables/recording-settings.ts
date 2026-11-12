@@ -2,6 +2,7 @@ import { computed, ref } from "vue"
 import type { ComboboxItem } from "@/components/combobox/definitions/dst-combobox"
 import {
     AfterRecordingAction,
+    Compression,
     COUNTDOWN_OPTIONS,
     describeAudio,
     DisplayInfo,
@@ -12,7 +13,9 @@ import {
     RecorderSettings,
     SIZE_PRESETS,
     sizeTitleMap,
+    VideoCodec,
 } from "@/deinitions/recorder.ts"
+import { isHevcSupported } from "@/capture/video-mime.ts"
 import { fullScreenOutputSize, sizesForDisplay } from "@/recorder/capture-plan.ts"
 import { ExposedWinMain, ExposedWinTimer } from "@/window/ipc-handlers/definitions/renderer"
 import { useMicrophones } from "@/composables/microphones.ts"
@@ -74,6 +77,53 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         get: () => `${currentState.value.defSize}`,
         set: (size: string) => {
             setSize(Number(size))
+            tryAutoSave()
+        },
+    })
+
+    const compressionList: ComboboxItem[] = [
+        {
+            id:       Compression.Quality,
+            title:    "Высокое качество",
+            subtitle: "Чётче в движении, файлы больше",
+        },
+        {
+            id:    Compression.Balanced,
+            title: "Сбалансированное",
+        },
+        {
+            id:       Compression.Compact,
+            title:    "Компактное",
+            subtitle: "Файлы меньше, быстрые сцены мягче",
+        },
+    ]
+    const selectedCompression = computed({
+        get: () => currentState.value.compression,
+        set: (compression: string) => {
+            currentState.value.compression = compression as Compression
+            tryAutoSave()
+        },
+    })
+
+    // HEVC предлагается, только если этот Chromium умеет им кодировать (нужен аппаратный кодировщик)
+    const codecList: ComboboxItem[] = [
+        {
+            id:       VideoCodec.H264,
+            title:    "H.264",
+            subtitle: "Открывается везде",
+        },
+        ...(isHevcSupported()
+            ? [{
+                id:       VideoCodec.Hevc,
+                title:    "HEVC (H.265)",
+                subtitle: "Файлы меньше, но открывается не во всех плеерах и браузерах",
+            }]
+            : []),
+    ]
+    const selectedCodec = computed({
+        get: () => currentState.value.videoCodec,
+        set: (codec: string) => {
+            currentState.value.videoCodec = codec as VideoCodec
             tryAutoSave()
         },
     })
@@ -198,6 +248,10 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         currentDisplay,
         sizesCombobox,
         selectedDefSize,
+        compressionList,
+        selectedCompression,
+        codecList,
+        selectedCodec,
         selectedVideo,
         selectedMic,
         recordSystemAudio,
