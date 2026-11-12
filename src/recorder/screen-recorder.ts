@@ -41,6 +41,10 @@ export interface StopRecordingOptions {
 
 // Окно записи не ответило на stop — закрываем файл с тем, что успело прийти
 const STOP_TIMEOUT_MS = 20_000
+// Сколько ждать, пока рамка области перерисуется в вид «идёт запись», прежде чем начинать захват
+const ARIA_SETTLE_MS = 250
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 const pad = (value: number) => `${value}`.padStart(2, "0")
 
@@ -215,6 +219,12 @@ export class ScreenRecorder {
             )
             if (!isCountdownDone) return this.failStart("Recording was cancelled")
 
+            // Запись области: заливка и подсказка рамки должны исчезнуть до первого кадра, иначе попадут в видео
+            if (area) {
+                this.setAriaRecordingLook(true)
+                await sleep(ARIA_SETTLE_MS)
+            }
+
             const plan = planCapture(display, settings.defSize, settings.fps, area, settings)
             const options: CaptureOptions = {
                 width:              plan.width,
@@ -250,7 +260,8 @@ export class ScreenRecorder {
             this.keepAwake()
             this.startStatusTimer()
             this.startForAria()
-            this.startBorderHighlight(display)
+            // Область уже обведена красной рамкой — зелёная рамка экрана при ней лишняя
+            if (!area) this.startBorderHighlight(display)
             this.emitStatus()
 
             const path = this.file.path
@@ -280,6 +291,7 @@ export class ScreenRecorder {
         this.activeDisplayId = undefined
         this.stopRequestedWhileStarting = false
         this.state = "idle"
+        this.setAriaRecordingLook(false)
         this.flushStopWaiters()
         return { error }
     }
@@ -432,6 +444,13 @@ export class ScreenRecorder {
     // ---------------------------------------------------------------------
     // Окна области и рамки
     // ---------------------------------------------------------------------
+
+    /** Вид рамки области: во время записи — только красная рамка, без заливки и подсказки */
+    private setAriaRecordingLook(isRecording: boolean) {
+        const ariaWin = getWindowByName(WindowName.SelectAria)
+        if (!ariaWin || ariaWin.isDestroyed()) return
+        ariaWin.webContents.send(ExposedWinSelectAria.SET_RECORDING_LOOK, isRecording)
+    }
 
     private startForAria() {
         const ariaWin = getWindowByName(WindowName.SelectAria)

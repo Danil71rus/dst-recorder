@@ -37,6 +37,8 @@ export enum ExposedWinTimer {
 export enum ExposedWinSelectAria {
     MOVE_ARIA_WINDOW = "aria:move-aria-window",
     RESIZE_ARIA_WINDOW = "aria:resize-aria-window",
+    // main → рамка: показать вид «идёт запись» (только красная рамка) ещё до начала захвата
+    SET_RECORDING_LOOK = "aria:set-recording-look",
     UPDATED_STATE_TIMER = "aria:updated-state-timer",
     SET_ARIA_ACTIVE = "aria:set_aria_active",
 }

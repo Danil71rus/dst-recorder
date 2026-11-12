@@ -74,6 +74,11 @@ function onResize() {
 window.addEventListener("resize", onResize)
 onBeforeUnmount(() => window.removeEventListener("resize", onResize))
 
+// Перед началом захвата main заранее включает вид «идёт запись», чтобы заливка не попала в первые кадры
+window.ipcRenderer?.on(ExposedWinSelectAria.SET_RECORDING_LOOK, (_event, isRecording) => {
+    isRecord.value = Boolean(isRecording)
+})
+
 window.ipcRenderer?.on(ExposedWinSelectAria.UPDATED_STATE_TIMER, (_event, status) => {
     const newVal = status as RecordingStatus
     if (typeof newVal?.isRecording === "boolean") isRecord.value = newVal.isRecording
@@ -108,6 +113,8 @@ $handle-size: 12px;
         box-shadow: none;
         background: transparent;
         cursor: default;
+        // без плавного перехода: полупрозрачная заливка не должна попасть в начало записи
+        transition: none;
     }
 }
 
