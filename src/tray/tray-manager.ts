@@ -175,6 +175,7 @@ export class TrayManager {
             },
             {
                 label: "📐 Область",
+                ...this.accelerator("selectArea"),
                 click: () => this.openAria(),
             },
             ...this.getCommonItems(),
@@ -223,9 +224,9 @@ export class TrayManager {
 
     /** Сочетания клавиш и последние записи: при их изменении меню пересобирается */
     private extraKey() {
-        const { toggleRecording, togglePause } = screenRecorder.getSettings().hotkeys
+        const { toggleRecording, togglePause, selectArea } = screenRecorder.getSettings().hotkeys
         const recent = recentRecordings.list().map(item => item.path).join("|")
-        return `${toggleRecording}|${togglePause}|${recent}`
+        return `${toggleRecording}|${togglePause}|${selectArea}|${recent}`
     }
 
     /** «Последние записи»: подменю на каждую запись с действиями над файлом */
@@ -330,6 +331,17 @@ export class TrayManager {
 
     private isTimerVisible() {
         return Boolean(getWindowByName(WindowName.Timer)?.isVisible())
+    }
+
+    /** Сочетание клавиш «Область»: показывает рамку, повторное нажатие убирает её. Во время записи не действует */
+    toggleAria(): void {
+        if (screenRecorder.isBusy()) return
+        const ariaWindow = getWindowByName(WindowName.SelectAria)
+        if (!ariaWindow || ariaWindow.isDestroyed()) return
+        if (!ariaWindow.isVisible()) return this.openAria()
+
+        ariaWindow.hide()
+        getWindowByName(WindowName.Timer)?.webContents.send(ExposedWinSelectAria.SET_ARIA_ACTIVE, false)
     }
 
     private openAria(): void {

@@ -169,7 +169,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     })
 
     // Сочетание, которое не удалось зарегистрировать (занято другим приложением), подсвечивается в настройках
-    const hotkeyStatus = ref<HotkeyStatus>({ toggleRecording: true, togglePause: true })
+    const hotkeyStatus = ref<HotkeyStatus>({ toggleRecording: true, togglePause: true, selectArea: true })
 
     const hotkeyModel = (action: HotkeyAction) => computed({
         get: () => currentState.value.hotkeys[action],
@@ -180,6 +180,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
     })
     const hotkeyToggleRecording = hotkeyModel("toggleRecording")
     const hotkeyTogglePause = hotkeyModel("togglePause")
+    const hotkeySelectArea = hotkeyModel("selectArea")
 
     const countdownList: ComboboxItem[] = COUNTDOWN_OPTIONS.map(seconds => ({
         id:    `${seconds}`,
@@ -281,6 +282,7 @@ export function useRecordingSettings(options: UseRecordingSettingsOptions = {}) 
         hotkeyStatus,
         hotkeyToggleRecording,
         hotkeyTogglePause,
+        hotkeySelectArea,
         countdownList,
         selectedCountdown,
         afterRecordingList,

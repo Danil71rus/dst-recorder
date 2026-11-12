@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
     })
 })
 
-/** Глобальные сочетания: старт/стоп и пауза из любого приложения. Перерегистрируются при смене настроек */
+/** Глобальные сочетания: старт/стоп, пауза и рамка области из любого приложения. Перерегистрируются при смене настроек */
 function initHotkeys() {
     hotkeyManager.init({
         toggleRecording: () => {
@@ -70,6 +70,7 @@ function initHotkeys() {
             if (screenRecorder.getRecordingStatus().isPaused) screenRecorder.resumeRecording()
             else screenRecorder.pauseRecording()
         },
+        selectArea: () => trayManager.toggleAria(),
     })
     hotkeyManager.apply(screenRecorder.getSettings().hotkeys)
     ipcMain.on(ExposedRecorder.UPDATED_SETTINGS, (_event, settings: RecorderSettings) => {

@@ -125,6 +125,12 @@
                                 :is-conflict="!hotkeyStatus.togglePause"
                             />
 
+                            <dst-hotkey-input
+                                v-model="hotkeySelectArea"
+                                label="Выбрать область / убрать рамку"
+                                :is-conflict="!hotkeyStatus.selectArea"
+                            />
+
                             <dst-combobox
                                 v-model="selectedCountdown"
                                 :items="countdownList"
@@ -188,6 +194,7 @@ const {
     hotkeyStatus,
     hotkeyToggleRecording,
     hotkeyTogglePause,
+    hotkeySelectArea,
     countdownList,
     selectedCountdown,
     afterRecordingList,

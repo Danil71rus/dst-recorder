@@ -4,7 +4,7 @@ import { logger } from "@/utils/logger.ts"
 
 type HotkeyHandlers = Record<HotkeyAction, () => void>
 
-const ACTIONS: HotkeyAction[] = ["toggleRecording", "togglePause"]
+const ACTIONS: HotkeyAction[] = ["toggleRecording", "togglePause", "selectArea"]
 
 /**
  * Глобальные сочетания клавиш: работают из любого приложения, даже когда окна Dst-Recorder скрыты.
@@ -15,7 +15,7 @@ class HotkeyManager {
     private hotkeys: HotkeySettings | null = null
     // Зарегистрированные нами сочетания — снимаем только их, не трогая чужие (например, Esc отсчёта)
     private registered = new Set<string>()
-    private status: HotkeyStatus = { toggleRecording: true, togglePause: true }
+    private status: HotkeyStatus = { toggleRecording: true, togglePause: true, selectArea: true }
     private isSuspended = false
 
     init(handlers: HotkeyHandlers) {

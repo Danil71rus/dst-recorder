@@ -35,6 +35,7 @@ function sanitizeHotkeys(value: Partial<HotkeySettings> | undefined, defaults: H
     return {
         toggleRecording: pick(value?.toggleRecording, defaults.toggleRecording),
         togglePause:     pick(value?.togglePause, defaults.togglePause),
+        selectArea:      pick(value?.selectArea, defaults.selectArea),
     }
 }
 

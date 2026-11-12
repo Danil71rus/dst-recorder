@@ -91,6 +91,8 @@ export interface HotkeySettings {
     toggleRecording: string
     // пауза / продолжить
     togglePause:     string
+    // показать рамку выбора области / убрать её
+    selectArea:      string
 }
 
 export type HotkeyAction = keyof HotkeySettings
@@ -108,6 +110,7 @@ export const COUNTDOWN_OPTIONS = [0, 3, 5, 10]
 export const getDefaultHotkeys = (): HotkeySettings => ({
     toggleRecording: "Alt+Shift+R",
     togglePause:     "Alt+Shift+P",
+    selectArea:      "Alt+Shift+A",
 })
 
 export const getDefaultSettings = (): RecorderSettings => ({
